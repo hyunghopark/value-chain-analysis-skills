@@ -17,6 +17,15 @@ def run_command(cmd):
             print(e.stdout, file=sys.stderr)
         return ""
 
+def find_repo_root():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    cur = script_dir
+    while cur != os.path.dirname(cur):
+        if os.path.basename(cur) == ".agents":
+            return os.path.dirname(cur)
+        cur = os.path.dirname(cur)
+    return os.path.abspath(os.path.join(script_dir, "../../../../"))
+
 def main():
     parser = argparse.ArgumentParser(description="Generate an Investment Strategy Report Master Template")
     parser.add_argument("--industry", type=str, required=True, help="Name of the industry")
@@ -30,8 +39,7 @@ def main():
     py_exec = sys.executable or "python3"
     
     # Robust absolute paths to helper scripts based on repo root
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    repo_root = os.path.abspath(os.path.join(script_dir, "../../../"))
+    repo_root = find_repo_root()
     mermaid_script = os.path.join(repo_root, ".agents/skills/value-chain-analyzer/scripts/generate_mermaid.py")
     financial_script = os.path.join(repo_root, ".agents/skills/financial-analyst/scripts/get_financial_stats.py")
     
@@ -116,9 +124,9 @@ def main():
 
 | 기업명 | 티커 | 가치사슬 위치 | 핵심 역할 및 경제적 해자(Moat) |
 |---|---|---|---|
-|[AI_TODO]| [AI_TODO] | [AI_TODO] | [AI_TODO] |
-|[AI_TODO]| [AI_TODO] | [AI_TODO] | [AI_TODO] |
-|[AI_TODO]| [AI_TODO] | [AI_TODO] | [AI_TODO] |
+| [AI_TODO] | [AI_TODO] | [AI_TODO] | [AI_TODO] |
+| [AI_TODO] | [AI_TODO] | [AI_TODO] | [AI_TODO] |
+| [AI_TODO] | [AI_TODO] | [AI_TODO] | [AI_TODO] |
 
 ---
 

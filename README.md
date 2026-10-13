@@ -1,6 +1,6 @@
 # Value Chain Analysis & Investment Strategy Agents
 
-Antigravity 에이전트를 위한 산업 밸류체인 분석, 정밀 기업 재무 평가 및 통합 투자 전략 워크플로우 저장소입니다.
+Antigravity 에이전트를 위한 산업 밸류체인 분석, 정밀 기업 재무 평가 및 통합 투자 전략 스킬 저장소입니다.
 
 ---
 
@@ -10,23 +10,23 @@ Antigravity 에이전트를 위한 산업 밸류체인 분석, 정밀 기업 재
 .agents/
 ├── .gitignore
 ├── README.md
-├── skills/
-│   ├── financial-analyst/
-│   │   ├── SKILL.md
-│   │   ├── scripts/
-│   │   │   └── get_financial_stats.py
-│   │   └── templates/
-│   │       └── financial_report_template.md
-│   └── value-chain-analyzer/
-│       ├── SKILL.md
-│       ├── scripts/
-│       │   └── generate_mermaid.py
-│       └── templates/
-│           └── report_template.md
-└── workflows/
-    ├── investment-strategy.md
-    └── scripts/
-        └── generate_strategy_report.py
+└── skills/
+    ├── financial-analyst/
+    │   ├── SKILL.md
+    │   ├── scripts/
+    │   │   └── get_financial_stats.py
+    │   └── templates/
+    │       └── financial_report_template.md
+    ├── value-chain-analyzer/
+    │   ├── SKILL.md
+    │   ├── scripts/
+    │   │   └── generate_mermaid.py
+    │   └── templates/
+    │       └── report_template.md
+    └── investment-strategy/
+        ├── SKILL.md
+        └── scripts/
+            └── generate_strategy_report.py
 ```
 
 ---
@@ -46,14 +46,11 @@ Antigravity 에이전트를 위한 산업 밸류체인 분석, 정밀 기업 재
   - PER, PBR, EV/EBITDA, ROE, 부채비율 등 6대 핵심 지표 분석
   - 최근 분기 실적 및 어닝 서프라이즈 추적
   - **[회계 감사 기능]**: 일회성 비경상 손익(Unusual Items) 감지 및 본업 기준 정규화(Normalized) 지표 대조 산출
+  - **[수급 및 기술적 모멘텀]**: 최근 5거래일 외인/기관 순매매 대금 추정치 및 14일 RSI, 20일 볼린저밴드 이탈도 산출
 
----
-
-## ⚡ 포함된 워크플로우 (Workflows)
-
-### 1. `investment-strategy`
+### 3. `investment-strategy`
 - **개요**: `value-chain-analyzer`와 `financial-analyst` 스킬을 결합한 통합 투자 전략 수립 파이프라인
-- **프로세스**:
+- **핵심 기능**:
   - **Phase 1**: 밸류체인 맵핑 및 '1+2+1 Framework'(타겟 1 + 직접경쟁 2 + 핵심병목 1)에 기반한 비교 분석 대상 4개사 선정
-  - **Phase 2**: 4개사 정밀 재무 밸류에이션 및 회계 감사 수행
-  - **Phase 3**: 밸류체인 구조적 해자(Moat)와 밸류에이션 지표를 융합한 기관 수준의 투자 전략 보고서 도출
+  - **Phase 2**: 4개사 정밀 재무 밸류에이션, 회계 감사 및 퀀트 수급/변동성 진단
+  - **Phase 3**: 8단계 기관급 투자 전략 보고서 도출 (가치 드라이버 스트레스 테스트 기반 확률가중 기대주가 산출 및 기술적 모멘텀 트리거 분할 매수 가이드)

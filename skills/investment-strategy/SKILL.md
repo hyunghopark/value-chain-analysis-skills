@@ -1,21 +1,21 @@
 ---
 name: investment-strategy
-description: Use when the user requests an investment analysis of an industry, combining value chain mapping and stock valuations.
+description: Use when the user requests an investment analysis of an industry, combining value chain mapping (upstream/midstream/downstream), dominant bottleneck identifying, and stock valuations (4-horizon P/E, PEG, consensus target price, stress testing, and accumulation tranches).
 allowed-skills: value-chain-analyzer financial-analyst
 ---
 
-# Investment Strategy Workflow
+# Investment Strategy
 
 ## Overview
 
-The Investment Strategy Workflow coordinates the `value-chain-analyzer` and `financial-analyst` skills to generate a comprehensive, investment-grade strategy report for any industry. By combining supply chain mapping (structural analysis) with stock valuation (quantitative analysis), it helps investors identify which bottleneck companies in a supply chain offer the best risk/reward profile.
+The Investment Strategy Skill coordinates the `value-chain-analyzer` and `financial-analyst` skills to generate a comprehensive, investment-grade strategy report for any industry. By combining supply chain mapping (structural analysis) with stock valuation (quantitative analysis), it helps investors identify which bottleneck companies in a supply chain offer the best risk/reward profile.
 
 ## Process Flow
 
 > ⚠️ **[중요 원칙: 독립적 신규 분석 원칙 (Clean-Slate Policy)]**  
-> 워크플로우 실행 시 기존 프로젝트에 저장되어 있는 과거 보고서 파일들(`*_Investment_Strategy_Report.md` 등)을 **일체 검색하거나 열람하지 마십시오**. 과거 보고서에 의존할 경우 낡은 데이터 오염(Data Contamination)이나 편향(Anchoring Bias)이 발생합니다. 항상 현재 시점의 새로운 웹 리서치와 실시간 API 데이터만을 바탕으로 독립적인 신규 분석을 수행해야 합니다.
+> 스킬 실행 시 기존 프로젝트에 저장되어 있는 과거 보고서 파일들(`*_Investment_Strategy_Report.md` 등)을 **일체 검색하거나 열람하지 마십시오**. 과거 보고서에 의존할 경우 낡은 데이터 오염(Data Contamination)이나 편향(Anchoring Bias)이 발생합니다. 항상 현재 시점의 새로운 웹 리서치와 실시간 API 데이터만을 바탕으로 독립적인 신규 분석을 수행해야 합니다.
 
-When the user triggers this workflow (e.g. "I want an investment strategy for [Industry]"), execute the following steps:
+When the user triggers this skill (e.g. "I want an investment strategy for [Industry]" or typing `/investment-strategy`), execute the following steps:
 
 ### Phase 1: Value Chain Analysis & Bottleneck Identification (Skill A)
 1. Trigger the `value-chain-analyzer` skill on the target [Industry].
@@ -48,7 +48,7 @@ To prevent human-like omissions (e.g., missing financial tables), you MUST use t
 
 1. Execute the master template script (ensure the project virtual environment is active):
    ```bash
-   venv/bin/python3 .agents/workflows/scripts/generate_strategy_report.py --industry "[Industry Name]" --upstream "[Upstream info]" --midstream "[Midstream info]" --downstream "[Downstream info]" --tickers "[Ticker1,Ticker2...]"
+   venv/bin/python3 .agents/skills/investment-strategy/scripts/generate_strategy_report.py --industry "[Industry Name]" --upstream "[Upstream info]" --midstream "[Midstream info]" --downstream "[Downstream info]" --tickers "[Ticker1,Ticker2...]"
    ```
 2. The script will automatically create a brand new file in the `reports/` folder named `reports/[Industry_Name]_[YYYYMMDD]_Investment_Strategy_Report.md`. (If executed multiple times on the same day, it automatically increments version tags like `_v2.md` to prevent any overwriting and preserve audit history). This file will already contain:
    - Standardized 8-section institutional report layout with top-level Executive Stance callout.
