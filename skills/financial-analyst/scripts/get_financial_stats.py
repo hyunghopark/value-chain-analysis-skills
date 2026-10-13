@@ -14,7 +14,10 @@ import sys
 import pandas as pd
 import yfinance as yf
 
-KST = datetime.timezone(datetime.timedelta(hours=9))
+import data_checks
+from data_checks import ki
+
+KST =datetime.timezone(datetime.timedelta(hours=9))
 DEFAULT_WEIGHTS = (0.2, 0.5, 0.3)  # Bull, Base, Bear
 GENERAL_PILLARS = ('fpe', 'peg', 'rg', 'ev', 'roe', 'de', 'rev')
 CYCLICAL_PILLARS = ('band', 'cycle', 'rev', 'de')
@@ -169,7 +172,7 @@ def sanitize_metrics(info, ticker_symbol=""):
     curr = info.get('currency')
     fin_curr = info.get('financialCurrency')
     if curr and fin_curr and curr != fin_curr:
-        tag = f"{ticker_symbol}: 통화 불일치({curr}/{fin_curr}) 보정"
+        tag = f"[KI-008] {ticker_symbol}: 통화 불일치({curr}/{fin_curr}) 보정"
         pe = info.get('trailingPE')
         roe = info.get('returnOnEquity')
         pb = info.get('priceToBook')
@@ -311,12 +314,15 @@ def fetch_wisereport_ntm_eps(code, headers, today=None):
     res = requests.get(url, headers=headers, timeout=5)
     res.raise_for_status()
     soup = BeautifulSoup(res.text, 'html.parser')
+    # EPS is read by cell position, so refuse to parse a table whose layout moved (KI-004).
+    data_checks.validate_wisereport_header([th.get_text(strip=True) for th in soup.select('table thead th')])
 
     eps_by_year = {}
     estimate_eps = []
     for tr in soup.select('table tbody tr'):
         cells = [td.get_text(strip=True) for td in tr.find_all('td')]
         if len(cells) >= 6:
+            data_checks.check_wisereport_row(cells)
             period_str = cells[0]
             eps_val = parse_korean_number(cells[5])
             if eps_val is None:
@@ -519,6 +525,55 @@ def enrich_global_stock(info, t, orig_fpe, orig_peg):
                 info['pegRatio'] = orig_peg * (new_fpe / orig_fpe)
 
 
+def check_krx_history(symbol, info):
+    """Reconcile a KR stock's Yahoo history with KRX closes from Daum (KI-002, KI-006)."""
+    try:
+        ref = data_checks.fetch_daum_days(symbol.split('.')[0])
+    except Exception as e:
+        warn(ki('KI-002', f"{symbol}: 다음 금융 일별 시세 조회 실패({e}) — Yahoo 가격 이력을 거래소 종가와 대조하지 못했습니다."))
+        return
+    info['_krx_daily'] = ref
+    hist = HISTORY.get(symbol)
+    if hist is None or ref.empty:
+        return
+    fixed, filled, replaced = data_checks.reconcile_history(hist, ref)
+    HISTORY[symbol] = fixed
+    if filled:
+        warn(ki('KI-002', f"{symbol}: Yahoo 가격 이력에 없거나 빈 거래일 {len(filled)}개"
+                          f"({', '.join(f'{d:%m-%d}' for d in filled[-3:])})를 거래소 종가(다음 금융)로 채웠습니다."))
+    if replaced:
+        ex = ', '.join(f"{d:%m-%d} Yahoo ₩{y:,.0f}→₩{r:,.0f}" for d, y, r in replaced[:3])
+        warn(ki('KI-006', f"{symbol}: Yahoo 종가가 거래소 종가(다음 금융)와 다른 {len(replaced)}일을 거래소 종가로 바꿨습니다({ex})."))
+
+
+def check_volume(symbol):
+    """Flag days whose Yahoo volume is under 1% of the trailing 20-day median (KI-005)."""
+    hist = HISTORY.get(symbol)
+    if hist is None or 'Volume' not in hist.columns:
+        return
+    outliers = data_checks.volume_outliers(hist['Volume'].iloc[-260:])
+    if outliers:
+        ex = ', '.join(f"{d:%Y-%m-%d} {v:,.0f}주(직전 중앙값 {m:,.0f}주)" for d, v, m in outliers[:3])
+        warn(ki('KI-005', f"{symbol}: Yahoo 거래량 이상치 {len(outliers)}일 — {ex}. 거래량 관련 수치는 이 날짜를 제외하고 보세요."))
+
+
+def check_statement_lag(t, info, symbol):
+    """Warn when Yahoo's statement tables trail the periods its summary fields already report (KI-003)."""
+    for attr, key, what, effect in (
+            ('income_stmt', 'lastFiscalYearEnd', '연간', '사이클 위치·순환업종 판정은 그 이전 연도까지 기준이며, 갱신되면 판정이 바뀔 수 있습니다'),
+            ('quarterly_income_stmt', 'mostRecentQuarter', '분기', '일회성 손익 감사·P/B 밴드는 이전 분기 기준입니다')):
+        try:
+            df = getattr(t, attr)
+        except Exception:
+            continue
+        latest = max(df.columns) if df is not None and not df.empty else None
+        lag = data_checks.statement_lag(latest, info.get(key))
+        if lag:
+            have = f"{pd.Timestamp(latest):%Y-%m-%d}" if latest is not None else '없음'
+            warn(ki('KI-003', f"{symbol}: Yahoo {what} 재무제표가 최근 기간({lag:%Y-%m-%d} 마감)을 아직 반영하지 않았습니다"
+                              f"(최신 {have}) — {effect}."))
+
+
 def get_stats(ticker_symbol):
     try:
         t = yf.Ticker(ticker_symbol)
@@ -565,6 +620,10 @@ def get_stats(ticker_symbol):
         except Exception as e:
             HISTORY[ticker_symbol] = None
             warn(f"{ticker_symbol}: 가격 이력 조회 실패 ({e})")
+        if ticker_symbol.endswith(('.KS', '.KQ')):
+            check_krx_history(ticker_symbol, info)
+        check_volume(ticker_symbol)
+        check_statement_lag(t, info, ticker_symbol)
         info['_est'] = fetch_estimates(t, info, ticker_symbol)
         info['_cycle'] = analyze_cycle(t, info, ticker_symbol)
         info['_audit_result'] = audit_unusual_items(t, info, ticker_symbol)
@@ -609,7 +668,10 @@ def est_value(info, period, col):
 
 
 def analyze_cycle(t, info, symbol):
-    """Earnings-cycle diagnostics: annual net income drawdown, margin position, and P/B band."""
+    """Earnings-cycle diagnostics: annual net income drawdown, margin position, and P/B band.
+
+    Rule: references/rules/cycle-position.md (thresholds and known limits live there, not here).
+    """
     out = {'auto': False, 'basis': None, 'opm_hist': []}
     try:
         inc = t.income_stmt
@@ -657,7 +719,10 @@ def analyze_cycle(t, info, symbol):
 
 
 def compute_pb_band(t, info, symbol):
-    """Historical P/B band from Yahoo balance sheets and same-day closes; the current P/B uses the same method."""
+    """Historical P/B band from Yahoo balance sheets and same-day closes; the current P/B uses the same method.
+
+    Rule: references/rules/verdict-matrix.md#pb-band
+    """
     curr, fin = info.get('currency'), info.get('financialCurrency')
     if curr and fin and curr != fin:
         return {'skip': f'통화 불일치({curr}/{fin}) — ADR은 산출 생략'}
@@ -690,7 +755,7 @@ def compute_pb_band(t, info, symbol):
             sh, fixed = med_sh, fixed + 1
         bps[d] = eq / sh
     if fixed:
-        warn(f"{symbol}: 재무상태표 주식수 이상치 {fixed}건을 중앙값({med_sh:,.0f}주)으로 보정해 P/B 밴드를 계산했습니다.")
+        warn(ki('KI-007', f"{symbol}: 재무상태표 주식수 이상치 {fixed}건을 중앙값({med_sh:,.0f}주)으로 보정해 P/B 밴드를 계산했습니다."))
 
     hist = HISTORY.get(symbol)
     if hist is None or hist.empty:
@@ -810,7 +875,10 @@ def audit_unusual_items(t, info, ticker_symbol):
 
 
 def cross_check(info, symbol):
-    """financial-analyst 5% rule: flag gaps above 5% between data sources."""
+    """financial-analyst 5% rule: flag gaps above 5% between data sources.
+
+    Rule: references/rules/data-quality.md#cross-source-5
+    """
     def check(label, a, a_src, b, b_src, note=''):
         a, b = num(a), num(b)
         if a and b and a > 0 and b > 0 and abs(a - b) / b > 0.05:
@@ -826,7 +894,10 @@ def cross_check(info, symbol):
 
 
 def revision_summary(info):
-    """30-day EPS revision breadth for FY0+FY1 and the change in the average estimate."""
+    """30-day EPS revision breadth for FY0+FY1 and the change in the average estimate.
+
+    Rule: references/rules/verdict-matrix.md#estimate-revisions
+    """
     est = info.get('_est') or {}
     rev, trend = est.get('revisions'), est.get('trend')
     up = down = 0.0
@@ -903,7 +974,8 @@ def fetch_investor_trends_table(ticker_code, company_name, info):
         row_close = parse_korean_number(row.get('closePrice'))
         row_vol = parse_korean_number(row.get('accumulatedTradingVolume'))
         if actual_close and row_close and abs(row_close - actual_close) / actual_close > 0.001:
-            reasons.append(f'행 종가 ₩{row_close:,.0f} ≠ 실제 종가 ₩{actual_close:,.0f}')
+            # Since 2026-09-14 Naver's close field also differs from the KRX close after the session (KI-001).
+            reasons.append(f'행 종가 ₩{row_close:,.0f} ≠ 실제 종가 ₩{actual_close:,.0f}(네이버 종가 기준 차이일 수 있음, KI-001)')
         if actual_vol and row_vol and abs(row_vol - actual_vol) / actual_vol > 0.03:
             reasons.append(f'행 거래량 {row_vol:,.0f}주 ≠ 실제 {actual_vol:,.0f}주')
         if reasons:
@@ -944,10 +1016,17 @@ def fetch_investor_trends_table(ticker_code, company_name, info):
         except Exception as e:
             warn(f"{company_name}({ticker_code}): 다음 금융 장중 수급 조회 실패 ({e})")
 
+    krx = info.get('_krx_daily')
+    basis_diffs = []
     for row in res[:4 if daum_row_used else 5]:
         bdate = digits8(row.get('bizdate'))
         date_str = f'{bdate[:4]}-{bdate[4:6]}-{bdate[6:]}' if len(bdate) == 8 else str(row.get('bizdate', ''))
-        close_p = float(str(row.get('closePrice', '0')).replace(',', ''))
+        naver_close = float(str(row.get('closePrice', '0')).replace(',', ''))
+        # Amounts use the KRX close; Naver's close field can follow a different basis (KI-001).
+        krx_close = data_checks.ref_close_on(krx, bdate)
+        close_p = krx_close or naver_close
+        if krx_close and abs(krx_close - naver_close) > 0.5:
+            basis_diffs.append((date_str, naver_close, krx_close))
         frgn_q = float(str(row.get('foreignerPureBuyQuant', '0')).replace(',', '').replace('+', ''))
         org_q = float(str(row.get('organPureBuyQuant', '0')).replace(',', '').replace('+', ''))
         ind_q = float(str(row.get('individualPureBuyQuant', '0')).replace(',', '').replace('+', ''))
@@ -962,6 +1041,11 @@ def fetch_investor_trends_table(ticker_code, company_name, info):
 
         label = f"**{date_str} ({today_label})**" if (bdate == today_str and today_label) else date_str
         rows.append(f'| {label} | ₩{close_p:,.0f} | {frgn_amt:+,.0f}억 | {org_amt:+,.0f}억 | {ind_amt:+,.0f}억 | {frgn_ratio} |')
+
+    if basis_diffs:
+        ex = ', '.join(f"{d[5:]} 네이버 ₩{n:,.0f}/거래소 ₩{k:,.0f}" for d, n, k in basis_diffs[:3])
+        warn(ki('KI-001', f"{company_name}({ticker_code}): 네이버 수급 표의 종가가 거래소 종가와 {len(basis_diffs)}일 다릅니다({ex}) "
+                          "— 표의 종가와 금액은 거래소 종가(다음 금융)로 계산했습니다."))
 
     excl = " (당일 제외)" if daum_row_used else ""
     title = f'**{company_name} ({ticker_code}) 최근 5거래일 투자자별 순매매 추정**'
@@ -981,8 +1065,9 @@ def data_basis_block(results):
         delay = info.get('exchangeDataDelayedBy')
         parts.append(f"{sym} {state_ko}(최종 체결 {last}" + (f", {delay}분 지연" if delay else "") + ")")
     return (f"> 🕒 **데이터 기준**: {now} 생성 · " + " · ".join(parts) + "\n"
-            "> 출처: Yahoo Finance(시세·재무·컨센서스), 네이버 금융(국내 지표·수급), WiseReport(국내 컨센서스 EPS). "
-            "장중에 실행하면 시세·수급은 잠정치입니다.\n")
+            "> 출처: Yahoo Finance(시세·재무·컨센서스), 네이버 금융(국내 지표·수급), WiseReport(국내 컨센서스 EPS), "
+            "다음 금융(국내 거래소 종가 — Yahoo 이력 대조·보완, 수급 금액). 장중에 실행하면 시세·수급은 잠정치입니다. "
+            "경고의 [KI-xxx]는 스킬 저장소 wiki/known-issues/의 사건 번호입니다.\n")
 
 
 def overview_table(results):
@@ -1012,8 +1097,8 @@ def investor_section(tickers_list, results):
     if not tables:
         return ''
     return ("### 1-1. 📉 최근 5거래일 투자자별 순매매 (추정)\n\n"
-            "> 💡 금액은 네이버 금융의 투자자별 순매수 **수량 × 해당일 종가**로 추정한 값이라 거래소 확정 거래대금과 다를 수 있습니다"
-            "(네이버 수급 표의 종가도 거래소 공식 종가와 다를 수 있음). 보고서에서는 '추정'으로 표기하세요.\n\n"
+            "> 💡 금액은 네이버 금융의 투자자별 순매수 **수량 × 해당일 거래소 종가(다음 금융)**로 추정한 값이라 거래소 확정 거래대금과 다를 수 있습니다"
+            "(거래소 종가를 못 받은 날은 네이버 종가 사용, KI-001). 보고서에서는 '추정'으로 표기하세요.\n\n"
             + "\n\n".join(tables) + "\n")
 
 
@@ -1116,9 +1201,9 @@ def market_context_table(symbols, results, benchmarks):
             cal = [d for d in ref.index if d <= close.index[-1]] or cal
             missing = [d for d in cal[-30:] if d not in close.index]
             if missing:
-                warn(f"{sym}: Yahoo 가격 이력에 최근 거래일 {len(missing)}개가 빠져 있습니다"
+                warn(ki('KI-002', f"{sym}: Yahoo 가격 이력에 최근 거래일 {len(missing)}개가 빠져 있습니다"
                      f"({', '.join(f'{d:%m-%d}' for d in missing[:3])}) — 1일 등락은 전일 종가로, 5·20일 등락은 지수 거래일 기준으로 계산했고, "
-                     "RSI·볼린저밴드는 누락분의 영향을 받을 수 있습니다.")
+                     "RSI·볼린저밴드는 누락분의 영향을 받을 수 있습니다."))
 
         def ret(n):
             if n == 1 and not is_bench:
@@ -1373,7 +1458,10 @@ def sig_gt(v, green, yellow):
 
 
 def build_signals(info):
-    """(display text, signal) for every pillar; the matrices pick the general or cyclical set."""
+    """(display text, signal) for every pillar; the matrices pick the general or cyclical set.
+
+    Rule: references/rules/verdict-matrix.md — change thresholds there and here in the same commit.
+    """
     s = {}
     basis = info.get('_fwd_basis')
     fpe = num(info.get('forwardPE'))
@@ -1402,6 +1490,7 @@ def build_signals(info):
 
 
 def decision_verdict(sigs):
+    """Rule: references/rules/verdict-matrix.md#aggregation"""
     g, r = sigs.count('🟢'), sigs.count('🔴')
     valid = len([x for x in sigs if x != '⚪'])
     if r >= 2:
