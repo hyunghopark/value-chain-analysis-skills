@@ -55,3 +55,8 @@
 ## [2026-10-14] ingest | KI-002 Yahoo 한국 종목 최근 거래일 누락·빈값
 - Disposition: Update
 - Raw: raw/data-checks/2026-10-14-kospi-index-gap.md
+
+## [2026-10-14] ingest | KI-001 네이버 종가 필드가 거래소 종가와 다름
+- Disposition: Update
+- Raw: raw/data-checks/2026-10-14-investor-feed-price-basis.md
+- Updated: 다음 금융, 네이버 금융 (수급 금액 조치를 Outdated로 표시)

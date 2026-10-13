@@ -1042,12 +1042,12 @@ def fetch_investor_trends_table(ticker_code, company_name, info):
     for row in res[:4 if daum_row_used else 5]:
         bdate = digits8(row.get('bizdate'))
         date_str = f'{bdate[:4]}-{bdate[4:6]}-{bdate[6:]}' if len(bdate) == 8 else str(row.get('bizdate', ''))
-        naver_close = float(str(row.get('closePrice', '0')).replace(',', ''))
-        # Amounts use the KRX close; Naver's close field can follow a different basis (KI-001).
+        close_p = float(str(row.get('closePrice', '0')).replace(',', ''))
+        # Flow quantities and this price come from the same feed (Daum's investor feed carries the same price),
+        # so amounts keep this price even where it differs from the KRX regular-session close (KI-001).
         krx_close = data_checks.ref_close_on(krx, bdate)
-        close_p = krx_close or naver_close
-        if krx_close and abs(krx_close - naver_close) > 0.5:
-            basis_diffs.append((date_str, naver_close, krx_close))
+        if krx_close and abs(krx_close - close_p) > 0.5:
+            basis_diffs.append((date_str, close_p, krx_close))
         frgn_q = float(str(row.get('foreignerPureBuyQuant', '0')).replace(',', '').replace('+', ''))
         org_q = float(str(row.get('organPureBuyQuant', '0')).replace(',', '').replace('+', ''))
         ind_q = float(str(row.get('individualPureBuyQuant', '0')).replace(',', '').replace('+', ''))
@@ -1064,9 +1064,9 @@ def fetch_investor_trends_table(ticker_code, company_name, info):
         rows.append(f'| {label} | ₩{close_p:,.0f} | {frgn_amt:+,.0f}억 | {org_amt:+,.0f}억 | {ind_amt:+,.0f}억 | {frgn_ratio} |')
 
     if basis_diffs:
-        ex = ', '.join(f"{d[5:]} 네이버 ₩{n:,.0f}/거래소 ₩{k:,.0f}" for d, n, k in basis_diffs[:3])
-        warn(ki('KI-001', f"{company_name}({ticker_code}): 네이버 수급 표의 종가가 거래소 종가와 {len(basis_diffs)}일 다릅니다({ex}) "
-                          "— 표의 종가와 금액은 거래소 종가(다음 금융)로 계산했습니다."))
+        ex = ', '.join(f"{d[5:]} 수급 데이터 ₩{n:,.0f}/거래소 ₩{k:,.0f}" for d, n, k in basis_diffs[:3])
+        warn(ki('KI-001', f"{company_name}({ticker_code}): 수급 표의 종가(수급 데이터 기준)가 거래소 정규장 종가와 {len(basis_diffs)}일 다릅니다({ex}) "
+                          "— 금액은 순매수 수량과 같은 기준인 수급 데이터의 가격으로 계산했습니다. 주가 등락은 거래소 종가를 인용하세요."))
 
     excl = " (당일 제외)" if daum_row_used else ""
     title = f'**{company_name} ({ticker_code}) 최근 5거래일 투자자별 순매매 추정**'
@@ -1087,7 +1087,7 @@ def data_basis_block(results):
         parts.append(f"{sym} {state_ko}(최종 체결 {last}" + (f", {delay}분 지연" if delay else "") + ")")
     return (f"> 🕒 **데이터 기준**: {now} 생성 · " + " · ".join(parts) + "\n"
             "> 출처: Yahoo Finance(시세·재무·컨센서스), 네이버 금융(국내 지표·수급), WiseReport(국내 컨센서스 EPS), "
-            "다음 금융(국내 거래소 종가 — Yahoo 이력 대조·보완, 수급 금액). 장중에 실행하면 시세·수급은 잠정치입니다. "
+            "다음 금융(국내 거래소 종가 — Yahoo 종목·지수 이력 대조·보완). 장중에 실행하면 시세·수급은 잠정치입니다. "
             "경고의 [KI-xxx]는 스킬 저장소 wiki/known-issues/의 사건 번호입니다.\n")
 
 
@@ -1118,8 +1118,9 @@ def investor_section(tickers_list, results):
     if not tables:
         return ''
     return ("### 1-1. 📉 최근 5거래일 투자자별 순매매 (추정)\n\n"
-            "> 💡 금액은 네이버 금융의 투자자별 순매수 **수량 × 해당일 거래소 종가(다음 금융)**로 추정한 값이라 거래소 확정 거래대금과 다를 수 있습니다"
-            "(거래소 종가를 못 받은 날은 네이버 종가 사용, KI-001). 보고서에서는 '추정'으로 표기하세요.\n\n"
+            "> 💡 금액은 네이버 금융의 투자자별 순매수 **수량 × 해당일 종가(수급 데이터 기준)**로 추정한 값입니다. 하루 중 여러 가격에 거래된 것을 "
+            "한 가격으로 곱한 근사치라 실제 순매수 대금과 다를 수 있습니다. 이 '종가'는 거래소 정규장 종가와 다를 수 있으니(KI-001) "
+            "주가 등락은 1-3 표를 인용하세요. 보고서에서는 '추정'으로 표기하세요.\n\n"
             + "\n\n".join(tables) + "\n")
 
 

@@ -41,7 +41,7 @@ Follow these steps to conduct a high-precision corporate financial analysis:
 2. The script pulls market data from the Yahoo Finance API and blends Naver Finance / WiseReport consensus for Korean stocks. For Korean stocks it also reconciles Yahoo's price history with the KRX close from Daum Finance (fills missing days, replaces wrong closes in the last 100 trading days). Yahoo quotes are delayed 15–20 minutes; the first line of the output states the generation time (KST) and the market state of each ticker.
 3. Review the generated tables:
    - **1. 주요 주가 및 시가총액 현황**: Price, 52-week range, market cap (KRX stocks show Naver's common-share market cap).
-   - **1-1. 최근 5거래일 투자자별 순매매 (추정)**: 순매수 수량 × 해당일 거래소 종가(다음 금융)로 추정한 금액과 외국인 지분율. 당일 행이 장중 스냅샷이면 '잠정'으로 표시됩니다.
+   - **1-1. 최근 5거래일 투자자별 순매매 (추정)**: 순매수 수량 × 해당일 종가(수급 데이터 기준)로 추정한 금액과 외국인 지분율. 이 종가는 거래소 정규장 종가와 다를 수 있어(KI-001) 주가 등락은 1-3 표를 씁니다. 당일 행이 장중 스냅샷이면 '잠정'으로 표시됩니다.
    - **1-2. 기술적 지표 (RSI · 볼린저밴드)**: 진입 시점 보조용. 판정에는 쓰지 않습니다.
    - **1-3. 시장 비교 (지수·피어 동반 등락)**: 급락·급등이 기업 고유인지 업종·시장 전반인지 판별하는 근거.
    - **2. 핵심 재무 및 밸류에이션 지표 (별표 체계)**: ⭐⭐⭐ Forward P/E (12M NTM), PEG, YoY Revenue Growth · ⭐⭐ EV/EBITDA, ROE, Debt/Equity · 보조 지표. Forward P/E가 NTM이 아니면 기준(FY0 등)이 괄호로 표시됩니다.

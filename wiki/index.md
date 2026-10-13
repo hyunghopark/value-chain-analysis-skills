@@ -18,7 +18,7 @@
 
 | Article | Summary | Updated |
 |---------|---------|---------|
-| [KI-001 네이버 종가 필드가 거래소 종가와 다름](known-issues/ki-001-naver-close-basis.md) | 2026-09-14부터 네이버 종가 ≠ 거래소 종가, 수급 금액은 거래소 종가로 계산 | 2026-10-14 |
+| [KI-001 네이버 종가 필드가 거래소 종가와 다름](known-issues/ki-001-naver-close-basis.md) | 2026-09-14부터 수급 데이터 가격 ≠ 거래소 정규장 종가(기준 차이), 금액은 수급 데이터 가격 유지 | 2026-10-14 |
 | [KI-002 Yahoo 한국 종목 최근 거래일 누락·빈값](known-issues/ki-002-yahoo-kr-latest-day-gap.md) | 최근 거래일 누락·빈 종가를 거래소 종가로 보완 | 2026-10-14 |
 | [KI-003 Yahoo 재무제표 반영 지연](known-issues/ki-003-yahoo-statement-lag.md) | 재무제표 표가 요약 지표보다 늦음, 사이클 위치 판정이 바뀔 수 있음 | 2026-10-14 |
 | [KI-004 WiseReport 표 구조 변경 위험](known-issues/ki-004-wisereport-layout.md) | 칸 위치로 EPS를 읽어 구조 변경 시 조용한 오류, 예방 점검 | 2026-10-14 |
