@@ -29,10 +29,15 @@ Follow these steps to conduct a high-precision corporate financial analysis:
 3. Decide whether the company is **cyclical** (memory semiconductors, chemicals, steel, shipping, refining, displays …). Pass such tickers with `--cyclical`; wrongly auto-detected ones with `--not-cyclical`.
 
 ### Step 2: Query Financial Metrics
-1. Run the Python helper script in the skill folder using the project virtual environment (Windows: `venv\Scripts\python.exe`):
-   ```bash
-   venv/bin/python3 .agents/skills/financial-analyst/scripts/get_financial_stats.py --tickers "NVDA,TSM,000660.KS" [--cyclical "000660.KS"] [--not-cyclical "..."] [--benchmarks "^KS11,^SOX"] [--weights "0.2,0.5,0.3"]
-   ```
+1. Run the Python helper script in this skill folder (packages: `requirements.txt` in this skill folder).
+   - **Claude Code** — `${CLAUDE_SKILL_DIR}` is replaced with this skill's folder. With [uv](https://docs.astral.sh/uv/) no setup is needed; otherwise `pip install -r "${CLAUDE_SKILL_DIR}/requirements.txt"` into a virtual environment and run the script with that Python:
+     ```bash
+     uv run --no-project --with-requirements "${CLAUDE_SKILL_DIR}/requirements.txt" python "${CLAUDE_SKILL_DIR}/scripts/get_financial_stats.py" --tickers "NVDA,TSM,000660.KS" [--cyclical "000660.KS"] [--not-cyclical "..."] [--benchmarks "^KS11,^SOX"] [--weights "0.2,0.5,0.3"]
+     ```
+   - **Antigravity** — use the project virtual environment (Windows: `venv\Scripts\python.exe`):
+     ```bash
+     venv/bin/python3 .agents/skills/financial-analyst/scripts/get_financial_stats.py --tickers "NVDA,TSM,000660.KS" [--cyclical "000660.KS"] [--not-cyclical "..."] [--benchmarks "^KS11,^SOX"] [--weights "0.2,0.5,0.3"]
+     ```
 2. The script pulls market data from the Yahoo Finance API and blends Naver Finance / WiseReport consensus for Korean stocks. Yahoo quotes are delayed 15–20 minutes; the first line of the output states the generation time (KST) and the market state of each ticker.
 3. Review the generated tables:
    - **1. 주요 주가 및 시가총액 현황**: Price, 52-week range, market cap (KRX stocks show Naver's common-share market cap).

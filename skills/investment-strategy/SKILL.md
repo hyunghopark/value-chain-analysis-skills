@@ -40,7 +40,7 @@ When the user triggers this skill (e.g. "I want an investment strategy for [Indu
    - **③ 수직 가치사슬 핵심 병목 (1개사, [병목협력])**: 공정 수율, 패키징 또는 납품을 좌우하는 독점적 서플라이체인 핵심 파트너/공급사 (예: ASML, TSMC `TSM`).
    - **역할이 겹치면 함께 표기**: 병목 기업이 타겟의 특정 사업부와 경쟁 관계이면 `[병목협력·경쟁]`처럼 두 역할을 모두 표기하고 본문에 설명합니다 (예: 삼성전자 분석 시 TSMC는 AI 칩·HBM 생태계의 병목이자 삼성 파운드리의 경쟁사).
    - **Mermaid 시각화 연동**: 다이어그램 노드에 `[타겟]`, `[직접경쟁]`, `[병목협력]` 태그를 포함하여 색상과 굵기로 역할을 구분합니다. 항목 이름 안에는 쉼표를 쓰지 않습니다(필요하면 `·` 사용).
-4. **[필수 시장 변동성 및 최근 현안 진단]**: `search_web`으로 **최근 1~5일간의 주가 급변동, 52주 고점 대비 낙폭, 시장을 흔든 직접적 트리거**(실적·피크아웃 논쟁, 경쟁사 기술 발표, 규제, 수급 등)를 조사합니다. (검색 예: `[기업명/산업] 주가 급락 원인`, `[기업명] 잠정실적`).
+4. **[필수 시장 변동성 및 최근 현안 진단]**: 웹 검색(Antigravity `search_web` · Claude Code `WebSearch`)으로 **최근 1~5일간의 주가 급변동, 52주 고점 대비 낙폭, 시장을 흔든 직접적 트리거**(실적·피크아웃 논쟁, 경쟁사 기술 발표, 규제, 수급 등)를 조사합니다. (검색 예: `[기업명/산업] 주가 급락 원인`, `[기업명] 잠정실적`).
    - **원인 판별은 데이터로**: Section 4 › 1-3 시장 비교 표(지수·해외 피어 등락)를 근거로 '기업 고유 / 업종 전반 / 시장 전체' 중 무엇인지 먼저 판단합니다. 공매도 잔고는 보조 지표일 뿐, 하락 원인을 '국내 수급'으로 단정하는 근거가 되지 않습니다.
    - **수급 정량화**: `get_financial_stats.py`의 1-1 표(최근 5거래일 투자자별 순매매 추정, 외국인 지분율)를 Section 1.2와 Section 4에 인용합니다. 금액은 '추정', 당일 행이 잠정이면 '잠정'으로 표기합니다.
 5. **[검증 체크리스트 (필수 — 보고서 Section 1.3)]**: 각 항목에 출처 제목·발행일·URL을 붙입니다.
@@ -70,12 +70,17 @@ When the user triggers this skill (e.g. "I want an investment strategy for [Indu
 ### Phase 3: Synthesis & Strategy Formulation
 To prevent omissions (e.g., missing financial tables), you MUST use the master script to auto-generate the report template.
 
-1. Execute the master template script (ensure the project virtual environment is active; on Windows use `venv\Scripts\python.exe`):
-   ```bash
-   venv/bin/python3 .agents/skills/investment-strategy/scripts/generate_strategy_report.py --industry "[Industry Name]" --upstream "[Upstream info]" --midstream "[Midstream info]" --downstream "[Downstream info]" --tickers "[Target,Peer1,Peer2,Bottleneck]" [--cyclical "[Tickers]"] [--not-cyclical "[Tickers]"] [--benchmarks "^KS11,^SOX"] [--weights "0.2,0.5,0.3"]
-   ```
+1. Execute the master template script. The three skills (`investment-strategy`, `financial-analyst`, `value-chain-analyzer`) must sit side by side in the same skills folder, because this script runs the other two.
+   - **Claude Code** — `${CLAUDE_SKILL_DIR}` is replaced with this skill's folder. With [uv](https://docs.astral.sh/uv/) no setup is needed; otherwise `pip install -r "${CLAUDE_SKILL_DIR}/requirements.txt"` into a virtual environment and run the script with that Python:
+     ```bash
+     uv run --no-project --with-requirements "${CLAUDE_SKILL_DIR}/requirements.txt" python "${CLAUDE_SKILL_DIR}/scripts/generate_strategy_report.py" --industry "[Industry Name]" --upstream "[Upstream info]" --midstream "[Midstream info]" --downstream "[Downstream info]" --tickers "[Target,Peer1,Peer2,Bottleneck]" [--cyclical "[Tickers]"] [--not-cyclical "[Tickers]"] [--benchmarks "^KS11,^SOX"] [--weights "0.2,0.5,0.3"]
+     ```
+   - **Antigravity** — activate the project virtual environment (Windows: `venv\Scripts\python.exe`):
+     ```bash
+     venv/bin/python3 .agents/skills/investment-strategy/scripts/generate_strategy_report.py --industry "[Industry Name]" --upstream "[Upstream info]" --midstream "[Midstream info]" --downstream "[Downstream info]" --tickers "[Target,Peer1,Peer2,Bottleneck]" [--cyclical "[Tickers]"] [--not-cyclical "[Tickers]"] [--benchmarks "^KS11,^SOX"] [--weights "0.2,0.5,0.3"]
+     ```
    - 보조 스크립트(다이어그램·재무 데이터)가 실패하면 보고서 파일을 만들지 않고 종료합니다. **표를 손으로 채우지 말고** 오류를 해결한 뒤 다시 실행합니다.
-2. The script creates a new file `reports/[Industry_Name]_[YYYYMMDD]_Investment_Strategy_Report.md` (KST date; same-day reruns get `_v2.md`, `_v3.md` ... so nothing is overwritten). It already contains:
+2. The script creates a new file `reports/[Industry_Name]_[YYYYMMDD]_Investment_Strategy_Report.md` (KST date; same-day reruns get `_v2.md`, `_v3.md` ... so nothing is overwritten). `reports/` goes in the project folder when the skills are installed inside a project (`<project>/.agents/skills` or `<project>/.claude/skills`), and in the current working folder for personal installs (`~/.claude/skills`, `~/.agents/skills`); `--output` sets the path explicitly. The file already contains:
    - The analysis timestamp (KST) and market state of each ticker.
    - Mermaid value chain flowchart.
    - All quantitative tables (Section 4), including the verdicts, cyclical diagnostics, scenario table and data-quality warnings.

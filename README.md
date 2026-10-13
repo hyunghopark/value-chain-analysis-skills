@@ -31,6 +31,43 @@ Antigravity 에이전트를 위한 산업 밸류체인 분석, 정밀 기업 재
 
 ---
 
+## 📦 설치
+
+세 스킬은 같은 `skills` 폴더에 나란히 있어야 합니다(`investment-strategy`가 나머지 둘의 스크립트를 실행).
+
+### Antigravity
+이 저장소를 프로젝트의 `.agents` 폴더로 내려받고, 프로젝트 가상환경에 패키지를 설치합니다.
+```bash
+git clone https://github.com/hyunghopark/value-chain-analysis-skills.git .agents
+python -m venv venv
+venv/bin/pip install -r .agents/skills/financial-analyst/requirements.txt   # Windows: venv\Scripts\pip.exe
+```
+
+### Claude Code
+저장소를 아무 곳에나 내려받고, 세 스킬 폴더를 `~/.claude/skills`(모든 프로젝트) 또는 `<프로젝트>/.claude/skills`(해당 프로젝트)에 링크합니다. SKILL.md 안의 `${CLAUDE_SKILL_DIR}`가 스킬 폴더 경로로 바뀌어 스크립트를 찾습니다.
+
+macOS / Linux:
+```bash
+git clone https://github.com/hyunghopark/value-chain-analysis-skills.git ~/value-chain-analysis-skills
+mkdir -p ~/.claude/skills
+for s in investment-strategy financial-analyst value-chain-analyzer; do ln -s ~/value-chain-analysis-skills/skills/$s ~/.claude/skills/$s; done
+```
+
+Windows (PowerShell, 관리자 권한 불필요):
+```powershell
+git clone https://github.com/hyunghopark/value-chain-analysis-skills.git "$HOME\value-chain-analysis-skills"
+foreach ($s in 'investment-strategy','financial-analyst','value-chain-analyzer') { New-Item -ItemType Junction -Path "$HOME\.claude\skills\$s" -Target "$HOME\value-chain-analysis-skills\skills\$s" }
+```
+
+Python 패키지는 [uv](https://docs.astral.sh/uv/)가 있으면 SKILL.md의 `uv run --with-requirements ...` 명령이 알아서 설치합니다. uv가 없으면 가상환경에 `requirements.txt`를 설치하고 그 Python으로 실행하세요. 새 Claude Code 세션부터 `/investment-strategy`, `/financial-analyst`, `/value-chain-analyzer`로 쓸 수 있습니다.
+
+> **claude.ai 업로드**는 지원 범위 밖입니다. claude.ai는 SKILL.md 앞머리에 지원하지 않는 항목(예: Antigravity 전용 `allowed-skills`)이 있으면 업로드를 거부하고, 실행 환경에서 금융 사이트 접속이 막혀 있을 수 있습니다.
+
+### 보고서 저장 위치
+`reports/` 폴더는 스킬을 프로젝트 안(`<프로젝트>/.agents/skills`, `<프로젝트>/.claude/skills`)에 설치했으면 그 프로젝트에, 개인 설치(`~/.claude/skills` 등)면 현재 작업 폴더에 만들어집니다. `--output`으로 직접 지정할 수도 있습니다.
+
+---
+
 ## 🛠️ 포함된 스킬 (Skills)
 
 ### 1. `value-chain-analyzer` (v1.3.0)
@@ -71,3 +108,4 @@ Antigravity 에이전트를 위한 산업 밸류체인 분석, 정밀 기업 재
 - **검증 단계 추가**: 최근 실적·잠정실적, 추정치 방향, 지수·피어 동반 등락, 촉매 최신성(90일)을 체크리스트로 확인합니다.
 - **데이터 정확성**: 키옥시아 고정 문구 삭제, 정규화 ROE 분모 통일, 장중 수급 '확정' 오표기 수정, 출처 혼합(목표가·시가총액) 정리, WiseReport 실패 시 라벨 표시, RSI 와일더 방식, 가격 이력 누락 보정.
 - **안정성**: 보조 스크립트가 실패하면 보고서를 만들지 않고 종료, `shell=True` 제거, Windows UTF-8 출력 처리.
+- **Claude Code 호환**: SKILL.md 실행 명령을 `${CLAUDE_SKILL_DIR}` 기준(Claude Code)과 `.agents` 기준(Antigravity)으로 함께 표기, 도구 이름 병기, 스킬별 `requirements.txt` 추가, 개인 설치 시 보고서를 홈 폴더가 아닌 현재 작업 폴더에 저장.

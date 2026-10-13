@@ -37,7 +37,7 @@ Break the industry down into logical stages. The standard model is:
 *Note: Adapt this structure to fit the specific industry. For example, software might be structured as Infrastructure -> Platform -> Application.*
 
 ### Step 3: Deep Dive and Research each Stage
-1. Use `search_web` or browser capabilities to search for the latest market data, industry studies, corporate news, and official specifications.
+1. Use web search (Antigravity `search_web` · Claude Code `WebSearch`/`WebFetch`) or browser capabilities to search for the latest market data, industry studies, corporate news, and official specifications.
 2. For each stage identified in Step 2, determine:
    - **Key Components/Processes:** What exactly is being made or done here?
    - **Technological Importance:** Why is this step critical? What are the barriers to entry?
@@ -53,10 +53,15 @@ For the most critical components identified in Step 3:
 5. Collect the source URLs and titles for these findings.
 
 ### Step 5: Synthesize and Present Findings (With Citations & Diagram)
-1. Run the python script `scripts/generate_mermaid.py` using the project virtual environment to generate a professional, Left-to-Right diagram with subgraphs representing the value chain stages. Match the output language of the report (e.g., use `--lang ko` if the report is in Korean, or `--lang en` if in English):
-   ```bash
-   venv/bin/python3 .agents/skills/value-chain-analyzer/scripts/generate_mermaid.py --industry "[Industry Name]" --upstream "[U1, U2]" --midstream "[M1, M2]" --downstream "[D1, D2]" --lang ko
-   ```
+1. Run the python script `scripts/generate_mermaid.py` (standard library only) to generate a professional, Left-to-Right diagram with subgraphs representing the value chain stages. Match the output language of the report (e.g., use `--lang ko` if the report is in Korean, or `--lang en` if in English):
+   - **Claude Code** — `${CLAUDE_SKILL_DIR}` is replaced with this skill's folder (any Python 3 works; `uv run --no-project python` avoids the Windows Store `python` alias):
+     ```bash
+     uv run --no-project python "${CLAUDE_SKILL_DIR}/scripts/generate_mermaid.py" --industry "[Industry Name]" --upstream "[U1, U2]" --midstream "[M1, M2]" --downstream "[D1, D2]" --lang ko
+     ```
+   - **Antigravity** — project virtual environment (Windows: `venv\Scripts\python.exe`):
+     ```bash
+     venv/bin/python3 .agents/skills/value-chain-analyzer/scripts/generate_mermaid.py --industry "[Industry Name]" --upstream "[U1, U2]" --midstream "[M1, M2]" --downstream "[D1, D2]" --lang ko
+     ```
    - Items are separated by commas, so do not put a comma inside an item name (use `·` instead). Double quotes inside an item are converted to single quotes.
    - When the diagram feeds an investment report, tag nodes with roles (`[타겟]`, `[직접경쟁]`, `[병목협력]`). If a company plays two roles relative to the target (e.g., a bottleneck partner that also competes with one of the target's divisions), show both (`[병목협력·경쟁]`).
 2. Structure the final report using the template provided in `templates/report_template.md`.

@@ -24,14 +24,19 @@ def run_script(cmd, label):
     return result.stdout.strip()
 
 
-def find_repo_root():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    cur = script_dir
+def find_reports_root():
+    """Folder that gets reports/: the project holding a project-level .agents/.claude skills install,
+    otherwise the current working directory (personal installs such as ~/.claude/skills live under home)."""
+    home = os.path.normcase(os.path.realpath(os.path.expanduser("~")))
+    cur = os.path.dirname(os.path.abspath(__file__))
     while cur != os.path.dirname(cur):
-        if os.path.basename(cur) == ".agents":
-            return os.path.dirname(cur)
+        if os.path.basename(cur) in (".agents", ".claude"):
+            root = os.path.dirname(cur)
+            if os.path.normcase(os.path.realpath(root)) != home:
+                return root
+            break
         cur = os.path.dirname(cur)
-    return os.path.abspath(os.path.join(script_dir, "../../../../"))
+    return os.getcwd()
 
 
 def main():
@@ -102,8 +107,7 @@ def main():
     if args.output:
         output_filename = args.output
     else:
-        repo_root = find_repo_root()
-        reports_dir = os.path.join(repo_root, "reports")
+        reports_dir = os.path.join(find_reports_root(), "reports")
         os.makedirs(reports_dir, exist_ok=True)
         base_name = f"{safe_industry_name}_{today_str}_Investment_Strategy_Report"
         output_filename = os.path.join(reports_dir, f"{base_name}.md")
