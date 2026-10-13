@@ -617,9 +617,12 @@ def fetch_investor_trends_table(ticker_code, company_name=''):
 
         rows.append(f'| {date_str} | ₩{close_p:,.0f} | {frgn_amt:+,.0f}억 | {org_amt:+,.0f}억 | {ind_amt:+,.0f}억 | {frgn_ratio} |')
 
-    title = f'**{company_name} ({ticker_code}) 최근 5거래일 투자자별 순매매 동향 (당일 실시간 연동)**'
+    org_suffix = "" if has_today else " (당일제외)"
+    ind_suffix = "" if has_today else " (당일제외)"
+    title_suffix = "(당일 최종 정산 확정)" if has_today else "(당일 실시간 연동)"
+    title = f'**{company_name} ({ticker_code}) 최근 5거래일 투자자별 순매매 동향 {title_suffix}**'
     header = '| 거래일자 | 종가 | 외국인 순매매 | 기관 순매매 | 개인 순매매 | 외국인 지분율 |\n|---|---|---|---|---|---|'
-    summary = f'| **최근 5일 누적** | - | **{tot_frgn_amt:+,.0f}억 원** | **{tot_org_amt:+,.0f}억 원 (당일제외)** | **{tot_ind_amt:+,.0f}억 원 (당일제외)** | - |'
+    summary = f'| **최근 5일 누적** | - | **{tot_frgn_amt:+,.0f}억 원** | **{tot_org_amt:+,.0f}억 원{org_suffix}** | **{tot_ind_amt:+,.0f}억 원{ind_suffix}** | - |'
 
     return f'{title}\n\n{header}\n' + '\n'.join(rows) + f'\n{summary}\n'
 
