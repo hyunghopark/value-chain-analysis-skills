@@ -24,6 +24,9 @@ KNOWN_ISSUES = {
 # The first six header cells of WiseReport cF1002; EPS is read from cell index 5 of each row.
 WISEREPORT_HEADER = ('재무년월', '매출액(억원, %)', '영업이익(억원, %)', '당기순이익(억원, %)', 'EPS(원)', 'PER(배)')
 
+# Yahoo index ticker -> Daum market_index market code (KRX index closes).
+DAUM_INDEX = {'^KS11': 'KOSPI', '^KQ11': 'KOSDAQ'}
+
 BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 
@@ -189,6 +192,16 @@ def fetch_daum_days(code, per_page=100, pages=1):
         r.raise_for_status()
         rows += r.json().get('data') or []
     return daum_frame(rows)
+
+
+def fetch_daum_index_days(market, per_page=100):
+    """Daily KRX index closes (KOSPI/KOSDAQ) from Daum Finance; open/high/low may be absent."""
+    import requests
+    r = requests.get("https://finance.daum.net/api/market_index/days",
+                     params={'page': 1, 'perPage': per_page, 'market': market, 'pagination': 'true'},
+                     headers={'User-Agent': BROWSER_UA, 'Referer': 'https://finance.daum.net'}, timeout=8)
+    r.raise_for_status()
+    return daum_frame(r.json().get('data') or [])
 
 
 def fetch_naver_fchart(code, count=260):

@@ -120,3 +120,15 @@ def test_ref_close_on():
 def test_ki_prefix():
     assert dc.ki('KI-001', 'msg') == '[KI-001] msg'
     assert set(dc.KNOWN_ISSUES) == {f'KI-00{i}' for i in range(1, 9)}
+    assert dc.DAUM_INDEX == {'^KS11': 'KOSPI', '^KQ11': 'KOSDAQ'}
+
+
+def test_reconcile_index_without_ohlc():
+    # KI-002 (index): Yahoo ^KS11 2026-10-13 close was NaN; Daum KOSPI index rows carry only tradePrice.
+    hist = yahoo_hist([('2026-10-08', 6625.930176, 1), ('2026-10-12', 6384.240234, 1), ('2026-10-13', float('nan'), 0)])
+    ref = dc.daum_frame([{'date': '2026-10-12 00:00:00', 'tradePrice': 6384.24},
+                         {'date': '2026-10-13 00:00:00', 'tradePrice': 6035.35}])
+    fixed, filled, replaced = dc.reconcile_history(hist, ref)
+    assert filled == [pd.Timestamp('2026-10-13')]
+    assert replaced == []  # 6384.240234 vs 6384.24 is the same close
+    assert fixed['Close'].iloc[-1] == 6035.35

@@ -546,6 +546,27 @@ def check_krx_history(symbol, info):
         warn(ki('KI-006', f"{symbol}: Yahoo 종가가 거래소 종가(다음 금융)와 다른 {len(replaced)}일을 거래소 종가로 바꿨습니다({ex})."))
 
 
+def check_krx_index(bench):
+    """Reconcile a KRX index's Yahoo history with Daum index closes (KI-002) — it is also the KR trading calendar."""
+    market = data_checks.DAUM_INDEX.get(bench)
+    hist = HISTORY.get(bench)
+    if not market or hist is None:
+        return
+    try:
+        ref = data_checks.fetch_daum_index_days(market)
+    except Exception as e:
+        warn(ki('KI-002', f"{bench}: 다음 금융 지수 시세 조회 실패({e}) — Yahoo 지수 이력을 대조하지 못했습니다."))
+        return
+    fixed, filled, replaced = data_checks.reconcile_history(hist, ref)
+    HISTORY[bench] = fixed
+    if filled:
+        warn(ki('KI-002', f"{bench}: Yahoo 지수 이력에 없거나 빈 거래일 {len(filled)}개"
+                          f"({', '.join(f'{d:%m-%d}' for d in filled[-3:])})를 다음 금융 지수 종가로 채웠습니다."))
+    if replaced:
+        ex = ', '.join(f"{d:%m-%d} {y:,.2f}→{r:,.2f}" for d, y, r in replaced[:3])
+        warn(ki('KI-006', f"{bench}: Yahoo 지수 종가가 다음 금융과 다른 {len(replaced)}일을 바꿨습니다({ex})."))
+
+
 def check_volume(symbol):
     """Flag days whose Yahoo volume is under 1% of the trailing 20-day median (KI-005)."""
     hist = HISTORY.get(symbol)
@@ -1182,6 +1203,7 @@ def market_context_table(symbols, results, benchmarks):
             try:
                 h = yf.Ticker(b).history(period='1y', auto_adjust=False)
                 HISTORY[b] = h if h is not None and not h.empty else None
+                check_krx_index(b)
             except Exception as e:
                 warn(f"{b}: 지수 시세 조회 실패 ({e})")
                 HISTORY[b] = None
