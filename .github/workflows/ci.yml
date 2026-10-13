@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: 스크립트 문법 검사
+        run: uv run --no-project --python 3.12 python -m py_compile skills/*/scripts/*.py .claude/skills/karpathy-llm-wiki/scripts/check_evidence.py
+
+      - name: 테스트
+        run: uv run --no-project --python 3.12 --with-requirements skills/financial-analyst/requirements.txt --with pytest pytest tests -q
+
+      # check_evidence.py always exits 0 ("the report is the interface"), so gate on its summary line.
+      - name: 위키 근거 대조
+        run: |
+          out=$(uv run --no-project --python 3.12 python .claude/skills/karpathy-llm-wiki/scripts/check_evidence.py .)
+          echo "$out"
+          if ! echo "$out" | grep -qE '^0 fidelity suspect\(s\), 0 evidence error\(s\)'; then
+            echo "::error title=위키 근거 대조::위키의 숫자·날짜가 raw/ 근거와 맞지 않거나 근거 링크가 깨졌습니다. check_evidence.py 출력을 확인하세요."
+            exit 1
+          fi
+          if ! echo "$out" | grep -q '0 unreferenced raw file(s)'; then
+            echo "::warning title=위키 근거 대조::어느 위키 문서에도 연결되지 않은 raw/ 파일이 있습니다."
+          fi

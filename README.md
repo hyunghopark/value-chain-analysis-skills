@@ -117,6 +117,7 @@ Python 패키지는 [uv](https://docs.astral.sh/uv/)가 있으면 SKILL.md의 `u
 
 - **규칙**: 판정 기준의 원본은 `skills/financial-analyst/references/rules/`입니다. 기준을 바꾸면 규칙 문서·코드·테스트를 한 커밋에서 고치고 `docs/decisions/`에 이유를 남깁니다.
 - **데이터 사건**: 보고서 경고의 `[KI-xxx]`는 `wiki/known-issues/` 문서 번호입니다. 새 문제는 `references/rules/data-quality.md`의 절차(근거 → 사건 문서 → 코드 경고 → 테스트)를 따릅니다.
+- **자동 점검**: PR마다 GitHub Actions가 스크립트 문법, 테스트, 위키 근거 대조를 실행합니다(`.github/workflows/ci.yml`).
 - **정기 점검**: `check_data_sources.py` 결과를 `raw/data-checks/`에 저장하고 위키에 반영합니다. 명령은 `CLAUDE.md`에 있습니다.
 
 ## 📝 변경 이력
