@@ -46,6 +46,9 @@ Follow these steps to conduct a high-precision corporate financial analysis:
    - **3. 애널리스트 투자의견 및 목표 주가**: Consensus rating, Mean, Low/High Target Prices, Implied Upside %.
    - **4. 투자 판단 신호등 매트릭스**: 4개 차원(밸류에이션, 수익성, 성장성, 재무건전성) 🟢🟡🔴 기초 평가.
    - **5. ⭐ 핵심 지표 의사결정 매트릭스**: 6대 핵심 지표(Forward PE, PEG, 매출성장, EV/EBITDA, ROE, 부채비율)에 대한 보수적 판정 및 최종 종합 투자 의견.
+   - **6. 🔍 [회계 감사] 일회성 비경상 손익(Unusual Items) 감지 및 정규화(Normalized) 지표 비교**:
+     - `get_financial_stats.py`가 분기 손익계산서를 스캔하여 `Total Unusual Items > 세전이익 15%` 또는 `NPM > OPM` 역전 발생 시 자동 감지.
+     - 일회성 이익(예: 투자자산 평가익, 자산처분 등)을 발라낸 **정규화 순이익(Normalized Net Income), 정규화 TTM EPS, 정규화 ROE**를 산출하여 명목 지표와 자동 대조.
 
 ### Step 3: Fetch Historical Earnings Surprises
 Retrieve consensus estimates vs. actual results for both **EPS** and **Revenue** for the **past 4 quarters**:

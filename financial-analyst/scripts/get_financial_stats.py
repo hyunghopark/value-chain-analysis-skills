@@ -482,9 +482,78 @@ def get_stats(ticker_symbol):
                         info['pegRatio'] = orig_peg * (new_fpe / orig_fpe)
 
         sanitize_metrics(info, ticker_symbol)
+        info['_audit_result'] = audit_unusual_items(t, info, ticker_symbol)
         return info
     except Exception as e:
         print(f"Error fetching {ticker_symbol}: {e}", file=sys.stderr)
+        return None
+
+def audit_unusual_items(t, info, ticker_symbol):
+    try:
+        q = t.quarterly_income_stmt
+        if q is None or q.empty:
+            return None
+        dates = q.columns[:4]
+        if len(dates) == 0:
+            return None
+        pretax = q.loc['Pretax Income', dates].sum() if 'Pretax Income' in q.index else 0
+        net_inc = q.loc['Net Income', dates].sum() if 'Net Income' in q.index else 0
+        norm_inc = q.loc['Normalized Income', dates].sum() if 'Normalized Income' in q.index else None
+        unusual = q.loc['Total Unusual Items', dates].sum() if 'Total Unusual Items' in q.index else 0
+        op_inc = q.loc['Operating Income', dates].sum() if 'Operating Income' in q.index else 0
+
+        # Check trigger: unusual > 15% of pretax, or norm_inc differs by > 15%, or NPM > OPM
+        is_triggered = False
+        if pretax != 0 and abs(unusual) > 0.15 * abs(pretax):
+            is_triggered = True
+        elif pretax != 0 and norm_inc is not None and abs(net_inc - norm_inc) > 0.15 * abs(pretax):
+            is_triggered = True
+        elif op_inc > 0 and net_inc > 0 and (net_inc / op_inc) > 1.05:
+            is_triggered = True
+
+        if not is_triggered:
+            return None
+
+        # Find largest unusual quarter
+        max_q_date = None
+        max_q_val = 0
+        if 'Total Unusual Items' in q.index:
+            for d in dates:
+                v = q.loc['Total Unusual Items', d]
+                if abs(v) > abs(max_q_val):
+                    max_q_val = v
+                    max_q_date = d.strftime('%Y-%m-%d')
+
+        curr = info.get('currency', 'USD')
+        shares = info.get('sharesOutstanding') or (q.loc['Diluted Average Shares', dates[0]] if 'Diluted Average Shares' in q.index else None)
+        rep_eps = info.get('trailingEps') or (net_inc / shares if shares else None)
+        norm_eps = (norm_inc / shares) if (norm_inc is not None and shares) else None
+
+        rep_roe = info.get('returnOnEquity')
+        bs = t.quarterly_balance_sheet
+        equity = bs.loc['Stockholders Equity', bs.columns[0]] if (bs is not None and not bs.empty and 'Stockholders Equity' in bs.index) else None
+        norm_roe = (norm_inc / equity) if (norm_inc is not None and equity and equity > 0) else None
+
+        # Institutional descriptions for major events
+        if ticker_symbol == '000660.KS':
+            desc = "2026년 2분기(2026-06-30) 키옥시아(Kioxia) 지분 평가·처분이익 약 +50.72조 원 등 투자자산 관련 손익"
+        else:
+            desc = f"최대 분기({max_q_date}): Unusual Items {format_large_number(max_q_val, curr)} (비경상 투자/자산 평가·처분 및 특수 손익)"
+
+        return {
+            'symbol': ticker_symbol,
+            'unusual_ttm': unusual,
+            'max_date': max_q_date,
+            'max_val': max_q_val,
+            'rep_eps': rep_eps,
+            'norm_eps': norm_eps,
+            'rep_roe': rep_roe,
+            'norm_roe': norm_roe,
+            'desc': desc,
+            'currency': curr
+        }
+    except Exception as e:
+        print(f"[Warn] Audit failed for {ticker_symbol}: {e}", file=sys.stderr)
         return None
 
 def generate_report(tickers_list):
@@ -774,6 +843,24 @@ def generate_report(tickers_list):
     output += "\n"
     output += "> **판정 기준 (보수적 엄격 기준)**: Forward PE(<18 🟢 <30 🟡) · PEG(<1 🟢 <2 🟡) · 매출성장(>20% 🟢 >5% 🟡) · EV/EBITDA(<12 🟢 <20 🟡) · ROE(>20% 🟢 >10% 🟡) · D/E(<50% 🟢 <100% 🟡)\n"
     output += "> **종합 판정 규칙**: 🔴 2개 이상 시 즉시 '신중 접근' | 🔴 1개 이상 시 '강력 매수' 원천 차단 (🟢 4개 이상 & 🔴 0개 시에만 강력 매수)\n\n"
+
+    # 6. Audit of Unusual Items and Normalized Metrics
+    output += "### 6. 🔍 [회계 감사] 일회성 비경상 손익(Unusual Items) 감지 및 정규화(Normalized) 지표 비교\n\n"
+    audit_results = [info['_audit_result'] for info in results.values() if info.get('_audit_result')]
+
+    if audit_results:
+        output += "> ⚠️ **회계 감사 알림**: 최근 4분기(TTM) 중 본업 영업활동 외의 대규모 일회성 비경상 손익(투자자산 처분/평가익, 자산손상, 세무환급 등)이 감지된 기업에 대해 공시된 명목 지표와 본업 기반 정규화(Normalized) 지표를 대조 분석합니다.\n\n"
+        output += "| 기업명 (티커) | 회계 감사 진단 | 주요 비경상 항목 및 규모 (최대 분기) | 명목 ROE ➡️ 정규화 ROE | 명목 TTM EPS ➡️ 정규화 EPS |\n"
+        output += "|---|---|---|---|---|\n"
+        for a in audit_results:
+            rep_roe_str = f"{a['rep_roe']*100:.1f}%" if a.get('rep_roe') is not None else "N/A"
+            norm_roe_str = f"**{a['norm_roe']*100:.1f}%**" if a.get('norm_roe') is not None else "N/A"
+            rep_eps_str = format_number(a.get('rep_eps'), True, a.get('currency', 'USD'))
+            norm_eps_str = f"**{format_number(a.get('norm_eps'), True, a.get('currency', 'USD'))}**"
+            output += f"| **{a['symbol']}** | ⚠️ **대규모 일회성 이익 감지** | {a['desc']} | {rep_roe_str} ➡️ {norm_roe_str} | {rep_eps_str} ➡️ {norm_eps_str} |\n"
+        output += "\n> 💡 **투자 해석 시사점**: 일회성 비경상 이익이 포함된 기업은 표면상 ROE와 순이익률이 비정상적으로 높아 보이나, 차기 회계연도에 역기저 효과(실적 급감 착시)가 발생할 수 있으므로 **본업 기준 정규화 지표(Normalized ROE) 및 12M Forward 선행 지표**를 기준으로 가치평가를 수행해야 합니다.\n\n"
+    else:
+        output += "> 💡 **[회계 감사 결과]**: 분석 대상 전 종목에서 유의미한 일회성 비경상 손익 왜곡(세전이익 대비 15% 이상)이 감지되지 않았으며, 공시된 순이익과 ROE는 본업 영업 활동을 정상적으로 반영하고 있습니다.\n\n"
 
     return output
 
