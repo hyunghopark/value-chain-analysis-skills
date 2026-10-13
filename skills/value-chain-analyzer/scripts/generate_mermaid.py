@@ -27,12 +27,13 @@ def generate_mermaid(industry_name, upstream_items, midstream_items, downstream_
     mermaid_code += f"    classDef bottleneck fill:#ede7f6,stroke:#512da8,stroke-width:2px;\n\n"
     
     def get_item_class(item, default_class):
-        if "[타겟]" in item or "[Target]" in item:
+        # Match tag prefixes so combined roles such as "[병목협력·경쟁]" keep their colour
+        if "[타겟" in item or "[Target" in item:
             return "target"
-        elif "[직접경쟁]" in item or "[Peer]" in item:
-            return "peer"
-        elif "[병목협력]" in item or "[Bottleneck]" in item:
+        elif "[병목협력" in item or "[Bottleneck" in item:
             return "bottleneck"
+        elif "[직접경쟁" in item or "[Peer" in item:
+            return "peer"
         return default_class
 
     # Subgraph for Upstream
@@ -74,9 +75,13 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    up = [item.strip() for item in args.upstream.split(',')]
-    mid = [item.strip() for item in args.midstream.split(',')]
-    down = [item.strip() for item in args.downstream.split(',')]
+    def parse_items(text):
+        # A double quote would close the Mermaid node label early, so swap it for a single quote
+        return [item.strip().replace('"', "'") for item in text.split(',') if item.strip()]
+
+    up = parse_items(args.upstream)
+    mid = parse_items(args.midstream)
+    down = parse_items(args.downstream)
     
     result = generate_mermaid(args.industry, up, mid, down, args.lang)
     print(result)
