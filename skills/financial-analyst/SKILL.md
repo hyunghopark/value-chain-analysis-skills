@@ -1,7 +1,7 @@
 ---
 name: financial-analyst
 description: A specialized skill for conducting high-precision financial analysis and stock valuation of companies. Use when the user asks about the financial health, stock price, valuation multiples, earnings surprises, or investment risks of specific companies.
-version: 3.0.0
+version: 3.1.0
 allowed-tools: run_command search_web read_url_content
 ---
 
@@ -38,10 +38,10 @@ Follow these steps to conduct a high-precision corporate financial analysis:
      ```bash
      venv/bin/python3 .agents/skills/financial-analyst/scripts/get_financial_stats.py --tickers "NVDA,TSM,000660.KS" [--cyclical "000660.KS"] [--not-cyclical "..."] [--benchmarks "^KS11,^SOX"] [--weights "0.2,0.5,0.3"]
      ```
-2. The script pulls market data from the Yahoo Finance API and blends Naver Finance / WiseReport consensus for Korean stocks. Yahoo quotes are delayed 15–20 minutes; the first line of the output states the generation time (KST) and the market state of each ticker.
+2. The script pulls market data from the Yahoo Finance API and blends Naver Finance / WiseReport consensus for Korean stocks. For Korean stocks it also reconciles Yahoo's price history with the KRX close from Daum Finance (fills missing days, replaces wrong closes in the last 100 trading days). Yahoo quotes are delayed 15–20 minutes; the first line of the output states the generation time (KST) and the market state of each ticker.
 3. Review the generated tables:
    - **1. 주요 주가 및 시가총액 현황**: Price, 52-week range, market cap (KRX stocks show Naver's common-share market cap).
-   - **1-1. 최근 5거래일 투자자별 순매매 (추정)**: 순매수 수량 × 해당일 종가로 추정한 금액과 외국인 지분율. 당일 행이 장중 스냅샷이면 '잠정'으로 표시됩니다.
+   - **1-1. 최근 5거래일 투자자별 순매매 (추정)**: 순매수 수량 × 해당일 종가(수급 데이터 기준)로 추정한 금액과 외국인 지분율. 이 종가는 거래소 정규장 종가와 다를 수 있어(KI-001) 주가 등락은 1-3 표를 씁니다. 당일 행이 장중 스냅샷이면 '잠정'으로 표시됩니다.
    - **1-2. 기술적 지표 (RSI · 볼린저밴드)**: 진입 시점 보조용. 판정에는 쓰지 않습니다.
    - **1-3. 시장 비교 (지수·피어 동반 등락)**: 급락·급등이 기업 고유인지 업종·시장 전반인지 판별하는 근거.
    - **2. 핵심 재무 및 밸류에이션 지표 (별표 체계)**: ⭐⭐⭐ Forward P/E (12M NTM), PEG, YoY Revenue Growth · ⭐⭐ EV/EBITDA, ROE, Debt/Equity · 보조 지표. Forward P/E가 NTM이 아니면 기준(FY0 등)이 괄호로 표시됩니다.
@@ -52,7 +52,7 @@ Follow these steps to conduct a high-precision corporate financial analysis:
    - **4. 투자 판단 신호등 매트릭스**와 **5. 핵심 지표 의사결정 매트릭스**: Step 7 규칙 참고.
    - **6. [회계 감사] 일회성 손익 감지 및 정규화 지표**: `Total Unusual Items > 세전이익 15%` 또는 `순이익 > 영업이익`이면 감지하고, 명목·정규화 ROE/EPS를 같은 분모(평균 자기자본, 희석주식수 중앙값)로 다시 계산합니다. 손실도 '일회성 손실'로 구분합니다.
    - **7. 시나리오 스트레스 테스트**: 내년(FY1) 컨센서스 EPS 최저·평균·최고 × 배수 A(현재 배수 유지)·배수 B(목표가 내재 배수), 확률가중 기대값과 상방/하방 비율.
-   - **8. 데이터 품질 경고**: 출처 간 5% 이상 차이, ADR 통화 보정, 잠정 수급, 가격 이력 누락, NTM이 아닌 Forward P/E 등.
+   - **8. 데이터 품질 경고**: 출처 간 5% 이상 차이, ADR 통화 보정, 잠정 수급, 가격 이력 보완·교정, 재무제표 반영 지연, 거래량 이상치, NTM이 아닌 Forward P/E 등. 앞에 붙은 `[KI-xxx]`는 스킬 저장소 `wiki/known-issues/`의 사건 문서 번호이며, 규칙은 `references/rules/data-quality.md`에 있습니다.
 
 ### Step 3: Review Historical Earnings Surprises
 1. Use table 3-2 (last 4 quarters, EPS estimate vs. actual) from the script.
@@ -79,7 +79,7 @@ Follow these steps to conduct a high-precision corporate financial analysis:
 3. Write at least one **counter-thesis** (why the verdict could be wrong) and the data that would change the verdict.
 
 ### Step 7: Formulate Valuation Conclusion & Write Report
-1. The verdict comes from the script's decision matrix (table 5). Do not override it silently; if you disagree, say why with sources.
+1. The verdict comes from the script's decision matrix (table 5). Do not override it silently; if you disagree, say why with sources. The authoritative rules are `references/rules/verdict-matrix.md` and `references/rules/cycle-position.md`; the summary below must match them. The cycle-position 🔴 means the margin broke its ~4-year record, not that a peak is confirmed.
    - **Pillars**
      - 일반 기업 (7개): Forward PE(<18 🟢 <30 🟡) · PEG(<1 🟢 <2 🟡) · 매출성장(>20% 🟢 >5% 🟡) · EV/EBITDA(<12 🟢 <20 🟡) · ROE(>20% 🟢 >10% 🟡, 일회성 감지 시 정규화 ROE) · D/E(<50% 🟢 <100% 🟡) · 30일 추정치 방향((상향−하향)/전체 ≥ +30% 🟢, ≤ −30% 🔴)
      - 🔄 순환업종 (4개): P/B 밴드 위치(중앙값 이하 🟢, 최고 이하 🟡, 최고 초과 🔴) · 사이클 위치(TTM 영업이익률이 과거 중앙값 미만 🟢, 최고 이하 🟡, 최고 초과 🔴) · 30일 추정치 방향 · D/E. Forward PE·PEG·매출성장·EV/EBITDA·ROE는 이익 정점에서 좋아 보이므로 '제외'됩니다.
@@ -107,3 +107,5 @@ Follow these steps to conduct a high-precision corporate financial analysis:
 ## Resources
 
 - **`templates/financial_report_template.md`**: The standard layout template for corporate financial analysis reports.
+- **`references/rules/`**: Source of truth for verdict thresholds (`verdict-matrix.md`), the cycle-position signal (`cycle-position.md`) and data-source rules (`data-quality.md`).
+- **`scripts/check_data_sources.py`**: Periodic cross-source health check (Yahoo vs KRX close via Daum vs Naver, Yahoo vs Nasdaq.com, statement freshness, WiseReport layout).

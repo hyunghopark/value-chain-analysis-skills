@@ -22,7 +22,8 @@ The Investment Strategy Skill coordinates the `value-chain-analyzer` and `financ
 5. **과거 비교는 데이터 범위 안에서만 합니다.** 밸류에이션 역사 비교는 Section 4 › 2-2 밴드 표의 기간 안에서만 합니다. 표에 없는 시기(예: 2008년)와 비교하지 않습니다.
 6. **최신 정보만 촉매로 씁니다.** 촉매·기술 현황은 90일 이내 출처로 확인합니다. 더 오래된 정보는 날짜를 밝히고 '과거 정보'로 표시합니다.
 7. **추정·잠정은 그대로 표기합니다.** 수급 금액은 '추정', 장중 데이터는 '잠정'으로 쓰고 '확정·증명·입증' 같은 표현을 쓰지 않습니다.
-8. **데이터 품질 경고를 무시하지 않습니다.** Section 4 › 8번 경고에 나온 수치를 본문에서 인용할 때는 경고 내용을 함께 밝힙니다.
+8. **데이터 품질 경고를 무시하지 않습니다.** Section 4 › 8번 경고에 나온 수치를 본문에서 인용할 때는 경고 내용을 함께 밝힙니다. 경고의 `[KI-xxx]`는 스킬 저장소 `wiki/known-issues/` 사건 문서 번호입니다.
+9. **웹 기사 수치는 가격 데이터와 대조합니다.** 기사의 종가·등락률을 인용할 때는 Section 4 › 1-3 표나 거래소 종가와 맞는지 확인하고, 다르면 장중 수치일 수 있음을 밝히거나 거래소 종가를 씁니다.
 
 ## Process Flow
 
@@ -65,7 +66,7 @@ When the user triggers this skill (e.g. "I want an investment strategy for [Indu
 5. Review the decision matrices (Section 4 › 4, 5). Verdicts: 🟢 강력 매수 후보 / 🟢 매수 고려 / 🟡 중립·관망 / 🔴 신중 접근 / ⚪ 판단 보류(데이터 부족).
 6. **[회계 감사: 일회성 손익 분리 & 정규화 지표]**: 스크립트가 최근 4분기에서 큰 일회성 손익(`Total Unusual Items > 세전이익 15%` 또는 `순이익 > 영업이익`)을 감지하면, 명목·정규화 ROE/EPS를 **같은 분모**로 다시 계산합니다. 분류는 Yahoo 기준이라 큰 항목은 공시(DART·IR)로 확인하고, 평가이익이 이후 분기에 되돌려질 가능성(관련 자산 가격 변동)을 함께 적습니다.
 7. **[시나리오 스트레스 테스트]**: 스크립트가 내년(FY1) 컨센서스 EPS 최저·평균·최고에 두 가지 배수(A: 현재 배수 유지, B: 목표가 내재 배수)를 적용해 계산합니다. 보고서는 이 표를 그대로 인용합니다.
-8. **[데이터 품질 경고]**: Section 4 › 8번에 출처 간 5% 이상 차이, 통화 보정, 잠정 수급, 가격 이력 누락 등이 모입니다. 해당 수치를 인용할 때 경고를 함께 밝힙니다.
+8. **[데이터 품질 경고]**: Section 4 › 8번에 출처 간 5% 이상 차이, 통화 보정, 잠정 수급, 가격 이력 보완·교정, 재무제표 반영 지연 등이 모입니다. 해당 수치를 인용할 때 경고를 함께 밝힙니다. 사이클 위치 🔴는 '이익률 기록 경신 경보'이지 정점 확인이 아닙니다(`financial-analyst/references/rules/cycle-position.md`).
 
 ### Phase 3: Synthesis & Strategy Formulation
 To prevent omissions (e.g., missing financial tables), you MUST use the master script to auto-generate the report template.
