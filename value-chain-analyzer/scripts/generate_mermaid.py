@@ -21,24 +21,39 @@ def generate_mermaid(industry_name, upstream_items, midstream_items, downstream_
     mermaid_code += f"    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px;\n"
     mermaid_code += f"    classDef upstream fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;\n"
     mermaid_code += f"    classDef midstream fill:#fff3e0,stroke:#f57c00,stroke-width:2px;\n"
-    mermaid_code += f"    classDef downstream fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;\n\n"
+    mermaid_code += f"    classDef downstream fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;\n"
+    mermaid_code += f"    classDef target fill:#ffebee,stroke:#d32f2f,stroke-width:3px,font-weight:bold;\n"
+    mermaid_code += f"    classDef peer fill:#fff8e1,stroke:#f57f17,stroke-width:2px;\n"
+    mermaid_code += f"    classDef bottleneck fill:#ede7f6,stroke:#512da8,stroke-width:2px;\n\n"
     
+    def get_item_class(item, default_class):
+        if "[타겟]" in item or "[Target]" in item:
+            return "target"
+        elif "[직접경쟁]" in item or "[Peer]" in item:
+            return "peer"
+        elif "[병목협력]" in item or "[Bottleneck]" in item:
+            return "bottleneck"
+        return default_class
+
     # Subgraph for Upstream
     mermaid_code += f"    subgraph U [\"{up_label}\"]\n"
     for i, item in enumerate(upstream_items):
-        mermaid_code += f"        U{i}(\"{item}\"):::upstream\n"
+        cls = get_item_class(item, "upstream")
+        mermaid_code += f"        U{i}(\"{item}\"):::{cls}\n"
     mermaid_code += f"    end\n\n"
 
     # Subgraph for Midstream
     mermaid_code += f"    subgraph M [\"{mid_label}\"]\n"
     for i, item in enumerate(midstream_items):
-        mermaid_code += f"        M{i}(\"{item}\"):::midstream\n"
+        cls = get_item_class(item, "midstream")
+        mermaid_code += f"        M{i}(\"{item}\"):::{cls}\n"
     mermaid_code += f"    end\n\n"
 
     # Subgraph for Downstream
     mermaid_code += f"    subgraph D [\"{down_label}\"]\n"
     for i, item in enumerate(downstream_items):
-        mermaid_code += f"        D{i}(\"{item}\"):::downstream\n"
+        cls = get_item_class(item, "downstream")
+        mermaid_code += f"        D{i}(\"{item}\"):::{cls}\n"
     mermaid_code += f"    end\n\n"
     
     # Connections between subgraphs
