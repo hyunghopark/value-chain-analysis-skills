@@ -35,6 +35,7 @@ Follow these steps to conduct a high-precision corporate financial analysis:
 2. The script programmatically pulls real-time market data from Yahoo Finance API and blends official WiseReport / Naver Finance consensus for Korean stocks.
 3. Review the generated tables:
    - **1. 주요 주가 및 시가총액 현황**: Stock Price, 52-Week Range, Market Capitalization, Currency.
+   - **1-1. 📉 최근 5거래일 투자자별 수급 동향 (외국인 · 기관 · 개인 거래대금 추정)**: 최근 5거래일간 외국인/기관/개인의 순매매 수량 및 추정 대금(억 원), 외국인 지분율 변동을 정량 집계하여 수급 공백 및 패닉셀 여부 진단.
    - **2. 핵심 재무 및 밸류에이션 지표 (별표 체계 적용)**:
      - ⭐⭐⭐ **Tier 1 핵심 결정 지표**: Forward P/E (12M NTM), PEG Ratio, YoY Revenue Growth.
      - ⭐⭐ **Tier 2 확신 강화 지표**: EV/EBITDA, ROE, Debt/Equity.

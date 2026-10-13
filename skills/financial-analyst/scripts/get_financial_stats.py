@@ -556,6 +556,73 @@ def audit_unusual_items(t, info, ticker_symbol):
         print(f"[Warn] Audit failed for {ticker_symbol}: {e}", file=sys.stderr)
         return None
 
+def fetch_investor_trends_table(ticker_code, company_name=''):
+    import requests
+    import datetime
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Referer': 'https://finance.daum.net'}
+    url = f'https://m.stock.naver.com/api/stock/{ticker_code}/trend'
+    try:
+        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=5).json()
+    except Exception as e:
+        return ''
+    if not isinstance(res, list) or not res:
+        return ''
+
+    today_str = datetime.datetime.now().strftime('%Y%m%d')
+    has_today = any(r.get('bizdate') == today_str for r in res)
+
+    rows = []
+    tot_frgn_amt = 0
+    tot_org_amt = 0
+    tot_ind_amt = 0
+
+    # If today is not in trend yet, fetch real-time quote for today's foreign trading
+    if not has_today:
+        try:
+            dq_url = f'https://finance.daum.net/api/quotes/A{ticker_code}'
+            dq = requests.get(dq_url, headers=headers, timeout=5).json()
+            trade_date = dq.get('date')
+            curr_shares = dq.get('foreignOwnShares')
+            curr_price = dq.get('tradePrice', 0)
+            curr_ratio = f"{dq.get('foreignRatio', 0)*100:.2f}%"
+
+            ddays_url = f'https://finance.daum.net/api/investor/days?page=1&perPage=2&symbolCode=A{ticker_code}'
+            ddays = requests.get(ddays_url, headers=headers, timeout=5).json()
+            if 'data' in ddays and ddays['data']:
+                y_shares = ddays['data'][0].get('foreignOwnShares')
+                if curr_shares and y_shares:
+                    diff_q = curr_shares - y_shares
+                    diff_amt = (diff_q * curr_price) / 1e8
+                    tot_frgn_amt += diff_amt
+                    rows.append(f'| **{trade_date} (당일 실시간)** | ₩{curr_price:,.0f} | **{diff_amt:+,.0f}억 (잠정)** | (정산중) | (정산중) | {curr_ratio} |')
+        except Exception:
+            pass
+
+    for row in res[:4 if not has_today else 5]:
+        bdate = str(row.get('bizdate', ''))
+        date_str = f'{bdate[:4]}-{bdate[4:6]}-{bdate[6:]}' if len(bdate) == 8 else bdate
+        close_p = float(str(row.get('closePrice', '0')).replace(',', ''))
+        frgn_q = float(str(row.get('foreignerPureBuyQuant', '0')).replace(',', '').replace('+', ''))
+        org_q = float(str(row.get('organPureBuyQuant', '0')).replace(',', '').replace('+', ''))
+        ind_q = float(str(row.get('individualPureBuyQuant', '0')).replace(',', '').replace('+', ''))
+        frgn_ratio = row.get('foreignerHoldRatio', 'N/A')
+
+        frgn_amt = (frgn_q * close_p) / 1e8
+        org_amt = (org_q * close_p) / 1e8
+        ind_amt = (ind_q * close_p) / 1e8
+
+        tot_frgn_amt += frgn_amt
+        tot_org_amt += org_amt
+        tot_ind_amt += ind_amt
+
+        rows.append(f'| {date_str} | ₩{close_p:,.0f} | {frgn_amt:+,.0f}억 | {org_amt:+,.0f}억 | {ind_amt:+,.0f}억 | {frgn_ratio} |')
+
+    title = f'**{company_name} ({ticker_code}) 최근 5거래일 투자자별 순매매 동향 (당일 실시간 연동)**'
+    header = '| 거래일자 | 종가 | 외국인 순매매 | 기관 순매매 | 개인 순매매 | 외국인 지분율 |\n|---|---|---|---|---|---|'
+    summary = f'| **최근 5일 누적** | - | **{tot_frgn_amt:+,.0f}억 원** | **{tot_org_amt:+,.0f}억 원 (당일제외)** | **{tot_ind_amt:+,.0f}억 원 (당일제외)** | - |'
+
+    return f'{title}\n\n{header}\n' + '\n'.join(rows) + f'\n{summary}\n'
+
 def generate_report(tickers_list):
     results = {}
     for symbol in tickers_list:
@@ -587,6 +654,20 @@ def generate_report(tickers_list):
         
         output += f"| **{name} ({symbol})** | {format_number(price, True, curr)} | {format_number(low, True, curr)} ~ {format_number(high, True, curr)} | {format_large_number(mcap, curr)} | {curr} |\n"
     output += "\n"
+
+    # 1-1. Investor Trend Tables (Korean stocks)
+    kr_trends = []
+    for symbol in tickers_list:
+        if symbol.endswith('.KS') or symbol.endswith('.KQ'):
+            code = symbol.split('.')[0]
+            cname = results.get(symbol, {}).get('shortName') or results.get(symbol, {}).get('longName') or symbol
+            tbl = fetch_investor_trends_table(code, cname)
+            if tbl:
+                kr_trends.append(tbl)
+    if kr_trends:
+        output += "### 1-1. 📉 최근 5거래일 투자자별 수급 동향 (외국인 · 기관 · 개인 거래대금 추정)\n\n"
+        output += "> 💡 **수급 왜곡 진단**: 최근 주가 급변동 국면에서 외국인과 기관의 프로그램 매도세 및 개인 수급 흡수 강도를 정량 추적합니다.\n\n"
+        output += "\n\n".join(kr_trends) + "\n\n"
 
     # 2. Key Valuation Metrics Table
     output += "### 2. 핵심 재무 및 밸류에이션 지표\n\n"
