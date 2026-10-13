@@ -35,7 +35,11 @@ Antigravity 에이전트를 위한 산업 밸류체인 분석, 정밀 기업 재
 운영 지식은 스킬과 함께 저장소 루트에서 관리합니다(스킬 설치에는 필요 없음).
 
 ```
-CLAUDE.md                 # 이 저장소 작업 규칙
+CLAUDE.md                 # 이 저장소 작업 안내 (최상위 원칙은 헌법)
+ROADMAP.md                # 목표와 단계별 상태
+specs/                    # 목표별 spec·plan·tasks (Spec Kit)
+.specify/                 # Spec Kit: 헌법, 템플릿, PowerShell 스크립트
+.claude/skills/speckit-*  # Spec Kit 명령 스킬
 wiki/                     # 데이터 출처 백과·사건 기록(KI-xxx) — karpathy-llm-wiki 패턴
 raw/                      # 위키 근거 자료 (수정 금지)
 docs/decisions/           # 결정 기록
@@ -44,6 +48,29 @@ tests/                    # data_checks 테스트
 ```
 
 ---
+
+## 🔧 필요한 도구
+
+| 도구 | 용도 | 누가 | 설치 (Windows) |
+|---|---|---|---|
+| Git | 저장소 받기 | 모두 | `winget install Git.Git` |
+| [uv](https://docs.astral.sh/uv/) | 파이썬과 패키지를 자동 설치하고 스크립트 실행 | 모두 | `winget install astral-sh.uv` |
+| Claude Code | 스킬 실행, 개발 | 모두 | 데스크톱 앱 또는 CLI |
+| GitHub CLI (`gh`) | PR·이슈 | 개발자 | `winget install GitHub.cli` 후 `gh auth login` |
+| Spec Kit CLI (`specify`) | Spec Kit 템플릿 업그레이드, `specify check` | 개발자 (선택) | `uv tool install specify-cli --from git+https://github.com/github/spec-kit.git@v1.1.3` |
+| PowerShell 5.1 이상 | Spec Kit 보조 스크립트 | 개발자 | Windows 기본 포함 |
+
+- 파이썬은 따로 설치하지 않아도 됩니다. `uv`가 필요한 버전을 받아 씁니다.
+- `/speckit-*` 명령은 저장소에 커밋된 파일(`.claude/skills/speckit-*`, `.specify/`)만으로 동작합니다. Spec Kit CLI는 업그레이드할 때만 필요합니다.
+- 필요 없는 것: Node.js(OpenSpec 미사용), 거래소(KRX) 계정, 가상환경 직접 관리.
+
+## 💻 다른 PC에서 개발 시작하기
+
+1. 저장소를 받습니다: `git clone https://github.com/hyunghopark/value-chain-analysis-skills.git`
+2. 아래 '설치'의 링크 명령으로 스킬 3개를 `~/.claude/skills`에 연결합니다.
+3. 저장소 폴더에서 Claude Code를 엽니다. 저장소 전용 스킬(위키, Spec Kit)이 이때만 켜집니다.
+4. [헌법](.specify/memory/constitution.md)과 [ROADMAP](ROADMAP.md)을 읽고, 이어서 할 스펙 폴더를 `.specify/feature.json`에 지정합니다. 예: `{"feature_directory":"specs/001-data-snapshot"}`
+5. 테스트로 환경을 확인합니다: `uv run --no-project --with-requirements skills/financial-analyst/requirements.txt --with pytest pytest tests -q`
 
 ## 📦 설치
 
@@ -121,6 +148,11 @@ Python 패키지는 [uv](https://docs.astral.sh/uv/)가 있으면 SKILL.md의 `u
 - **정기 점검**: `check_data_sources.py` 결과를 `raw/data-checks/`에 저장하고 위키에 반영합니다. 명령은 `CLAUDE.md`에 있습니다.
 
 ## 📝 변경 이력
+
+### 2026-10-14 — 스펙 주도 개발 도입
+- **Spec Kit v1.1.3 도입** (Claude Code 통합, PowerShell 스크립트): 헌법(`.specify/memory/constitution.md`)에 객관성·출처 추적·조용한 오류 금지·규칙 단일 원본·검증·Clean-Slate 원칙을 정리했습니다.
+- 001 데이터 스냅샷 스펙을 Spec Kit 템플릿 형식으로 옮겼습니다.
+- README에 필요한 도구와 다른 PC에서 시작하는 방법을 추가했습니다.
 
 ### 2026-10-14 — 데이터 품질 관리 체계
 - **출처 교차 점검 추가**: 한국 종목·지수 가격을 거래소 종가(다음 금융) 기준으로 대조해 Yahoo의 누락·오류를 보완합니다. 수급 표의 종가(수급 데이터 기준)가 거래소 정규장 종가와 다르면 경고합니다(2026-09-14부터).
