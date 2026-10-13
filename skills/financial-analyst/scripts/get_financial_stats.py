@@ -623,6 +623,63 @@ def fetch_investor_trends_table(ticker_code, company_name=''):
 
     return f'{title}\n\n{header}\n' + '\n'.join(rows) + f'\n{summary}\n'
 
+def fetch_technical_indicators_table(tickers_list, results):
+    rows = []
+    for symbol in tickers_list:
+        try:
+            t = yf.Ticker(symbol)
+            df = t.history(period='3mo')
+            if df.empty or len(df) < 20:
+                continue
+            delta = df['Close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            rsi = 100 - (100 / (1 + rs))
+
+            sma20 = df['Close'].rolling(window=20).mean()
+            std20 = df['Close'].rolling(window=20).std()
+            upper = sma20 + 2 * std20
+            lower = sma20 - 2 * std20
+
+            curr = df['Close'].iloc[-1]
+            c_rsi = rsi.iloc[-1]
+            c_sma = sma20.iloc[-1]
+            c_lower = lower.iloc[-1]
+            c_upper = upper.iloc[-1]
+            dev_lower = ((curr - c_lower) / c_lower) * 100
+
+            status = "정상 밴드 내"
+            if c_rsi < 30 and dev_lower < 0:
+                status = "🚨 극단적 과매도 & 밴드 하단 이탈"
+            elif c_rsi < 30:
+                status = "⚠️ RSI 과매도 구간 (<30)"
+            elif dev_lower < 0:
+                status = "⚠️ 볼린저 하단 이탈 (-2σ 하회)"
+            elif c_rsi > 70:
+                status = "🔥 RSI 과열 구간 (>70)"
+
+            info = results.get(symbol, {})
+            name = info.get('shortName') or info.get('longName') or symbol
+            curr_code = info.get('currency', 'USD')
+            curr_str = f"₩{curr:,.0f}" if curr_code == "KRW" else f"${curr:,.2f}"
+            lower_str = f"₩{c_lower:,.0f}" if curr_code == "KRW" else f"${c_lower:,.2f}"
+            sma_str = f"₩{c_sma:,.0f}" if curr_code == "KRW" else f"${c_sma:,.2f}"
+
+            rows.append(f"| **{name} ({symbol})** | {curr_str} | **{c_rsi:.1f}** | {sma_str} | {lower_str} | **{dev_lower:+.1f}%** | {status} |")
+        except Exception as e:
+            print(f"[Warn] Technical indicator calculation failed for {symbol}: {e}", file=sys.stderr)
+
+    if not rows:
+        return ""
+
+    table = "### 1-2. 📈 퀀트 기술적 모멘텀 및 변동성 지표 (RSI · 볼린저밴드 이탈도)\n\n"
+    table += "> 💡 **기술적 과매도/과열 진단**: 14일 RSI(상대강도지수) 및 20일 볼린저밴드(±2σ) 하단 이탈도를 통해 주가의 극단적 패닉셀 및 기술적 반등 트리거를 정량 진단합니다.\n\n"
+    table += "| 기업명 (티커) | 현재 주가 | 14일 RSI | 20일 이평선 (SMA) | 볼린저 하단 (-2σ) | 하단 밴드 이탈도 | 기술적 국면 진단 |\n"
+    table += "|---|---|---|---|---|---|---|\n"
+    table += "\n".join(rows) + "\n\n"
+    return table
+
 def generate_report(tickers_list):
     results = {}
     for symbol in tickers_list:
@@ -669,6 +726,11 @@ def generate_report(tickers_list):
         output += "> 💡 **수급 왜곡 진단**: 최근 주가 급변동 국면에서 외국인과 기관의 프로그램 매도세 및 개인 수급 흡수 강도를 정량 추적합니다.\n\n"
         output += "\n\n".join(kr_trends) + "\n\n"
 
+    # 1-2. Technical Indicators Table (Quant Momentum & Bollinger Bands)
+    tech_table = fetch_technical_indicators_table(tickers_list, results)
+    if tech_table:
+        output += tech_table
+
     # 2. Key Valuation Metrics Table
     output += "### 2. 핵심 재무 및 밸류에이션 지표\n\n"
     output += "> ⭐⭐⭐ 최우선 지표 | ⭐⭐ 확신 강화 지표 | 무표시 = 보조 지표\n\n"
@@ -708,11 +770,13 @@ def generate_report(tickers_list):
         ("**[재무 건전성]**", None, None),
         ("⭐⭐ 부채비율 (Debt/Equity)", 'debtToEquity', lambda v: f"{v:,.2f}%" if isinstance(v, (int, float)) else "N/A"),
         ("유동비율 (Current Ratio)", 'currentRatio', format_number),
-        # --- Shareholder Return ---
-        ("**[주주환원·리스크]**", None, None),
+        # --- Shareholder Return & Positioning ---
+        ("**[주주환원·수급·리스크]**", None, None),
         ("배당수익률 (Div Yield)", 'dividendYield', lambda v: f"{v:,.2f}%" if isinstance(v, (int, float)) else "N/A"),
         ("배당성향 (Payout Ratio)", 'payoutRatio', format_percent),
         ("베타 (β)", 'beta', format_number),
+        ("공매도 잔고율 (Short % of Float)", 'shortPercentOfFloat', format_percent),
+        ("기관 보유율 (Inst. Ownership)", 'heldPercentInstitutions', format_percent),
     ]
     
     for label, key, formatter in metrics:
