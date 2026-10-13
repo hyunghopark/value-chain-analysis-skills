@@ -1,7 +1,7 @@
 ---
 name: value-chain-analyzer
 description: A comprehensive skill for analyzing industry value chains. Use when the user asks about the structure of an industry, the value chain of a specific sector, key players in an industry, or how a specific product/technology is made. This skill guides the systematic breakdown of industries into upstream, midstream, and downstream components, identifying key materials, components, and players.
-version: 1.2.0
+version: 1.3.0
 allowed-tools: run_command search_web read_url_content
 ---
 
@@ -41,7 +41,7 @@ Break the industry down into logical stages. The standard model is:
 2. For each stage identified in Step 2, determine:
    - **Key Components/Processes:** What exactly is being made or done here?
    - **Technological Importance:** Why is this step critical? What are the barriers to entry?
-   - **Cost/Value Contribution:** Approximately what percentage of the final product's value is created here?
+   - **Cost/Value Contribution:** What share of the final product's value is created here? Give a percentage only when a source states it (cite it); otherwise describe it qualitatively (e.g., "가장 높은 마진 구간").
 3. **CRITICAL**: For every piece of information or statistic you find, collect the exact webpage title and URL. You will need these for references.
 
 ### Step 4: Identify Key Players (Market Mapping)
@@ -57,6 +57,8 @@ For the most critical components identified in Step 3:
    ```bash
    venv/bin/python3 .agents/skills/value-chain-analyzer/scripts/generate_mermaid.py --industry "[Industry Name]" --upstream "[U1, U2]" --midstream "[M1, M2]" --downstream "[D1, D2]" --lang ko
    ```
+   - Items are separated by commas, so do not put a comma inside an item name (use `·` instead). Double quotes inside an item are converted to single quotes.
+   - When the diagram feeds an investment report, tag nodes with roles (`[타겟]`, `[직접경쟁]`, `[병목협력]`). If a company plays two roles relative to the target (e.g., a bottleneck partner that also competes with one of the target's divisions), show both (`[병목협력·경쟁]`).
 2. Structure the final report using the template provided in `templates/report_template.md`.
 3. Populate the report sections using your findings. Add inline citation tags (e.g., `[1]`, `[2]`) in the body text next to any key claims, market shares, or cost figures.
 4. At the bottom of the report, create a `## References` section listing all collected sources as clickable markdown links (e.g. `[1] [Source Title](URL) - Description`).
