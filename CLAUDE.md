@@ -10,6 +10,8 @@
 | `skills/financial-analyst/references/rules/` | **판정·데이터 규칙의 원본.** 기준값은 여기와 코드에만 둡니다. |
 | `wiki/` | 데이터 출처 백과와 사건 기록(`known-issues/`). karpathy-llm-wiki 패턴, LLM이 관리합니다. |
 | `raw/` | 위키의 근거 자료. 한 번 저장하면 수정하지 않습니다. |
+| `ROADMAP.md` | 목표와 단계별 상태. |
+| `specs/NNN-이름/` | 목표별 요구사항(`spec.md`) → 설계(`plan.md`) → 작업(`tasks.md`). 구현은 확정된 spec·plan을 따릅니다. |
 | `docs/decisions/` | 왜 그렇게 정했는지(결정 기록). |
 | `tests/` | `data_checks.py` 테스트. |
 | `.claude/skills/karpathy-llm-wiki/` | 위키 스킬 (고정 커밋 복사본, 이 저장소에서만 작동). |
@@ -20,7 +22,8 @@
 2. **새 데이터 문제를 발견하면** `references/rules/data-quality.md`의 '새 데이터 문제를 발견했을 때' 절차를 따릅니다. 근거(`raw/`) → 사건 문서(`wiki/known-issues/`) → 코드 경고 `ki('KI-NNN', ...)` → 테스트 순서입니다.
 3. **위키에는 방법론과 데이터 품질 사실만** 넣습니다. 기업별 분석 결론·판정·목표가는 넣지 않습니다(investment-strategy의 Clean-Slate 원칙).
 4. 위키 숫자는 `raw/`에 글자 그대로 있어야 합니다. 커밋 전 근거 대조를 돌립니다.
-5. 비공식 출처(네이버·다음·WiseReport)는 언제든 바뀔 수 있으므로, 정기 점검 결과가 바뀌면 사건 문서의 상태를 갱신합니다(지우지 않고 Outdated 표시).
+5. **새 목표나 큰 변경은** `specs/`에 spec → plan → tasks 순으로 쓰고 확정한 뒤 구현합니다. 범위가 바뀌면 spec부터 고칩니다.
+6. 비공식 출처(네이버·다음·WiseReport)는 언제든 바뀔 수 있으므로, 정기 점검 결과가 바뀌면 사건 문서의 상태를 갱신합니다(지우지 않고 Outdated 표시).
 
 ## 명령
 
