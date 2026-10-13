@@ -1,7 +1,7 @@
 ---
 name: value-chain-analyzer
 description: A comprehensive skill for analyzing industry value chains. Use when the user asks about the structure of an industry, the value chain of a specific sector, key players in an industry, or how a specific product/technology is made. This skill guides the systematic breakdown of industries into upstream, midstream, and downstream components, identifying key materials, components, and players.
-version: 1.1.0
+version: 1.2.0
 allowed-tools: run_command search_web read_url_content
 ---
 
@@ -9,7 +9,7 @@ allowed-tools: run_command search_web read_url_content
 
 ## Overview
 
-The Value Chain Analyzer provides a structured methodology for breaking down any industry or technology into its component parts. It helps identify the complete ecosystem from raw materials to end products, including key components, manufacturing processes, and major companies operating at each stage.
+The Value Chain Analyzer provides a structured methodology for breaking down any industry or technology into its component parts. It helps identify the complete ecosystem from raw materials to end products, including key components, manufacturing processes, economic moats (경제적 해자), and major bottleneck companies operating at each stage.
 
 ## When to Use
 
@@ -49,12 +49,14 @@ For the most critical components identified in Step 3:
 1. Search the web to identify the dominant companies globally and domestically.
 2. Note their market share or relative market position if available.
 3. Distinguish between pure-play companies and diversified conglomerates.
-4. Identify critical bottlenecks/choke points (components dominated by a few players or having high barriers to entry).
+4. Identify critical bottlenecks/choke points (components dominated by a few players or having high barriers to entry/pricing power).
 5. Collect the source URLs and titles for these findings.
 
 ### Step 5: Synthesize and Present Findings (With Citations & Diagram)
-1. Run the python script `scripts/generate_mermaid.py` to generate a professional, Left-to-Right diagram with subgraphs representing the value chain stages. Match the output language of the report (e.g., use `--lang ko` if the report is in Korean, or `--lang en` if in English):
-   `python3 scripts/generate_mermaid.py --industry "[Industry Name]" --upstream "[U1, U2]" --midstream "[M1, M2]" --downstream "[D1, D2]" --lang ko`
+1. Run the python script `scripts/generate_mermaid.py` using the project virtual environment to generate a professional, Left-to-Right diagram with subgraphs representing the value chain stages. Match the output language of the report (e.g., use `--lang ko` if the report is in Korean, or `--lang en` if in English):
+   ```bash
+   venv/bin/python3 .agents/skills/value-chain-analyzer/scripts/generate_mermaid.py --industry "[Industry Name]" --upstream "[U1, U2]" --midstream "[M1, M2]" --downstream "[D1, D2]" --lang ko
+   ```
 2. Structure the final report using the template provided in `templates/report_template.md`.
 3. Populate the report sections using your findings. Add inline citation tags (e.g., `[1]`, `[2]`) in the body text next to any key claims, market shares, or cost figures.
 4. At the bottom of the report, create a `## References` section listing all collected sources as clickable markdown links (e.g. `[1] [Source Title](URL) - Description`).
