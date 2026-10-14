@@ -15,6 +15,7 @@
 | `attached_at` | string | 덧붙인 시각 (KST) |
 
 - `generate_strategy_report.py`가 보고서 파일을 쓰기 직전에 덧붙인다. 스냅샷 파일이 없으면(저장 실패) 덧붙이지 않고, 점검 도구가 '기준본 없음'을 보고한다.
+- **비교 범위**: 보고서의 `## 4.` 제목 다음 줄부터 다음 `---` 줄 또는 `## ` 제목 전까지를 `text`와 비교한다. 양쪽 모두 앞뒤 빈 줄을 지우고 줄 끝 공백은 무시한다.
 
 ### 1-2. `values` 경로 추가
 
@@ -48,6 +49,8 @@
 | `matched_path` | string/null | 일치한 스냅샷 경로 |
 | `match_count` | int | 일치한 경로 수 |
 | `snapshot_status` | string/null | 일치한 값의 `status` (`provisional` 등) |
+
+**용어 대응**: spec의 '스크립트 값 일치' = `script`, '인용 출처 있음' = `cited`, '근거 없음' = `unsupported`, '대조 불가'(짝 스냅샷 없음) = `no_snapshot` 문제.
 
 **분류 순서**: 제외 규칙 → 스냅샷 일치(`script`) → 범위 내 인용(`cited`) → 나머지(`unsupported`). 스크립트 일치와 인용이 둘 다 있으면 `script`로 두고 `scope_citations`도 남긴다.
 

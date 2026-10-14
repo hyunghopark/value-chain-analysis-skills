@@ -12,11 +12,13 @@ UVR="uv run --no-project --with-requirements skills/financial-analyst/requiremen
 CHECK="$UVR python skills/financial-analyst/scripts/check_report_numbers.py"
 ```
 
-## 1. 테스트 전체 (CI와 같음)
+## 1. 테스트 (CI와 같음, 네트워크 없음)
 
 ```bash
-$UVR --with pytest pytest tests -q
+$UVR --with pytest pytest tests -q -m "not network"
 ```
+
+국내 사이트에 접속하는 테스트까지 모두 돌리려면 로컬에서 `-m "not network"`를 빼고 실행한다.
 
 기대: 모두 통과. 이 안에 아래가 들어 있다.
 - 검증 세트(`tests/fixtures/002/`): 분류 일치율 95% 이상, `unsupported`를 다른 분류로 통과시킨 것 0건(SC-001), 근거 없음 비율 25% 이하(SC-002), 제외 대상의 오탐 5% 이하(SC-003)
@@ -54,7 +56,7 @@ $CHECK /tmp/v/report.md --json /tmp/v/check.json; echo "exit=$?"
 
 기대:
 - 스냅샷에 `section4`가 있다.
-- 점검 결과에서 `section4.changed_lines`가 0건, `section4.snapshot_missing`이 0건이다(SC-004, FR-015).
+- 점검 결과에서 `section4.changed_lines`가 0건, `section4.snapshot_missing`이 0건이다(SC-004, FR-015). 같은 확인을 하는 `network` 표시 테스트도 이때 로컬에서 실행한다.
 - `[AI_TODO]`가 남아 있으므로 `ai_todo_left` 문제로 `exit=1`이다.
 - Section 4 표의 숫자 하나를 고치고 다시 점검하면 그 줄이 `section4_changed`로 나온다.
 

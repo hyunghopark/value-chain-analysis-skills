@@ -26,9 +26,9 @@
 
 **Performance Goals**: 보고서 1건 점검 10초 이내, 네트워크 없이(SC-006). 시제품 0.55초.
 
-**Constraints**: 보고서·스냅샷 읽기 전용(FR-014). 짝 스냅샷 외 파일 읽지 않음(헌법 VI). 네트워크는 `--fetch-sources`일 때만. Windows 콘솔 UTF-8 출력(001과 같은 처리).
+**Constraints**: 보고서·스냅샷 읽기 전용(FR-014). 짝 스냅샷 외 파일 읽지 않음(헌법 VI). 네트워크는 `--fetch-sources`일 때만. Windows 콘솔 UTF-8 출력(001과 같은 처리). CI 테스트는 네트워크 없이 돈다 — 국내 사이트에 접속하는 테스트는 `network` 표시를 달아 CI에서 건너뛰고 로컬에서만 실행한다(헌법 기술 제약).
 
-**Scale/Scope**: 보고서 1건당 본문 숫자 약 200개, Section 4 숫자 약 700개, 스냅샷 값 약 3,000개, 참고문헌 10~30개.
+**Scale/Scope**: 보고서 1건당 본문 숫자 약 270개(제외 후 약 185개), Section 4 숫자 약 700개, 스냅샷 값 약 3,000개, 참고문헌 10~30개.
 
 조사 결과와 결정 근거는 [research.md](research.md)에 있다. 미해결 항목 없음.
 
@@ -114,6 +114,7 @@ specs/002-report-number-check/
 ├── quickstart.md        # Phase 1: 끝에서 끝까지 검증 절차
 ├── contracts/cli.md     # Phase 1: 명령·종료 코드·출력·보고서 섹션 형식
 ├── checklists/requirements.md
+├── baseline-section4.md # T002: 수정 전 Section 4 회귀 기준
 └── tasks.md             # /speckit-tasks에서 생성
 ```
 
@@ -135,7 +136,8 @@ skills/investment-strategy/
 tests/
 ├── test_report_numbers.py          # 신규: 합성 자료 단위 테스트, 검증 세트, Section 4 주입, 참고문헌, 기사 대조 mock
 ├── test_snapshot.py                # 변경: section4, 추가 경로
-└── fixtures/002/                   # 신규: report.md, report_data.json, labels.json
+├── conftest.py                     # 신규: network 표시 등록
+└── fixtures/002/                   # 신규: report.md, report_data.json, labels.json, README.md(출처)
 docs/decisions/0005-report-number-check.md   # 신규: 직접 계산 금지·기사 대조 선택 실행·섹션 기록 방식
 ```
 
