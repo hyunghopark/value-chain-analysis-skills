@@ -523,3 +523,38 @@ def test_checker_is_read_only(tmp_path, monkeypatch):                 # FR-014, 
     assert all("w" not in mode and "a" not in mode for _, mode in opened)
     names = {os.path.basename(p) for p, _ in opened}
     assert names <= {"r.md", "r_data.json", "report-number-check.md"}, names
+
+
+# --- T012: validation set (SC-001, SC-002, SC-003, SC-006) --------------------------------------
+
+def test_validation_set():
+    import time
+    labels_path = os.path.join(FIXTURE_DIR, "labels.json")
+    with open(labels_path, encoding="utf-8") as f:
+        labels = json.load(f)
+    if not labels.get("reviewed"):
+        pytest.skip("tests/fixtures/002/labels.json 사람 검토 전 (tasks T013) — SC-001~SC-003 미검증")
+
+    started = time.time()
+    result = crn.check(os.path.join(FIXTURE_DIR, labels["report"]), os.path.join(FIXTURE_DIR, labels["snapshot"]))
+    elapsed = time.time() - started
+    actual = {m.id: m.classification for m in result.mentions}
+
+    mention_labels = labels["labels"]
+    assert set(actual) == {l["id"] for l in mention_labels}, "labels.json is out of date with the checker's mentions"
+    agree = sum(actual[l["id"]] == l["expected"] for l in mention_labels)
+    false_pass = [l for l in mention_labels if l["expected"] == "unsupported" and actual[l["id"]] != "unsupported"]
+    # quantities the checker left out are never checked: also a silent pass
+    false_pass += [x for x in labels["excluded"] if x["expected"] == "unsupported"]
+    total = len(mention_labels) + len(labels["excluded"])
+    agree += sum(x["expected"] == "excluded" for x in labels["excluded"])
+
+    assert agree / total >= 0.95, f"SC-001 agreement {agree}/{total}"
+    assert false_pass == [], f"SC-001 false pass: {[(x.get('raw') or x.get('text')) for x in false_pass]}"
+
+    quantities = [l for l in mention_labels if l["expected"] != "excluded"]
+    unsupported = [l for l in mention_labels if actual[l["id"]] == "unsupported"]
+    assert len(unsupported) <= 0.25 * len(quantities), f"SC-002 {len(unsupported)}/{len(quantities)}"
+    noise = [l for l in unsupported if l["expected"] == "excluded"]
+    assert len(noise) <= 0.05 * max(len(unsupported), 1), f"SC-003 {[l['raw'] for l in noise]}"
+    assert elapsed <= 10, f"SC-006 {elapsed:.1f}s"

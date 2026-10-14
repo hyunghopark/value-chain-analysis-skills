@@ -269,16 +269,23 @@ MASKS = [
 ]
 
 
-def mask_non_quantities(line, in_mermaid=False):
-    """Blank out non-quantity notations (keeping positions) and count them by category."""
+def mask_non_quantities(line, in_mermaid=False, found=None):
+    """Blank out non-quantity notations (keeping positions) and count them by category.
+
+    If a list is given as found, (category, text) of every blanked notation is appended to it.
+    """
     counts = dict.fromkeys(EXCLUDE_CATEGORIES, 0)
     if in_mermaid and MERMAID_STYLE_LINE.match(line):
         counts['diagram_style'] += 1
+        if found is not None:
+            found.append(('diagram_style', line.strip()))
         return ' ' * len(line), counts
 
     def blank(category):
         def repl(m):
             counts[category] += 1
+            if found is not None:
+                found.append((category, m.group(0)))
             return ' ' * len(m.group(0))
         return repl
 
@@ -287,13 +294,15 @@ def mask_non_quantities(line, in_mermaid=False):
     return line, counts
 
 
-def extract_numbers(line, in_mermaid=False):
+def extract_numbers(line, in_mermaid=False, found=None):
     """Quantities in one line, plus counts of the non-quantities that were left out."""
-    masked, counts = mask_non_quantities(line, in_mermaid)
+    masked, counts = mask_non_quantities(line, in_mermaid, found)
     tokens = []
     for t in parse_numbers(masked):
         if not t.unit and not t.currency and not t.sign and t.decimals == 0 and abs(t.value) < 10:
             counts['numbering'] += 1      # bare one-digit integer: an ordinal or a count word
+            if found is not None:
+                found.append(('numbering', t.raw))
             continue
         tokens.append(t)
     return tokens, counts
@@ -341,10 +350,11 @@ def _heading_title(line):
     return line.lstrip('#').strip()
 
 
-def extract_mentions(report, tickers=()):
+def extract_mentions(report, tickers=(), excluded_items=None):
     """Every quantity in the head and body sections, with section, line, context, citations and ticker.
 
-    Returns (mentions, excluded counts by category).
+    Returns (mentions, excluded counts by category). If a list is given as excluded_items,
+    {'line', 'category', 'text', 'context'} of every left-out notation is appended to it.
     """
     find_ticker = ticker_pattern(tickers)
     excluded = dict.fromkeys(EXCLUDE_CATEGORIES, 0)
@@ -371,7 +381,11 @@ def extract_mentions(report, tickers=()):
                 heading = _heading_title(line)
                 m = find_ticker.search(line) if find_ticker else None
                 heading_ticker = m.group(1) if m else None
-            tokens, counts = extract_numbers(line, in_mermaid)
+            found = [] if excluded_items is not None else None
+            tokens, counts = extract_numbers(line, in_mermaid, found)
+            for category, text in found or []:
+                excluded_items.append({'line': line_no, 'category': category, 'text': text,
+                                       'context': line.strip()[:120]})
             for k, v in counts.items():
                 excluded[k] += v
             if not tokens:
