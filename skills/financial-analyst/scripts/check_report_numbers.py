@@ -169,6 +169,71 @@ def load_snapshot(path):
         return json.load(f)
 
 
+# --- Reading numbers (rules §3) -------------------------------------------------------------
+
+@dataclass
+class NumberToken:
+    raw: str
+    value: float
+    unit: str
+    decimals: int
+    sign: Optional[str]                   # '+', '-' or None
+    currency: Optional[str]
+    start: int
+    end: int
+
+
+NUMBER = re.compile(
+    r'(?P<sign>[+\-−])?(?P<cur>[₩$])?'
+    r'(?P<num>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)'
+    r'(?P<unit>%p|%|배|조|억|만|건|GB|TB|bp|주|(?:x|T|B|M|K)(?![A-Za-z]))?')
+EOK_AFTER_JO = re.compile(r'\s?(\d{1,3}(?:,\d{3})+|\d+)억')
+RANGE_SEP = re.compile(r'\s?[~∼]\s?$')
+
+
+def parse_numbers(text):
+    """Read every number in text as (value, unit, decimals, sign, currency) with its position.
+
+    '3조 9,334억' is one amount (3.9334 조), '50~60%' lends '%' to 50, and a '-' glued to a preceding
+    letter or digit ('1-1', '10-14') is a separator, not a sign.
+    """
+    tokens = []
+    pos = 0
+    while True:
+        m = NUMBER.search(text, pos)
+        if not m:
+            break
+        start, end = m.start(), m.end()
+        sign = m.group('sign')
+        if sign and start > 0 and text[start - 1].isalnum():
+            sign = None
+            start += 1
+        num_start = m.start('num')
+        if num_start > 0 and text[num_start - 1].isascii() and text[num_start - 1].isalpha():
+            pos = end              # digits glued to a Latin word (HBM4): not a quantity
+            continue
+        num = m.group('num')
+        value = float(num.replace(',', ''))
+        decimals = len(num.split('.')[1]) if '.' in num else 0
+        unit = m.group('unit') or ''
+        if unit == '조' and decimals == 0:
+            eok = EOK_AFTER_JO.match(text, end)
+            if eok:
+                value += float(eok.group(1).replace(',', '')) / 1e4
+                decimals = 4
+                end = eok.end()
+        if sign in ('-', '−'):
+            sign = '-'
+            value = -value
+        tokens.append(NumberToken(text[start:end], value, unit, decimals, sign, m.group('cur'), start, end))
+        pos = end
+
+    for cur, nxt in zip(tokens, tokens[1:]):
+        if not cur.unit and not cur.currency and nxt.unit and RANGE_SEP.match(text[cur.end:nxt.start]):
+            cur.unit = nxt.unit
+    return tokens
+
+
 # --- Entry point ----------------------------------------------------------------------------
 
 def build_parser():

@@ -115,3 +115,51 @@ def test_exit_code_2_for_missing_report(tmp_path):
 
 def test_exit_code_2_for_bad_arguments():
     assert crn.main(["--no-such-option"]) == 2
+
+
+# --- T006: parse_numbers ------------------------------------------------------------------------
+
+def _tok(text):
+    return [(t.value, t.unit, t.decimals, t.sign, t.currency) for t in crn.parse_numbers(text)]
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("₩237,500", [(237500.0, "", 0, None, "₩")]),
+    ("+101.64%", [(101.64, "%", 2, "+", None)]),
+    ("−3.2%", [(-3.2, "%", 1, "-", None)]),
+    ("하방(-27.2%)", [(-27.2, "%", 1, "-", None)]),
+    ("$54.23B", [(54.23, "B", 2, None, "$")]),
+    ("₩1,076.75T (보통주)", [(1076.75, "T", 2, None, "₩")]),
+    ("P/B 2.44배", [(2.44, "배", 2, None, None)]),
+    ("6.63x로", [(6.63, "x", 2, None, None)]),
+    ("-39,334억 원", [(-39334.0, "억", 0, "-", None)]),
+    ("3조 9,334억 원", [(3.9334, "조", 4, None, None)]),
+    ("약 -3조 9,334억 원(추정)", [(-3.9334, "조", 4, "-", None)]),
+    ("1조 4,942억 TWD", [(1.4942, "조", 4, None, None)]),
+    ("107.4조 원", [(107.4, "조", 1, None, None)]),
+    ("35,601,106주", [(35601106.0, "주", 0, None, None)]),
+    ("상향 7건", [(7.0, "건", 0, None, None)]),
+    ("34.3% 하락", [(34.3, "%", 1, None, None)]),
+    ("26.5%~31.2%", [(26.5, "%", 1, None, None), (31.2, "%", 1, None, None)]),
+    ("50~60%", [(50.0, "%", 0, None, None), (60.0, "%", 0, None, None)]),
+    ("₩404,500 ~ ₩3,002,000", [(404500.0, "", 0, None, "₩"), (3002000.0, "", 0, None, "₩")]),
+    ("16GB~32GB", [(16.0, "GB", 0, None, None), (32.0, "GB", 0, None, None)]),
+    ("1.24~10.89", [(1.24, "", 2, None, None), (10.89, "", 2, None, None)]),
+    ("+2.4% 반등", [(2.4, "%", 1, "+", None)]),
+    ("+12.5%p", [(12.5, "%p", 1, "+", None)]),
+])
+def test_parse_numbers(text, expected):
+    assert _tok(text) == expected
+
+
+def test_parse_numbers_hyphen_between_numbers_is_not_a_sign():
+    # '1-1' or '10-14' must not produce negative numbers (they are masked later as numbering/date)
+    assert [t.sign for t in crn.parse_numbers("1-1")] == [None, None]
+    assert [t.value for t in crn.parse_numbers("2022→2023 -74%")] == [2022.0, 2023.0, -74.0]
+
+
+def test_parse_numbers_positions_and_raw():
+    text = "외국인 -3조 9,334억 원 순매도"
+    (t,) = crn.parse_numbers(text)
+    assert t.raw == "-3조 9,334억"
+    assert text[t.start:t.end] == t.raw
