@@ -184,6 +184,8 @@ def test_parse_numbers_positions_and_raw():
     ("코드 005930", "ticker_code", False),
     ("005930.KS 분석", "ticker_code", False),
     ("^KS11 지수", "ticker_code", False),
+    ("S&P 500 지수", "ticker_code", False),
+    ("볼린저 하단 (-2σ)", "product_spec", False),
     ("3Q26 잠정", "period_label", False),
     ("FY4Q26 매출", "period_label", False),
     ("1H26 실적", "period_label", False),
@@ -616,6 +618,27 @@ def test_validation_set():
     ("005930.KS.estimates.fy1.mean_eps", "price"),
     ("005930.KS.pb_band.floor_price", "price"),
     ("005930.KS.scenario.expected_price_a", "price"),
+    ("005930.KS.scenario.bear.return_a", "fraction"),
+    ("005930.KS.scenario.return_expected_a", "fraction"),
+    ("005930.KS.estimates.target.mean", "price"),
+    ("005930.KS.estimates.target.upside_mean", "fraction"),
+    ("005930.KS.estimates.target.analysts_count", "count"),
+    ("005930.KS.estimates.total.down_30d", "count"),
+    ("005930.KS.estimates.fy1.change_30d", "fraction"),
+    ("005930.KS.estimates.fy0.selected_pe", "multiple"),
+    ("005930.KS.eps_surprise.2026-06.actual_eps", "price"),
+    ("005930.KS.eps_surprise.2026-06.surprise", "fraction"),
+    ("000660.KS.audit.max_unusual", "money"),
+    ("000660.KS.audit.normalized.roe", "fraction"),
+    ("000660.KS.cycle.max_income_drop", "fraction"),
+    ("005930.KS.pb_band.position", "fraction"),
+    ("005930.KS.metrics.dupont_leverage", "multiple"),
+    ("peers.avg.forward_pe", "multiple"),
+    ("005930.KS.peer.forward_pe_vs_avg", "fraction"),
+    ("rules.roe.green_above_pct", "percent"),
+    ("rules.forward_pe.green_below", "other"),
+    ("rules.revision.min_count", "count"),
+    ("rules.scenario.weight_bull", "fraction"),
     ("005930.KS.technical.rsi_14", "other"),
 ])
 def test_path_kind(path, kind):
@@ -831,3 +854,30 @@ def test_section4_number_not_in_snapshot(tmp_path):
     r = _s4(tmp_path, body=body, baseline=body)
     assert [m["raw"] for m in r.section4.snapshot_missing] == ["₩999,999"]
     assert "section4_not_in_snapshot" in _kinds(r)
+
+
+# --- T024: every Section 4 number is in the snapshot (FR-015, SC-004) ---------------------------
+
+def _coverage(text, snapshot):
+    snapshot = dict(snapshot, section4={"text": text})
+    report = crn.Report("section4.md", [], [crn.Section("section4", "4.", 1, ["## 4."] + text.split("\n"))])
+    return crn.check_section4(report, snapshot, crn.snapshot_candidates(snapshot))
+
+
+def test_section4_fixture_fully_in_snapshot():
+    folder = os.path.join(FIXTURE_DIR, "coverage")
+    with open(os.path.join(folder, "section4.md"), encoding="utf-8") as f:
+        text = f.read()
+    chk = _coverage(text, crn.load_snapshot(os.path.join(folder, "section4_data.json")))
+    assert chk.snapshot_missing == [], [(m["raw"], m["context"][:60]) for m in chk.snapshot_missing[:10]]
+    assert chk.warnings_missing == []
+
+
+@pytest.mark.network
+def test_section4_live_fully_in_snapshot(tmp_path):
+    from get_financial_stats import generate_report
+    path = tmp_path / "live_data.json"
+    text = generate_report(["005930.KS", "MU"], cyclical_add={"005930.KS", "MU"}, snapshot_path=str(path),
+                           raw_args={"tickers": "005930.KS,MU"})
+    chk = _coverage(text, crn.load_snapshot(str(path)))
+    assert chk.snapshot_missing == [], [(m["raw"], m["context"][:60]) for m in chk.snapshot_missing[:10]]

@@ -31,9 +31,9 @@
 | `diagram_style` | 다이어그램 서식 | `classDef x fill:#f9f9f9,stroke-width:2px`, `#512da8` | Mermaid 블록의 `style`·`classDef`·`linkStyle`·`class` 줄 전체, 16진 색상 |
 | `citation` | 인용·출처 표기 | `[7]`, `[7], [8]`, `KI-001`, URL, `` `파일_20261014.json` `` | 인용 번호, 사건 번호, URL, 인라인 코드 |
 | `date` | 날짜·시각 | `2026-10-28`, `2026-10`, `10-14`, `10월 27~28일`, `10월`, `15:00` | 날짜·시각 패턴 |
-| `ticker_code` | 종목·지수 코드 | `005930`, `005930.KS`, `^KS11` | 6자리 숫자(+`.KS`/`.KQ`), `^`로 시작하는 지수 코드 |
+| `ticker_code` | 종목·지수 코드 | `005930`, `005930.KS`, `^KS11`, `S&P 500` | 6자리 숫자(+`.KS`/`.KQ`), `^`로 시작하는 지수 코드, 숫자가 들어간 지수 이름(S&P 500·KOSPI 200·NASDAQ 100) |
 | `period_label` | 분기·회계 표기 | `3Q26`, `FY4Q26`, `1H26`, `FY1`, `3분기` | 영문 기간 표기, `N분기` |
-| `product_spec` | 제품·공정·규격 | `HBM4`, `LPDDR5X`, `MI350`, `16-Hi`, `4나노`, `3nm`, `12단`, `2048-bit`, `1c`, `6세대` | 영문자와 붙은 숫자, 규격 단위(아래 표) |
+| `product_spec` | 제품·공정·규격 | `HBM4`, `LPDDR5X`, `MI350`, `16-Hi`, `4나노`, `3nm`, `12단`, `2048-bit`, `1c`, `6세대`, `-2σ` | 영문자와 붙은 숫자, 규격 단위(아래 표) |
 | `duration` | 기간 | `30일`, `5거래일`, `20일간`, `1~5거래일간`, `52주 최고가`, `12M`, `3개월`, `20분` | 정수 + 기간 단위, `52주` 뒤에 최고·최저·고점·저점·범위 |
 | `year` | 연도 | `2027년`, `2022→2023`, `2026` | 단위·통화 없는 1900~2099 정수 |
 | `numbering` | 번호·개수 | `6.1`(제목), `1)`, `Section 4 › 1-1`, `5번`, 단위 없는 한 자리 정수 | 줄 머리 번호, 섹션 참조, `N번`, 단위·통화·부호·소수점 없는 0~9 |
@@ -76,8 +76,8 @@
 | `shares` | `_shares$` | 순매수 수량 |
 | `count` | `(up\|down)_30d$\|_count$` | 추정치 상향·하향 건수, 애널리스트 수 |
 | `percent` | `\.(debt_to_equity\|deviation_lower\|deviation_upper\|dividend_yield)$\|_pct$` | 퍼센트 값으로 저장된 지표 |
-| `fraction` | `\.(return_\w+\|drawdown_52w\|\w*margin\|roe\|roa\|\w*growth\|payout_ratio\|held_percent_\w+\|short_percent_\w+\|foreign_hold_ratio\|percentile\|upside\w*\|opm_ttm)$\|\.cycle\.opm\.` | 소수 비율(0.52 = 52%) |
-| `multiple` | `\.(beta\|current_ratio\|ev_to_\w+\|forward_pe\|trailing_pe\|peg_ratio\|price_to_\w+\|multiple_[ab]\|pe)$\|\.pb_band\.(pb\.\|high$\|low$\|median$\|current_pb$)` | PER, P/B, EV/EBITDA, 베타 |
+| `fraction` | `\.(return_\w+\|drawdown_52w\|\w*margin\|roe\|roa\|\w*growth\|payout_ratio\|held_percent_\w+\|short_percent_\w+\|foreign_hold_ratio\|percentile\|position\|upside\w*\|opm_ttm\|change_30d\|surprise\|max_income_drop\|\w*vs_avg\|weight_\w+\|eps_range_width)$\|\.cycle\.opm\.` | 소수 비율(0.52 = 52%) |
+| `multiple` | `\.(beta\|current_ratio\|dupont_leverage\|ev_to_\w+\|\w*_pe\|peg_ratio\|price_to_\w+\|multiple_[ab]\|pe)$\|\.pb_band\.(pb\.\|high$\|low$\|median$\|current_pb$)` | PER, P/B, EV/EBITDA, 베타, 재무레버리지 |
 | `money` | `\.(market_cap\w*)$\|\.audit\.` | 시가총액, 일회성 손익 금액 |
 | `price` | `(close\|price\|eps\|_high\|_low\|bps\|sma_20\|bollinger_\w+\|book_value\|dividend_rate)(_[ab])?(\.\|$)\|\.history\.\|\.target` | 주가, EPS, 목표가, 시나리오 기대값 |
 | `other` | `.` | RSI 등 나머지 |

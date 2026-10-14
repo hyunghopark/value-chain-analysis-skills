@@ -266,9 +266,9 @@ MASKS = [
                         r'|\d{1,2}월\s?\d{1,2}(?:\s?~\s?\d{1,2})?일'
                         r'|\d{1,2}월(?:\s?(?:초|중순|상순|하순|말|중))?'
                         r'|\d{1,2}:\d{2}')),
-    ('ticker_code', re.compile(r'\^[A-Z]{2,}\d*|(?<![\d,.₩$])\d{6}(?:\.K[SQ])?(?![\d,.])')),
+    ('ticker_code', re.compile(r'\^[A-Z]{2,}\d*|S&P\s?500|KOSPI\s?200|NASDAQ\s?100|Nasdaq\s?100|(?<![\d,.₩$])\d{6}(?:\.K[SQ])?(?![\d,.])')),
     ('period_label', re.compile(r'\b(?:FY)?\d{1,2}[QH]\d{2}\b|\bFY\d{1,4}\b|\bQ[1-4]\b|\b[1-4]Q\b|\d분기')),
-    ('product_spec', re.compile(r'\b[A-Za-z]+-?\d+[A-Za-z0-9]*(?:-[A-Za-z0-9]+)*'
+    ('product_spec', re.compile(r'[±+\-−]?\d+(?:\.\d+)?σ|\b[A-Za-z]+-?\d+[A-Za-z0-9]*(?:-[A-Za-z0-9]+)*'
                                 r'|\d+-?(?:Hi|bit)\b|\d+(?:nm|나노|세대)|\d+단(?!계|기|위|순)|\b\d[a-wyz]\b|\b\d+(?:\.\d+)?D\b')),
     ('duration', re.compile(r'\d+(?:\s?~\s?\d+)?\s?(?:거래일간?|영업일|개월간?|일간|일|년간|주간|시간|분(?!기))'
                             r'|(?<![\d,.])\d{1,3}주(?=\s?(?:최고|최저|고점|저점|범위|신고|신저|동안|이동))'
@@ -327,8 +327,9 @@ PATH_KINDS = [(kind, re.compile(pattern)) for kind, pattern in (
     ('count', r'(up|down)_30d$|_count$'),
     ('percent', r'\.(debt_to_equity|deviation_lower|deviation_upper|dividend_yield)$|_pct$'),
     ('fraction', r'\.(return_\w+|drawdown_52w|\w*margin|roe|roa|\w*growth|payout_ratio|held_percent_\w+'
-                 r'|short_percent_\w+|foreign_hold_ratio|percentile|upside\w*|opm_ttm)$|\.cycle\.opm\.'),
-    ('multiple', r'\.(beta|current_ratio|ev_to_\w+|forward_pe|trailing_pe|peg_ratio|price_to_\w+|multiple_[ab]|pe)$'
+                 r'|short_percent_\w+|foreign_hold_ratio|percentile|position|upside\w*|opm_ttm|change_30d|surprise'
+                 r'|max_income_drop|\w*vs_avg|weight_\w+|eps_range_width)$|\.cycle\.opm\.'),
+    ('multiple', r'\.(beta|current_ratio|dupont_leverage|ev_to_\w+|\w*_pe|peg_ratio|price_to_\w+|multiple_[ab]|pe)$'
                  r'|\.pb_band\.(pb\.|high$|low$|median$|current_pb$)'),
     ('money', r'\.(market_cap\w*)$|\.audit\.'),
     ('price', r'(close|price|eps|_high|_low|bps|sma_20|bollinger_\w+|book_value|dividend_rate)(_[ab])?(\.|$)|\.history\.|\.target'),

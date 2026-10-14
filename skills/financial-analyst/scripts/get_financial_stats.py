@@ -24,6 +24,15 @@ DEFAULT_WEIGHTS = (0.2, 0.5, 0.3)  # Bull, Base, Bear
 GENERAL_PILLARS = ('fpe', 'peg', 'rg', 'ev', 'roe', 'de', 'rev')
 CYCLICAL_PILLARS = ('band', 'cycle', 'rev', 'de')
 MIN_VALID_PILLARS = 4
+# Verdict thresholds (green, yellow) — rule source: references/rules/verdict-matrix.md; change both in one commit.
+# They are also recorded in the snapshot under rules.* so report text citing them can be traced (spec 002).
+THRESHOLDS = {'fpe': (18, 30), 'peg': (1, 2), 'rg': (20, 5), 'ev': (12, 20), 'roe': (20, 10), 'de': (50, 100)}
+REVISION_BREADTH = 0.3       # 30-day (up − down) / total: ≥ +30% 🟢, ≤ −30% 🔴
+REVISION_MIN_COUNT = 3       # with fewer revisions, the FY1 mean-EPS change decides instead
+REVISION_FY1_CHANGE = 0.01   # ±1% FY1 mean-EPS change
+CYCLICAL_INCOME_DROP = -0.5  # an annual net-income drop this deep marks a stock as cyclical
+AUDIT_MIN_SHARE = 0.15       # one-off items above this share of pretax income are flagged
+RSI_OVERSOLD, RSI_OVERBOUGHT = 30, 70
 BENCHMARK_NAMES = {
     '^KS11': '코스피', '^KQ11': '코스닥', '^GSPC': 'S&P 500', '^IXIC': '나스닥 종합',
     '^SOX': '필라델피아 반도체', '^N225': '니케이 225', '^TWII': '대만 가권',
@@ -680,6 +689,96 @@ def check_statement_lag(t, info, symbol):
                               f"(최신 {have}) — {effect}."))
 
 
+def snap_display(path, value, *, source="calculated", basis="derived", status="final", note=None, inputs=None, as_of=None):
+    """Record a number that a Section 4 table shows (spec 002 FR-015: every shown number is in the snapshot).
+
+    Already recorded with the same value: kept as is. Recorded earlier with a different value (a later step
+    replaced it): the shown value is recorded with the earlier one as 'original'.
+    """
+    v = num(value)
+    if v is None:
+        return
+    prev = SNAP.values.get(path)
+    extra = {}
+    if prev is not None:
+        pv = num(prev.get('value'))
+        if pv is not None and abs(pv - v) <= 1e-9 * max(1.0, abs(v)):
+            return
+        extra['original'] = prev.get('value')
+        source, basis, status = prev.get('source', source), prev.get('basis', basis), prev.get('status', status)
+        note = (note + ' · ' if note else '') + '표 표시 단계의 값(이전 단계 값은 original)'
+    SNAP.record(path, v, source=source, basis=basis, status=status, note=note, inputs=inputs, as_of=as_of, **extra)
+
+
+def record_rule_thresholds(weights):
+    """Thresholds and run settings that Section 4 notes print, so citing them is traceable (rules.*)."""
+    def rec(path, value, note):
+        SNAP.record(f"rules.{path}", value, source="rules", basis="derived", status="final", note=note)
+    vm = "references/rules/verdict-matrix.md"
+    for key, name in (('fpe', 'forward_pe'), ('peg', 'peg'), ('ev', 'ev_to_ebitda')):
+        rec(f"{name}.green_below", THRESHOLDS[key][0], vm)
+        rec(f"{name}.yellow_below", THRESHOLDS[key][1], vm)
+    for key, name in (('rg', 'revenue_growth'), ('roe', 'roe')):
+        rec(f"{name}.green_above_pct", THRESHOLDS[key][0], vm)
+        rec(f"{name}.yellow_above_pct", THRESHOLDS[key][1], vm)
+    rec("debt_to_equity.green_below_pct", THRESHOLDS['de'][0], vm)
+    rec("debt_to_equity.yellow_below_pct", THRESHOLDS['de'][1], vm)
+    rec("revision.green_above_pct", REVISION_BREADTH * 100, vm)
+    rec("revision.red_below_pct", -REVISION_BREADTH * 100, vm)
+    rec("revision.min_count", REVISION_MIN_COUNT, vm)
+    rec("revision.fy1_change_pct", REVISION_FY1_CHANGE * 100, vm)
+    rec("cyclical.income_drop_pct", CYCLICAL_INCOME_DROP * 100, "references/rules/cycle-position.md")
+    rec("audit.min_share_pct", AUDIT_MIN_SHARE * 100, "get_financial_stats.py audit_unusual_items")
+    rec("technical.rsi_oversold_below", RSI_OVERSOLD, "get_financial_stats.py technical_table")
+    rec("technical.rsi_overbought_above", RSI_OVERBOUGHT, "get_financial_stats.py technical_table")
+    for name, w in zip(('bull', 'base', 'bear'), weights):
+        rec(f"scenario.weight_{name}", w, "--weights")
+
+
+# Yahoo info keys shown in Section 4 → snapshot path and basis
+YAHOO_METRIC_PATHS = [
+    ('trailingPE', 'metrics.trailing_pe', 'statement'),
+    ('forwardPE', 'metrics.forward_pe', 'consensus'),
+    ('trailingEps', 'metrics.trailing_eps', 'statement'),
+    ('forwardEps', 'metrics.forward_eps', 'consensus'),
+    ('pegRatio', 'metrics.peg_ratio', 'consensus'),
+    ('enterpriseToEbitda', 'metrics.ev_to_ebitda', 'statement'),
+    ('enterpriseToRevenue', 'metrics.ev_to_revenue', 'statement'),
+    ('priceToSalesTrailing12Months', 'metrics.price_to_sales', 'statement'),
+    ('priceToBook', 'metrics.price_to_book', 'statement'),
+    ('bookValue', 'metrics.book_value', 'statement'),
+    ('returnOnEquity', 'metrics.roe', 'statement'),
+    ('returnOnAssets', 'metrics.roa', 'statement'),
+    ('operatingMargins', 'metrics.operating_margin', 'statement'),
+    ('profitMargins', 'metrics.profit_margin', 'statement'),
+    ('grossMargins', 'metrics.gross_margin', 'statement'),
+    ('ebitdaMargins', 'metrics.ebitda_margin', 'statement'),
+    ('revenueGrowth', 'metrics.revenue_growth', 'statement'),
+    ('earningsGrowth', 'metrics.earnings_growth', 'statement'),
+    ('debtToEquity', 'metrics.debt_to_equity', 'statement'),
+    ('currentRatio', 'metrics.current_ratio', 'statement'),
+    ('dividendYield', 'metrics.dividend_yield', 'statement'),
+    ('payoutRatio', 'metrics.payout_ratio', 'statement'),
+    ('beta', 'metrics.beta', 'derived'),
+    ('shortPercentOfFloat', 'metrics.short_percent_of_float', 'derived'),
+    ('heldPercentInstitutions', 'metrics.held_percent_institutions', 'derived'),
+]
+# Values the script derives later and shows in the metrics table
+DERIVED_METRIC_PATHS = {
+    'forwardPriceToBook': 'metrics.forward_price_to_book',
+    'forwardBookValue': 'metrics.forward_book_value',
+    'dupontLeverage': 'metrics.dupont_leverage',
+    'forwardEpsGrowth': 'metrics.forward_eps_growth',
+}
+METRIC_PATHS = {**{k: (p, b) for k, p, b in YAHOO_METRIC_PATHS}, **{k: (p, 'derived') for k, p in DERIVED_METRIC_PATHS.items()}}
+
+
+def snap_metric(sym, info, key):
+    path, basis = METRIC_PATHS.get(key, (None, None))
+    if path:
+        snap_display(f"{sym}.{path}", info.get(key), source="calculated" if basis == 'derived' else "yahoo", basis=basis)
+
+
 def record_yahoo_raw_info(symbol, info):
     price = info.get('currentPrice') or info.get('regularMarketPrice')
     if price is not None:
@@ -691,34 +790,7 @@ def record_yahoo_raw_info(symbol, info):
     if info.get('marketCap') is not None:
         SNAP.record(f"{symbol}.quote.market_cap", info.get('marketCap'), source="yahoo", basis="quote", status="final")
 
-    mapping = [
-        ('trailingPE', 'metrics.trailing_pe', 'statement'),
-        ('forwardPE', 'metrics.forward_pe', 'consensus'),
-        ('trailingEps', 'metrics.trailing_eps', 'statement'),
-        ('forwardEps', 'metrics.forward_eps', 'consensus'),
-        ('pegRatio', 'metrics.peg_ratio', 'consensus'),
-        ('enterpriseToEbitda', 'metrics.ev_to_ebitda', 'statement'),
-        ('enterpriseToRevenue', 'metrics.ev_to_revenue', 'statement'),
-        ('priceToSalesTrailing12Months', 'metrics.price_to_sales', 'statement'),
-        ('priceToBook', 'metrics.price_to_book', 'statement'),
-        ('bookValue', 'metrics.book_value', 'statement'),
-        ('returnOnEquity', 'metrics.roe', 'statement'),
-        ('returnOnAssets', 'metrics.roa', 'statement'),
-        ('operatingMargins', 'metrics.operating_margin', 'statement'),
-        ('profitMargins', 'metrics.profit_margin', 'statement'),
-        ('grossMargins', 'metrics.gross_margin', 'statement'),
-        ('ebitdaMargins', 'metrics.ebitda_margin', 'statement'),
-        ('revenueGrowth', 'metrics.revenue_growth', 'statement'),
-        ('earningsGrowth', 'metrics.earnings_growth', 'statement'),
-        ('debtToEquity', 'metrics.debt_to_equity', 'statement'),
-        ('currentRatio', 'metrics.current_ratio', 'statement'),
-        ('dividendYield', 'metrics.dividend_yield', 'statement'),
-        ('payoutRatio', 'metrics.payout_ratio', 'statement'),
-        ('beta', 'metrics.beta', 'derived'),
-        ('shortPercentOfFloat', 'metrics.short_percent_of_float', 'derived'),
-        ('heldPercentInstitutions', 'metrics.held_percent_institutions', 'derived'),
-    ]
-    for key, path_suffix, basis in mapping:
+    for key, path_suffix, basis in YAHOO_METRIC_PATHS:
         val = info.get(key)
         if val is not None:
             SNAP.record(f"{symbol}.{path_suffix}", val, source="yahoo", basis=basis, status="final")
@@ -868,8 +940,10 @@ def analyze_cycle(t, info, symbol):
                     if worst is None or chg < worst[0]:
                         worst = (chg, ci, cj)
             if worst:
-                out['auto'] = worst[0] <= -0.5
+                out['auto'] = worst[0] <= CYCLICAL_INCOME_DROP
                 out['basis'] = f"연간 순이익 최대 감소 {worst[1].year}→{worst[2].year} {worst[0] * 100:+.0f}%"
+                SNAP.record(f"{symbol}.cycle.max_income_drop", worst[0], source="calculated", basis="derived", status="final",
+                            as_of=f"{worst[1].year}→{worst[2].year}", note="연간 순이익 최대 감소율(순환업종 판정 근거)")
             elif ni:
                 out['basis'] = f"연간 순이익 감소 이력 없음({ni[0][0].year}~{ni[-1][0].year})"
         if 'Operating Income' in inc.index and 'Total Revenue' in inc.index:
@@ -1023,9 +1097,9 @@ def audit_unusual_items(t, info, ticker_symbol):
 
         # Trigger: unusual > 15% of pretax, or normalized income differs by > 15% of pretax, or NPM > OPM
         triggered = False
-        if pretax and abs(unusual) > 0.15 * abs(pretax):
+        if pretax and abs(unusual) > AUDIT_MIN_SHARE * abs(pretax):
             triggered = True
-        elif pretax and norm_inc is not None and net_inc is not None and abs(net_inc - norm_inc) > 0.15 * abs(pretax):
+        elif pretax and norm_inc is not None and net_inc is not None and abs(net_inc - norm_inc) > AUDIT_MIN_SHARE * abs(pretax):
             triggered = True
         elif op_inc and op_inc > 0 and net_inc and net_inc > 0 and (net_inc / op_inc) > 1.05:
             triggered = True
@@ -1121,10 +1195,10 @@ def revision_summary(info):
                     chg[h] = cur / ago - 1
     total = up + down
     breadth = (up - down) / total if have and total else None
-    if breadth is not None and total >= 3:
-        sig = '🟢' if breadth >= 0.3 else ('🔴' if breadth <= -0.3 else '🟡')
+    if breadth is not None and total >= REVISION_MIN_COUNT:
+        sig = '🟢' if breadth >= REVISION_BREADTH else ('🔴' if breadth <= -REVISION_BREADTH else '🟡')
     elif '+1y' in chg:
-        sig = '🟢' if chg['+1y'] > 0.01 else ('🔴' if chg['+1y'] < -0.01 else '🟡')
+        sig = '🟢' if chg['+1y'] > REVISION_FY1_CHANGE else ('🔴' if chg['+1y'] < -REVISION_FY1_CHANGE else '🟡')
     else:
         sig = '⚪'
     text = f"상향 {up:.0f} / 하향 {down:.0f}" if have else 'N/A'
@@ -1368,14 +1442,14 @@ def technical_table(tickers_list, results):
         SNAP.record(f"{symbol}.technical.deviation_lower", float(dev_lower), source="calculated", basis="derived", status="final")
 
         status = "정상 밴드 내"
-        if c_rsi < 30 and dev_lower < 0:
+        if c_rsi < RSI_OVERSOLD and dev_lower < 0:
             status = "🚨 극단적 과매도 & 밴드 하단 이탈"
-        elif c_rsi < 30:
-            status = "⚠️ RSI 과매도 구간 (<30)"
+        elif c_rsi < RSI_OVERSOLD:
+            status = f"⚠️ RSI 과매도 구간 (<{RSI_OVERSOLD})"
         elif dev_lower < 0:
             status = "⚠️ 볼린저 하단 이탈 (-2σ 하회)"
-        elif c_rsi > 70:
-            status = "🔥 RSI 과열 구간 (>70)"
+        elif c_rsi > RSI_OVERBOUGHT:
+            status = f"🔥 RSI 과열 구간 (>{RSI_OVERBOUGHT})"
 
         name = info.get('shortName') or info.get('longName') or symbol
         ccy = info.get('currency', 'USD')
@@ -1534,7 +1608,8 @@ def metrics_table(results):
             lines.append(f"| {label} | " + " | ".join("" for _ in syms) + " |")
             continue
         vals = []
-        for info in results.values():
+        for sym, info in results.items():
+            snap_metric(sym, info, key)
             if key in ('trailingEps', 'forwardEps', 'bookValue', 'forwardBookValue'):
                 vals.append(format_number(info.get(key), True, info.get('currency', 'USD')))
             elif key == 'forwardPE':
@@ -1580,6 +1655,18 @@ def trajectory_table(results):
         ("(참고) TTM PER × 선행 EPS", rollover),
     ]
     syms = list(results.keys())
+    for sym, info in results.items():
+        for key in ('trailingPE', 'forwardPE', 'trailingEps', 'forwardEps', 'priceToBook', 'forwardPriceToBook',
+                    'bookValue', 'forwardBookValue', 'forwardEpsGrowth'):
+            snap_metric(sym, info, key)
+        for key, path in (('peFY0', 'estimates.fy0.selected_pe'), ('peFY1', 'estimates.fy1.selected_pe'),
+                          ('epsFY0', 'estimates.fy0.selected_eps'), ('epsFY1', 'estimates.fy1.selected_eps')):
+            snap_display(f"{sym}.{path}", info.get(key), note="궤적 표의 FY0·FY1 값(한국 종목은 WiseReport 우선)")
+        price = info.get('currentPrice') or info.get('regularMarketPrice')
+        val = info.get('impliedRolloverPrice')
+        if not info.get('_is_cyclical') and isinstance(val, (int, float)) and price:
+            snap_display(f"{sym}.metrics.implied_rollover_price", val, note="TTM PER × 선행 EPS (단순 산술치)")
+            snap_display(f"{sym}.metrics.return_rollover", (val - price) / price, inputs=[f"{sym}.metrics.implied_rollover_price", f"{sym}.quote.current_price"])
     lines = ["### 2-1. 시계열별 PER · EPS 궤적 (보조 자료)\n",
              "> 💡 실적 궤적을 보는 보조 표입니다. Forward P/B·BPS는 자사주 매입·평가손익을 반영하지 않은 단순 추정이라 **과거 P/B와 비교하면 안 됩니다**(과거 비교는 2-2 표 사용). "
              "'TTM PER × 선행 EPS'는 목표가나 내재가치가 아닌 단순 산술치이며, 이익 정점에 과거 배수를 곱하는 오류가 생기므로 순환업종에는 표시하지 않습니다.\n",
@@ -1624,6 +1711,10 @@ def cycle_tables(results):
         pos = f"{band['sig']} {band['desc']}" + (f" ({band['pos'] * 100:.0f}%)" if band.get('pos') is not None else '')
         floor = band['floor_price']
         floor_str = format_number(floor, True, curr) + (f" ({(floor / price - 1) * 100:+.1f}%)" if price else '')
+        snap_display(f"{sym}.pb_band.position", band.get('pos'), note="밴드 내 위치(최저 0 ~ 최고 1)")
+        snap_display(f"{sym}.pb_band.points_count", band.get('n'))
+        if price:
+            snap_display(f"{sym}.pb_band.return_floor", floor / price - 1, inputs=[f"{sym}.pb_band.floor_price", f"{sym}.quote.current_price"])
         lines.append(f"| **{sym}** | {band['lo']:.2f} · {band['med']:.2f} · {band['hi']:.2f} | "
                      f"{band['start']:%Y-%m}~{band['end']:%Y-%m} ({band['n']}개) | {band['cur']:.2f} | {pos} | {floor_str} |")
     lines.append("\n> 밴드는 Yahoo 재무상태표(연말·분기말)의 자본÷주식수와 해당일 종가로 계산했고, 현재 P/B도 같은 방식이라 서로 비교할 수 있습니다"
@@ -1650,8 +1741,15 @@ def peer_table(results):
         valid = [v for v in vals if v is not None and (v > 0 or not positive_only)]
         avg = sum(valid) / len(valid) if valid else None
         cells = [fmt(v) if v is not None else 'N/A' for v in vals]
+        for s in syms:
+            snap_metric(s, results[s], key)
+        avg_path = f"peers.avg.{METRIC_PATHS[key][0].split('.')[-1]}"
+        snap_display(avg_path, avg, note="분석 대상 단순 평균", inputs=[f"{s}.{METRIC_PATHS[key][0]}" for s in syms])
         lines.append(f"| {label} | " + " | ".join(cells) + f" | **{fmt(avg) if avg is not None else 'N/A'}** |")
         if key == 'forwardPE' and avg:
+            for s, v in zip(syms, vals):
+                if v and v > 0:
+                    snap_display(f"{s}.peer.forward_pe_vs_avg", v / avg - 1, inputs=[f"{s}.metrics.forward_pe", avg_path])
             prem = [fmt_signed_pct(v / avg - 1, 0) if v and v > 0 else 'N/A' for v in vals]
             lines.append("| Forward P/E 평균 대비 | " + " | ".join(prem) + " | - |")
     return "\n".join(lines) + "\n"
@@ -1668,7 +1766,17 @@ def consensus_tables(results):
         mean = num(info.get('targetMeanPrice'))
         n = info.get('numberOfAnalystOpinions')
         upside = fmt_signed_pct(mean / price - 1, 2) if (mean and price) else 'N/A'
+        src = 'naver' if info.get('_target_source') == '네이버' else 'yahoo'
+        for k, leaf in (('targetMeanPrice', 'mean'), ('targetLowPrice', 'low'), ('targetHighPrice', 'high')):
+            snap_display(f"{sym}.estimates.target.{leaf}", info.get(k), source=src, basis="consensus", status="estimated")
+        snap_display(f"{sym}.estimates.target.analysts_count", n, source=src, basis="consensus")
+        if mean and price:
+            snap_display(f"{sym}.estimates.target.upside_mean", mean / price - 1,
+                         inputs=[f"{sym}.estimates.target.mean", f"{sym}.quote.current_price"])
         naver = num(info.get('targetMeanPriceNaver'))
+        if naver and price:
+            snap_display(f"{sym}.estimates.target.upside_naver", naver / price - 1,
+                         inputs=[f"{sym}.target_mean_price_naver", f"{sym}.quote.current_price"])
         naver_str = f"{format_number(naver, True, curr)} ({(naver / price - 1) * 100:+.1f}%)" if (naver and price) else '-'
         lines.append(f"| **{sym}** | {rec} | {format_number(mean, True, curr)} ({info.get('_target_source', 'Yahoo')}) | "
                      f"{format_number(info.get('targetLowPrice'), True, curr)} / {format_number(info.get('targetHighPrice'), True, curr)} | "
@@ -1681,10 +1789,16 @@ def consensus_tables(results):
     for sym, info in results.items():
         r = info.get('_rev') or {}
         chg = r.get('chg') or {}
+        snap_display(f"{sym}.estimates.fy0.change_30d", chg.get('0y'), source="yahoo", basis="consensus", status="estimated")
+        snap_display(f"{sym}.estimates.fy1.change_30d", chg.get('+1y'), source="yahoo", basis="consensus", status="estimated")
+        if r.get('have'):
+            snap_display(f"{sym}.estimates.total.up_30d", r.get('up'), source="yahoo", basis="consensus", note="FY0+FY1")
+            snap_display(f"{sym}.estimates.total.down_30d", r.get('down'), source="yahoo", basis="consensus", note="FY0+FY1")
         last, nxt = earnings_dates(info)
         lines.append(f"| **{sym}** | {fmt_signed_pct(chg.get('0y'))} | {fmt_signed_pct(chg.get('+1y'))} | {r.get('text', 'N/A')} | "
                      f"{r.get('sig', '⚪')} | {last} | {nxt} |")
-    lines.append("\n> 추정치 방향: 30일간 (상향 − 하향) ÷ 전체 건수가 +30% 이상이면 🟢, −30% 이하면 🔴, 건수가 3건 미만이면 내년 평균 EPS 변화(±1%)로 판단합니다. "
+    lines.append(f"\n> 추정치 방향: 30일간 (상향 − 하향) ÷ 전체 건수가 +{REVISION_BREADTH:.0%} 이상이면 🟢, −{REVISION_BREADTH:.0%} 이하면 🔴, "
+                 f"건수가 {REVISION_MIN_COUNT}건 미만이면 내년 평균 EPS 변화(±{REVISION_FY1_CHANGE:.0%})로 판단합니다. "
                  "Yahoo의 실적 발표일은 확정 실적 기준이라 한국 기업의 **잠정실적**은 빠질 수 있으니 웹 검색으로 확인하세요.\n")
 
     lines += ["#### 3-2. 최근 4분기 EPS 서프라이즈 (Yahoo)\n",
@@ -1698,6 +1812,10 @@ def consensus_tables(results):
         curr = info.get('currency', 'USD')
         for i, (idx, row) in enumerate(hist.tail(4).iterrows()):
             quarter = idx.strftime('%Y-%m') if hasattr(idx, 'strftime') else str(idx)
+            base = f"{sym}.eps_surprise.{quarter}"
+            snap_display(f"{base}.estimate_eps", num(row.get('epsEstimate')), source="yahoo", basis="consensus", as_of=quarter)
+            snap_display(f"{base}.actual_eps", num(row.get('epsActual')), source="yahoo", basis="statement", as_of=quarter)
+            snap_display(f"{base}.surprise", num(row.get('surprisePercent')), source="yahoo", basis="statement", as_of=quarter)
             lines.append(f"| {'**' + sym + '**' if i == 0 else ''} | {quarter} | {format_number(num(row.get('epsEstimate')), True, curr)} | "
                          f"{format_number(num(row.get('epsActual')), True, curr)} | {fmt_signed_pct(num(row.get('surprisePercent')))} |")
     lines.append("\n> 매출 서프라이즈와 잠정실적은 Yahoo에 없으므로 공시·IR 웹 검색으로 보완하세요.\n")
@@ -1712,6 +1830,16 @@ def sig_gt(v, green, yellow):
     return '🟢' if v > green else ('🟡' if v > yellow else '🔴')
 
 
+def th_lt(key, unit=''):
+    green, yellow = THRESHOLDS[key]
+    return f"<{green}{unit} 🟢 <{yellow}{unit} 🟡"
+
+
+def th_gt(key):
+    green, yellow = THRESHOLDS[key]
+    return f">{green}% 🟢 >{yellow}% 🟡"
+
+
 def build_signals(info):
     """(display text, signal) for every pillar; the matrices pick the general or cyclical set.
 
@@ -1721,20 +1849,20 @@ def build_signals(info):
     basis = info.get('_fwd_basis')
     fpe = num(info.get('forwardPE'))
     tag = '' if basis in (None, 'NTM') else f" ({basis})"
-    s['fpe'] = (f"{fpe:.1f}{tag}", sig_lt(fpe, 18, 30)) if fpe and fpe > 0 else ('N/A', '⚪')
+    s['fpe'] = (f"{fpe:.1f}{tag}", sig_lt(fpe, *THRESHOLDS['fpe'])) if fpe and fpe > 0 else ('N/A', '⚪')
     peg = num(info.get('pegRatio'))
-    s['peg'] = (f"{peg:.2f}", sig_lt(peg, 1, 2)) if peg and peg > 0 else ('N/A', '⚪')
+    s['peg'] = (f"{peg:.2f}", sig_lt(peg, *THRESHOLDS['peg'])) if peg and peg > 0 else ('N/A', '⚪')
     rg = num(info.get('revenueGrowth'))
-    s['rg'] = (f"{rg * 100:+.1f}%", sig_gt(rg * 100, 20, 5)) if rg is not None else ('N/A', '⚪')
+    s['rg'] = (f"{rg * 100:+.1f}%", sig_gt(rg * 100, *THRESHOLDS['rg'])) if rg is not None else ('N/A', '⚪')
     ev = num(info.get('enterpriseToEbitda'))
-    s['ev'] = (f"{ev:.1f}", sig_lt(ev, 12, 20)) if ev and ev > 0 else ('N/A', '⚪')
+    s['ev'] = (f"{ev:.1f}", sig_lt(ev, *THRESHOLDS['ev'])) if ev and ev > 0 else ('N/A', '⚪')
     audit = info.get('_audit_result') or {}
     roe, roe_tag = num(audit.get('norm_roe')), ' (정규화)'
     if roe is None:
         roe, roe_tag = num(info.get('returnOnEquity')), ''
-    s['roe'] = (f"{roe * 100:.1f}%{roe_tag}", sig_gt(roe * 100, 20, 10)) if roe is not None else ('N/A', '⚪')
+    s['roe'] = (f"{roe * 100:.1f}%{roe_tag}", sig_gt(roe * 100, *THRESHOLDS['roe'])) if roe is not None else ('N/A', '⚪')
     de = num(info.get('debtToEquity'))
-    s['de'] = (f"{de:.1f}%", sig_lt(de, 50, 100)) if de is not None else ('N/A', '⚪')
+    s['de'] = (f"{de:.1f}%", sig_lt(de, *THRESHOLDS['de'])) if de is not None else ('N/A', '⚪')
     rev = info.get('_rev') or {}
     s['rev'] = (rev.get('text', 'N/A'), rev.get('sig', '⚪'))
     cyc = info.get('_cycle') or {}
@@ -1772,8 +1900,8 @@ def signal_matrix(results):
         valid = len([x for x in sigs if x != '⚪'])
         overall = '🔴' if r >= 2 else ('⚪' if valid < 3 else ('🟢' if (g >= 3 and r == 0) else '🟡'))
         lines.append(f"| **{sym}** | {'🔄 순환' if cyclical else '일반'} | " + " | ".join(sigs) + f" | {overall} |")
-    lines.append("\n> 🟢 양호 | 🟡 보통 | 🔴 주의 | ⚪ 데이터 없음 · **일반**: 밸류에이션=Forward PE(<18 🟢 <30 🟡) · 수익성=ROE(>20% 🟢 >10% 🟡, 일회성 감지 시 정규화 ROE) · "
-                 "성장성=매출성장(>20% 🟢 >5% 🟡) · 재무건전성=D/E(<50% 🟢 <100% 🟡) · **🔄 순환**: 밸류에이션=P/B 밴드 위치 · 수익성=사이클 위치(이익률) · "
+    lines.append(f"\n> 🟢 양호 | 🟡 보통 | 🔴 주의 | ⚪ 데이터 없음 · **일반**: 밸류에이션=Forward PE({th_lt('fpe')}) · 수익성=ROE({th_gt('roe')}, 일회성 감지 시 정규화 ROE) · "
+                 f"성장성=매출성장({th_gt('rg')}) · 재무건전성=D/E({th_lt('de', '%')}) · **🔄 순환**: 밸류에이션=P/B 밴드 위치 · 수익성=사이클 위치(이익률) · "
                  "성장성=이익 추정치 방향(30일) · 재무건전성=D/E · 종합: 🔴 2개 이상 🔴, 유효 3개 미만 ⚪, 🟢 3개 이상·🔴 0개 🟢, 그 외 🟡\n")
     return "\n".join(lines) + "\n"
 
@@ -1796,8 +1924,9 @@ def decision_matrix(results):
         verdict = decision_verdict([s[k][1] for k in active])
         lines.append(f"| **{sym}** | {'🔄 순환' if cyclical else '일반'} | " + " | ".join(cells) + f" | {verdict} |")
     lines.append("")
-    lines.append("> **판정 기준**: Forward PE(<18 🟢 <30 🟡) · PEG(<1 🟢 <2 🟡) · 매출성장(>20% 🟢 >5% 🟡) · EV/EBITDA(<12 🟢 <20 🟡) · "
-                 "ROE(>20% 🟢 >10% 🟡, 일회성 감지 시 정규화 ROE) · D/E(<50% 🟢 <100% 🟡) · 추정치 방향(30일 상향·하향 비율 ≥+30% 🟢, ≤−30% 🔴) · "
+    lines.append(f"> **판정 기준**: Forward PE({th_lt('fpe')}) · PEG({th_lt('peg')}) · 매출성장({th_gt('rg')}) · EV/EBITDA({th_lt('ev')}) · "
+                 f"ROE({th_gt('roe')}, 일회성 감지 시 정규화 ROE) · D/E({th_lt('de', '%')}) · "
+                 f"추정치 방향(30일 상향·하향 비율 ≥+{REVISION_BREADTH:.0%} 🟢, ≤−{REVISION_BREADTH:.0%} 🔴) · "
                  "P/B 밴드(중앙값 이하 🟢, 최고 이하 🟡, 최고 초과 🔴) · 사이클 위치(TTM 영업이익률이 과거 중앙값 미만 🟢, 최고 이하 🟡, 최고 초과 🔴)")
     lines.append("> **종합 판정 규칙**: 🔴 2개 이상 → 🔴 신중 접근 | 유효 신호 4개 미만 → ⚪ 판단 보류 | 🟢 4개 이상 & 🔴 0개 → 🟢 강력 매수 후보 | "
                  "🟢 3개 이상 & 🔴 1개 이하 → 🟢 매수 고려 | 그 외 → 🟡 중립/관망\n")
@@ -1808,7 +1937,7 @@ def audit_table(results):
     lines = ["### 6. 🔍 [회계 감사] 일회성 손익(Unusual Items) 감지 및 정규화 지표 비교\n"]
     audits = [i['_audit_result'] for i in results.values() if i.get('_audit_result')]
     if not audits:
-        lines.append("> 💡 분석 대상 전 종목에서 세전이익 대비 15% 이상의 일회성 손익 왜곡이 감지되지 않았습니다(Yahoo 분류 기준).\n")
+        lines.append(f"> 💡 분석 대상 전 종목에서 세전이익 대비 {AUDIT_MIN_SHARE:.0%} 이상의 일회성 손익 왜곡이 감지되지 않았습니다(Yahoo 분류 기준).\n")
         return "\n".join(lines) + "\n"
     lines += ["> ⚠️ 최근 4분기(TTM)에 큰 일회성 손익이 감지된 기업입니다. 명목·정규화 수치를 **같은 분모**(평균 자기자본, 희석주식수 중앙값)로 다시 계산해 "
               "서로 비교할 수 있게 맞췄습니다(2번 표의 ROE·EPS와는 기준이 다름). 비경상 항목 분류는 Yahoo 기준이라 회사 공시(DART·IR)와 다를 수 있으니, "
@@ -1817,6 +1946,13 @@ def audit_table(results):
               "|---|---|---|---|---|---|"]
     for a in audits:
         ccy = a['currency']
+        base = f"{a['symbol']}.audit"
+        snap_display(f"{base}.max_unusual", a['max_val'], source="yahoo", basis="statement", as_of=str(a['max_date'] or ''))
+        snap_display(f"{base}.removed_income", a['removed'], note="TTM 명목 − 정규화 순이익")
+        snap_display(f"{base}.reported.roe", a['rep_roe'])
+        snap_display(f"{base}.normalized.roe", a['norm_roe'])
+        snap_display(f"{base}.reported.eps", a['rep_eps'])
+        snap_display(f"{base}.normalized.eps", a['norm_eps'])
         lines.append(f"| **{a['symbol']}** | ⚠️ **{a['label']} 감지** | {a['max_date'] or 'N/A'}: {format_large_number(a['max_val'], ccy)} | "
                      f"{format_large_number(a['removed'], ccy)} | {format_percent(a['rep_roe'])} → **{format_percent(a['norm_roe'])}** | "
                      f"{format_number(a['rep_eps'], True, ccy)} → **{format_number(a['norm_eps'], True, ccy)}** |")
@@ -1869,6 +2005,10 @@ def scenario_table(results, weights):
             if pb is not None:
                 SNAP.record(f"{sym}.scenario.{s_key}.target_price_b", pb, source="calculated", basis="derived", status="final",
                             inputs=[eps_path, f"{sym}.scenario.multiple_b"])
+            for col, p in (('a', pa), ('b', pb)):
+                if p:
+                    snap_display(f"{sym}.scenario.{s_key}.return_{col}", p / price - 1,
+                                 inputs=[f"{sym}.scenario.{s_key}.target_price_{col}", f"{sym}.quote.current_price"])
 
             head = f"**{sym}** (A {fmt_multiple(mult_a)} · B {fmt_multiple(mult_b)})" if idx == 0 else ""
             eps_str = format_number(eps, True, ccy)
@@ -1888,6 +2028,10 @@ def scenario_table(results, weights):
             SNAP.record(f"{sym}.scenario.expected_price_a", ea, source="calculated", basis="derived", status="final")
         if eb is not None:
             SNAP.record(f"{sym}.scenario.expected_price_b", eb, source="calculated", basis="derived", status="final")
+        for col, e in (('a', ea), ('b', eb)):
+            if e:
+                snap_display(f"{sym}.scenario.return_expected_{col}", e / price - 1,
+                             inputs=[f"{sym}.scenario.expected_price_{col}", f"{sym}.quote.current_price"])
         lines.append(f"|  | **확률가중 기대값** | - | **{format_number(ea, True, ccy)}** | **{fmt_signed_pct(ea / price - 1) if ea else 'N/A'}** | "
                      f"**{format_number(eb, True, ccy)}** | **{fmt_signed_pct(eb / price - 1) if eb else 'N/A'}** |")
 
@@ -1896,8 +2040,13 @@ def scenario_table(results, weights):
         parts = [f"하방(Bear·배수 A) {fmt_signed_pct(down)}", f"상방(Bull·배수 A) {fmt_signed_pct(up)}"]
         if down is not None and up is not None and down < 0 < up:
             parts.append(f"상방/하방 비율 {up / -down:.1f} : 1")
+            snap_display(f"{sym}.scenario.up_down_ratio", up / -down,
+                         inputs=[f"{sym}.scenario.bull.return_a", f"{sym}.scenario.bear.return_a"])
         if lo is not None and hi is not None and avg:
             parts.append(f"추정치 범위 폭 {(hi - lo) / avg:.0%}" + (f" (애널리스트 {n:.0f}명)" if n else ""))
+            snap_display(f"{sym}.scenario.eps_range_width", (hi - lo) / avg,
+                         inputs=[f"{sym}.estimates.fy1.low_eps", f"{sym}.estimates.fy1.high_eps", f"{sym}.estimates.fy1.mean_eps"])
+            snap_display(f"{sym}.estimates.fy1.analysts_count", n, source="yahoo", basis="consensus")
         summary.append(f"- **{sym}**: " + " · ".join(parts))
     lines.append("")
     lines += summary
@@ -1977,11 +2126,12 @@ def generate_report(tickers_list, cyclical_add=frozenset(), cyclical_remove=froz
             info['_is_cyclical'], info['_cyc_basis'] = True, f"사용자 지정(순환) · {basis}"
         else:
             info['_is_cyclical'] = bool(cyc.get('auto'))
-            info['_cyc_basis'] = f"자동 · {basis}" + (" (−50% 이하 → 순환)" if cyc.get('auto') else "")
+            info['_cyc_basis'] = f"자동 · {basis}" + (f" (−{-CYCLICAL_INCOME_DROP:.0%} 이하 → 순환)" if cyc.get('auto') else "")
         info['_rev'] = revision_summary(info)
         cross_check(info, symbol)
 
     symbols = list(results.keys())
+    record_rule_thresholds(weights)
     sections = [
         "## 📊 정량 데이터 분석 결과 (스크립트 자동 산출)\n",
         data_basis_block(results),

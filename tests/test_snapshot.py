@@ -126,6 +126,7 @@ def test_collect_meta():
         assert isinstance(meta["repo_commit"], str)
 
 
+@pytest.mark.network
 def test_snapshot_coverage():
     import get_financial_stats
     from get_financial_stats import generate_report, SNAP
@@ -274,6 +275,7 @@ def test_history_reconciliation_recorded():
     assert d5_rec["original"] is None
 
 
+@pytest.mark.network
 def test_warnings_and_meta_match_report_section8():
     from get_financial_stats import generate_report
     with tempfile.TemporaryDirectory() as tmpdir:

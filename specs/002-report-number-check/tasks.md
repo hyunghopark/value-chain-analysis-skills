@@ -62,14 +62,15 @@
 - [x] T015 [P] [US2] `FA/scripts/snapshot.py`에 `attach_section4(path, text)` 추가(JSON 읽기 → 최상위 `section4` 추가 → 다시 쓰기, 실패 시 예외)
 - [x] T016 [US2] `IS/scripts/generate_strategy_report.py`: 하위 프로세스 결과(`cleaned_financial`)로 `attach_section4` 호출(스냅샷 파일이 있을 때만). 실패하면 보고서 머리의 '데이터 스냅샷' 줄 옆에 "(Section 4 기준본 저장 실패: 사유)" 표시
 - [x] T017 [US2] `CHK` `check_section4`: 기준본과 현재 Section 4를 `difflib`로 줄 비교, 기준본 Section 4 숫자를 T006·T007·T010 규칙으로 스냅샷과 전수 대조해 `section4_not_in_snapshot` 보고, 8번 데이터 품질 경고 줄은 숫자 대조 대신 스냅샷 `warnings[].msg`에 같은 문장이 있는지 확인. 비교 범위는 data-model §1-1(`## 4.` 다음 줄부터 다음 `---`·`## ` 전까지, 앞뒤 빈 줄·줄 끝 공백 무시) — 생성 직후 보고서에서 변경 0건이어야 한다. T014 통과
-- [ ] T018 [US2] `FA/scripts/get_financial_stats.py` `consensus_tables`: 목표가 최저·평균·최고와 상승여력, 추정치 30일 변화율, EPS 서프라이즈 표(분기별 실제·추정 EPS·서프라이즈 %)를 `SNAP.record`로 기록(research R10 표 경로 예를 따르되 표 열 이름에 맞춰 확정). 계산·표 출력 불변
-- [ ] T019 [US2] `get_financial_stats.py` `audit_table`: 일회성 손익, 명목·정규화 ROE·EPS 등 표의 값 기록
-- [ ] T020 [US2] `get_financial_stats.py` `scenario_table`: 현재가 대비 등락률(배수 A·B, 시나리오별, 확률가중), 밴드 최저 P/B 회귀 시 주가·등락률 기록
-- [ ] T021 [US2] `get_financial_stats.py` `metrics_table`·`trajectory_table`·`cycle_tables`·`peer_table`: PEG 등 남은 지표, 시계열 PER·EPS, 연간 순이익 증감률, 피어 평균 대비 % 기록
-- [ ] T022 [US2] `get_financial_stats.py` `signal_matrix`·`decision_matrix`: 판정에 쓰는 코드 상수를 `rules.{rule}.{threshold}`로 기록(`source="rules"`, `basis="derived"`, `status="final"`, `note`=규칙 원본 파일 이름). 상수 값은 바꾸지 않는다
-- [ ] T023 [US2] `FA/references/rules/data-snapshot.md`: §3에 `section4`, §6에 T018~T022에서 확정한 경로와 `rules.*` 추가
-- [ ] T024 [US2] 커버리지 테스트 보강(네트워크 없음): 표 함수(`overview_table`~`scenario_table`, `warnings_section`)를 합성 `results`·`HISTORY`로 호출해 Section 4를 만들고, 그 전체를 `check_section4`의 스냅샷 대조에 넣어 `section4_not_in_snapshot` 0건을 확인한다(SC-004 후반, FR-015). 합성 입력은 모든 표가 채워지도록(한국 종목 1, 미국 종목 1, 순환업종, 수급·서프라이즈·감사 항목 포함) 만든다. 실제 데이터로 같은 확인을 하는 테스트는 `@pytest.mark.network`로 두고 quickstart 4단계에서 로컬 실행한다. 남는 항목이 있으면 T018~T022로 돌아가 채운다
-- [ ] T025 [US2] CI 네트워크 테스트 정리(헌법 기술 제약): `tests/conftest.py`에 `network` 표시를 등록하고, 001에서 들어온 실제 접속 테스트(`tests/test_snapshot.py`의 `test_snapshot_coverage`, `test_warnings_and_meta_match_report_section8`)에 `@pytest.mark.network`를 단다. `.github/workflows/ci.yml` 테스트 단계를 `pytest tests -q -m "not network"`로 바꾸고, `CLAUDE.md` 명령에 로컬 전체 실행(`-m network` 포함)을 적는다. 001 테스트가 하던 키 목록 확인은 T024의 네트워크 없는 테스트가 대신한다
+- [x] T018 [US2] `FA/scripts/get_financial_stats.py` `consensus_tables`: 목표가 최저·평균·최고와 상승여력, 추정치 30일 변화율, EPS 서프라이즈 표(분기별 실제·추정 EPS·서프라이즈 %)를 `SNAP.record`로 기록(research R10 표 경로 예를 따르되 표 열 이름에 맞춰 확정). 계산·표 출력 불변
+- [x] T019 [US2] `get_financial_stats.py` `audit_table`: 일회성 손익, 명목·정규화 ROE·EPS 등 표의 값 기록
+- [x] T020 [US2] `get_financial_stats.py` `scenario_table`: 현재가 대비 등락률(배수 A·B, 시나리오별, 확률가중), 밴드 최저 P/B 회귀 시 주가·등락률 기록
+- [x] T021 [US2] `get_financial_stats.py` `metrics_table`·`trajectory_table`·`cycle_tables`·`peer_table`: PEG 등 남은 지표, 시계열 PER·EPS, 연간 순이익 증감률, 피어 평균 대비 % 기록
+- [x] T022 [US2] `get_financial_stats.py` `signal_matrix`·`decision_matrix`: 판정에 쓰는 코드 상수를 `rules.{rule}.{threshold}`로 기록(`source="rules"`, `basis="derived"`, `status="final"`, `note`=규칙 원본 파일 이름). 상수 값은 바꾸지 않는다
+- [x] T023 [US2] `FA/references/rules/data-snapshot.md`: §3에 `section4`, §6에 T018~T022에서 확정한 경로와 `rules.*` 추가
+- [x] T024 [US2] 커버리지 테스트 보강(네트워크 없음): 표 함수(`overview_table`~`scenario_table`, `warnings_section`)를 합성 `results`·`HISTORY`로 호출해 Section 4를 만들고, 그 전체를 `check_section4`의 스냅샷 대조에 넣어 `section4_not_in_snapshot` 0건을 확인한다(SC-004 후반, FR-015). 합성 입력은 모든 표가 채워지도록(한국 종목 1, 미국 종목 1, 순환업종, 수급·서프라이즈·감사 항목 포함) 만든다. 실제 데이터로 같은 확인을 하는 테스트는 `@pytest.mark.network`로 두고 quickstart 4단계에서 로컬 실행한다. 남는 항목이 있으면 T018~T022로 돌아가 채운다
+  - *(구현 메모)* 수급·시장 비교 표 함수가 안에서 직접 네트워크 조회를 해서 합성 입력으로 표를 다시 만들려면 조회를 여럿 흉내 내야 했다. 대신 실제 실행의 Section 4·스냅샷을 `tests/fixtures/002/coverage/`에 고정해 CI에서 0건을 확인하고, 표 코드 변경으로 생기는 새 누락은 `network` 표시 테스트(`test_section4_live_fully_in_snapshot`)가 로컬에서 잡는다. 측정: 누락 183 → 0, 판정 줄 변화 0, 스냅샷 269KB
+- [x] T025 [US2] CI 네트워크 테스트 정리(헌법 기술 제약): `tests/conftest.py`에 `network` 표시를 등록하고, 001에서 들어온 실제 접속 테스트(`tests/test_snapshot.py`의 `test_snapshot_coverage`, `test_warnings_and_meta_match_report_section8`)에 `@pytest.mark.network`를 단다. `.github/workflows/ci.yml` 테스트 단계를 `pytest tests -q -m "not network"`로 바꾸고, `CLAUDE.md` 명령에 로컬 전체 실행(`-m network` 포함)을 적는다. 001 테스트가 하던 키 목록 확인은 T024의 네트워크 없는 테스트가 대신한다
 
 **Checkpoint**: 새 보고서에서 Section 4 변경 0, 스냅샷 누락 0. Section 4를 고치면 감지된다.
 

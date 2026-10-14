@@ -10,3 +10,12 @@
 
 - 이 자료는 테스트용이다. 기업별 판정·결론을 위키에 옮기지 않는다(헌법 VI). 새 분석의 입력으로 쓰지 않는다.
 - 위 스냅샷 한계 때문에, Section 4에는 있으나 이 스냅샷에 없는 값("-3.93조 원" 5일 누적, "46.18%" 지분율, 시나리오 등락률, 백분위 등)은 라벨 `script_gap`으로 둔다. 도구가 `unsupported`로 내면 맞은 것으로 세고, 부담 비율(SC-002)에서는 뺀다(US2에서 스냅샷을 보완하므로).
+
+## coverage/ — Section 4 → 스냅샷 대응 (FR-015, T024)
+
+| 파일 | 출처 |
+|---|---|
+| `coverage/section4.md` | 002 T018~T022 반영 코드로 `get_financial_stats.py --tickers 005930.KS,000660.KS,MU,TSM --cyclical 005930.KS,000660.KS,MU --snapshot …`을 실행한 표준 출력 (2026-10-14 18:1x KST) |
+| `coverage/section4_data.json` | 같은 실행의 스냅샷 |
+
+`test_section4_fixture_fully_in_snapshot`이 네트워크 없이 "Section 4 숫자 중 스냅샷에 없는 것 0건"을 확인한다. 표 코드가 바뀌어 생기는 새 누락은 `network` 표시 테스트(`test_section4_live_fully_in_snapshot`)가 로컬에서 잡는다. 표 코드를 바꾸면 이 자료도 다시 만든다.
