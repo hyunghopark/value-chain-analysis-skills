@@ -95,8 +95,8 @@
 
 ## Phase 6: Polish & Cross-Cutting (스킬 연동·문서·검증)
 
-- [ ] T032 `IS/SKILL.md` Phase 3에 5~8단계 추가(contracts/cli.md 'investment-strategy 연동' 그대로, Claude Code·Antigravity 명령 병기). Best Practices의 'Enforce Referencing'에 점검 도구 연결과 "숫자를 지울 때는 그 주장도 함께 빼거나 출처를 찾는다" 추가. `IS/scripts/generate_strategy_report.py` 참고문헌 자리 안내에 "점검 결과 섹션은 이 목록 뒤에" 한 줄 추가
-- [ ] T033 [P] `FA/SKILL.md` Resources에 `check_report_numbers.py`와 `report-number-check.md` 추가. 버전: financial-analyst 3.3.0, investment-strategy 2.2.0
+- [x] T032 `IS/SKILL.md` Phase 3에 5~8단계 추가(contracts/cli.md 'investment-strategy 연동' 그대로, Claude Code·Antigravity 명령 병기). Best Practices의 'Enforce Referencing'에 점검 도구 연결과 "숫자를 지울 때는 그 주장도 함께 빼거나 출처를 찾는다" 추가. `IS/scripts/generate_strategy_report.py` 참고문헌 자리 안내에 "점검 결과 섹션은 이 목록 뒤에" 한 줄 추가
+- [x] T033 [P] `FA/SKILL.md` Resources에 `check_report_numbers.py`와 `report-number-check.md` 추가. 버전: financial-analyst 3.3.0, investment-strategy 2.2.0
 - [ ] T034 [P] 결정 기록 `docs/decisions/0005-report-number-check.md`: 직접 계산 숫자 금지, 기사 대조 로컬 선택 실행, 남은 예외의 보고서 기록 방식, Section 4 기준본을 스냅샷에 저장한 이유, 판정 기준값을 스냅샷에 기록한 이유
 - [ ] T035 [P] `README.md`(디렉토리 구조, financial-analyst·investment-strategy 기능, 변경 이력), `ROADMAP.md`(2단계 상태), `CLAUDE.md`(명령에 점검 도구 실행 추가)
 - [ ] T036 quickstart.md 단계 1~5 실행, 결과(종료 코드·개수·실행 시간)를 PR 본문에 기록
