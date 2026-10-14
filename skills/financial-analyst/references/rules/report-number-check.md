@@ -79,7 +79,7 @@
 | `fraction` | `\.(return_\w+\|drawdown_52w\|\w*margin\|roe\|roa\|\w*growth\|payout_ratio\|held_percent_\w+\|short_percent_\w+\|foreign_hold_ratio\|percentile\|upside\w*\|opm_ttm)$\|\.cycle\.opm\.` | 소수 비율(0.52 = 52%) |
 | `multiple` | `\.(beta\|current_ratio\|ev_to_\w+\|forward_pe\|trailing_pe\|peg_ratio\|price_to_\w+\|multiple_[ab]\|pe)$\|\.pb_band\.(pb\.\|high$\|low$\|median$\|current_pb$)` | PER, P/B, EV/EBITDA, 베타 |
 | `money` | `\.(market_cap\w*)$\|\.audit\.` | 시가총액, 일회성 손익 금액 |
-| `price` | `(close\|price\|eps\|_high\|_low\|bps\|sma_20\|bollinger_\w+\|book_value\|dividend_rate)(\.\|$)\|\.history\.\|\.target` | 주가, EPS, 목표가 |
+| `price` | `(close\|price\|eps\|_high\|_low\|bps\|sma_20\|bollinger_\w+\|book_value\|dividend_rate)(_[ab])?(\.\|$)\|\.history\.\|\.target` | 주가, EPS, 목표가, 시나리오 기대값 |
 | `other` | `.` | RSI 등 나머지 |
 
 ### 4-3. 단위와 경로 종류

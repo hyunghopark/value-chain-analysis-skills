@@ -551,6 +551,12 @@ def test_checker_is_read_only(tmp_path, monkeypatch):                 # FR-014, 
 # --- T012: validation set (SC-001, SC-002, SC-003, SC-006) --------------------------------------
 
 def test_validation_set():
+    """SC-001/002/003/006 against human labels (tests/fixtures/002/labels.json).
+
+    expected: script | script_gap | cited | unsupported | excluded. script_gap = shown in Section 4 but missing
+    from this (pre-001-fix) snapshot: the checker cannot see it, so 'unsupported' is the right output for it,
+    and it is left out of the reviewer-burden ratio because US2 fills those snapshot gaps.
+    """
     import time
     labels_path = os.path.join(FIXTURE_DIR, "labels.json")
     with open(labels_path, encoding="utf-8") as f:
@@ -565,21 +571,22 @@ def test_validation_set():
 
     mention_labels = labels["labels"]
     assert set(actual) == {l["id"] for l in mention_labels}, "labels.json is out of date with the checker's mentions"
-    agree = sum(actual[l["id"]] == l["expected"] for l in mention_labels)
-    false_pass = [l for l in mention_labels if l["expected"] == "unsupported" and actual[l["id"]] != "unsupported"]
-    # quantities the checker left out are never checked: also a silent pass
-    false_pass += [x for x in labels["excluded"] if x["expected"] == "unsupported"]
+    correct = lambda l: actual[l["id"]] == l["expected"] or (l["expected"] == "script_gap" and actual[l["id"]] == "unsupported")
+    agree = sum(correct(l) for l in mention_labels) + sum(x["expected"] == "excluded" for x in labels["excluded"])
     total = len(mention_labels) + len(labels["excluded"])
-    agree += sum(x["expected"] == "excluded" for x in labels["excluded"])
+    false_pass = [l["raw"] for l in mention_labels if l["expected"] == "unsupported" and actual[l["id"]] != "unsupported"]
+    # quantities the checker left out are never checked: also a silent pass
+    false_pass += [x["text"] for x in labels["excluded"] if x["expected"] == "unsupported"]
 
-    assert agree / total >= 0.95, f"SC-001 agreement {agree}/{total}"
-    assert false_pass == [], f"SC-001 false pass: {[(x.get('raw') or x.get('text')) for x in false_pass]}"
+    assert agree / total >= 0.95, f"SC-001 agreement {agree}/{total}: {[l['raw'] for l in mention_labels if not correct(l)]}"
+    assert false_pass == [], f"SC-001 false pass: {false_pass}"
 
-    quantities = [l for l in mention_labels if l["expected"] != "excluded"]
-    unsupported = [l for l in mention_labels if actual[l["id"]] == "unsupported"]
-    assert len(unsupported) <= 0.25 * len(quantities), f"SC-002 {len(unsupported)}/{len(quantities)}"
-    noise = [l for l in unsupported if l["expected"] == "excluded"]
-    assert len(noise) <= 0.05 * max(len(unsupported), 1), f"SC-003 {[l['raw'] for l in noise]}"
+    burden = [l for l in mention_labels if l["expected"] not in ("excluded", "script_gap")]
+    unsupported = [l for l in burden if actual[l["id"]] == "unsupported"]
+    assert len(unsupported) <= 0.25 * len(burden), f"SC-002 {len(unsupported)}/{len(burden)}"
+    flagged = [l for l in mention_labels if actual[l["id"]] == "unsupported" and l["expected"] != "script_gap"]
+    noise = [l for l in flagged if l["expected"] == "excluded"]
+    assert len(noise) <= 0.05 * max(len(flagged), 1), f"SC-003 {[l['raw'] for l in noise]}"
     assert elapsed <= 10, f"SC-006 {elapsed:.1f}s"
 
 
@@ -607,6 +614,7 @@ def test_validation_set():
     ("005930.KS.quote.fifty_two_week_high", "price"),
     ("005930.KS.estimates.fy1.mean_eps", "price"),
     ("005930.KS.pb_band.floor_price", "price"),
+    ("005930.KS.scenario.expected_price_a", "price"),
     ("005930.KS.technical.rsi_14", "other"),
 ])
 def test_path_kind(path, kind):

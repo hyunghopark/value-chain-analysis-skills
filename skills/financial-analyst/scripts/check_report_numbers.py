@@ -330,7 +330,7 @@ PATH_KINDS = [(kind, re.compile(pattern)) for kind, pattern in (
     ('multiple', r'\.(beta|current_ratio|ev_to_\w+|forward_pe|trailing_pe|peg_ratio|price_to_\w+|multiple_[ab]|pe)$'
                  r'|\.pb_band\.(pb\.|high$|low$|median$|current_pb$)'),
     ('money', r'\.(market_cap\w*)$|\.audit\.'),
-    ('price', r'(close|price|eps|_high|_low|bps|sma_20|bollinger_\w+|book_value|dividend_rate)(\.|$)|\.history\.|\.target'),
+    ('price', r'(close|price|eps|_high|_low|bps|sma_20|bollinger_\w+|book_value|dividend_rate)(_[ab])?(\.|$)|\.history\.|\.target'),
     ('other', r'.'),
 )]
 
