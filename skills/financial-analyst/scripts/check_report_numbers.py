@@ -497,7 +497,67 @@ def check(report_path, snapshot_path=None, fetch_sources=False):
     classify(mentions, snapshot_candidates(snapshot) if snapshot else [])
     result.mentions = mentions
     result.counts = count_classes(mentions, excluded)
+    if not snap_path:
+        result.issues.append(Issue('no_snapshot-report', 'no_snapshot', 'error', '머리',
+                                   '짝 스냅샷을 찾을 수 없어 스크립트 값 대조를 하지 못했습니다(대조 불가).'))
+    result.issues += mention_issues(mentions)
+    result.exit_code = exit_code(result.issues)
     return result
+
+
+def mention_issues(mentions):
+    issues = []
+    for m in mentions:
+        if m.classification != 'unsupported':
+            continue
+        hint = f" (다른 종목 값 {m.matched_path}와 같음 — 이 문맥의 값이 아님)" if m.weak else ''
+        issues.append(Issue(m.id, 'unsupported_number', 'error', f"{m.section} › 줄 {m.line}",
+                            f'"{m.raw}" — {m.context}{hint}'))
+    return issues
+
+
+def exit_code(issues):
+    return EXIT_ISSUES if any(i.severity == 'error' and not i.documented for i in issues) else EXIT_OK
+
+
+# --- Output (contracts/cli.md) --------------------------------------------------------------
+
+EXCLUDED_LABELS = {
+    'diagram_style': '다이어그램 서식', 'citation': '인용·출처 표기', 'date': '날짜·시각', 'ticker_code': '종목 코드',
+    'period_label': '분기·회계 표기', 'product_spec': '제품·규격', 'duration': '기간', 'year': '연도', 'numbering': '번호·개수',
+}
+
+
+def render_summary(result, verbose=False):
+    c = result.counts
+    excluded = sum((c.get('excluded') or {}).values())
+    open_issues = [i for i in result.issues if not i.documented]
+    lines = [
+        f"## 숫자 점검 — {os.path.basename(result.report)}",
+        f"점검 시각: {result.checked_at} · 스냅샷: {os.path.basename(result.snapshot) if result.snapshot else '없음(대조 불가)'}",
+        "",
+        "| 분류 | 개수 |",
+        "|---|---|",
+        f"| 스크립트 값 일치 | {c.get('script', 0)} |",
+        f"| 인용 출처 있음 | {c.get('cited', 0)} |",
+        f"| 근거 없음 | {c.get('unsupported', 0)} |",
+        f"| 제외(수량 아님) | {excluded} |",
+        "",
+        f"### 문제 (기록 안 됨 {len(open_issues)} / 기록됨 {len(result.issues) - len(open_issues)})",
+    ]
+    lines += [f"- [{i.kind}] {i.location} — {i.message}" for i in open_issues] or ["- 없음"]
+    if verbose:
+        lines += ["", "### 스크립트 값 일치"]
+        lines += [f"- {m.section} › 줄 {m.line} › \"{m.raw}\" → {m.matched_path}"
+                  + (f" ({m.snapshot_status})" if m.snapshot_status and m.snapshot_status != 'final' else '')
+                  + (f" 외 {m.match_count - 1}곳" if m.match_count > 1 else '')
+                  for m in result.mentions if m.classification == 'script']
+        lines += ["", "### 인용 출처 있음"]
+        lines += [f"- {m.section} › 줄 {m.line} › \"{m.raw}\" → [{', '.join(map(str, m.scope_citations))}]"
+                  for m in result.mentions if m.classification == 'cited']
+        lines += ["", "### 제외(수량 아님)"]
+        lines += [f"- {EXCLUDED_LABELS[k]}: {v}" for k, v in (c.get('excluded') or {}).items() if v]
+    return '\n'.join(lines)
 
 
 # --- Entry point ----------------------------------------------------------------------------
@@ -534,6 +594,7 @@ def main(argv=None):
     if args.json:
         with open(args.json, 'w', encoding='utf-8') as f:
             json.dump(asdict(result), f, ensure_ascii=False, indent=2)
+    print(render_summary(result, verbose=args.verbose))
     return result.exit_code
 
 

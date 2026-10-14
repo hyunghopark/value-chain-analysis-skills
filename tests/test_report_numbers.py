@@ -435,3 +435,91 @@ def test_us1_mention_ids_are_stable(us1):
     assert _mention(us1, "11건", 1).id.endswith("-11건-2")             # second in '1. 산업 개요'
     m = _mention(us1, "11건", 2)                                     # first in the 005930.KS subsection
     assert m.id.endswith("-11건-1") and len(m.id.split("-")[0]) == 4
+
+
+# --- T011: issues, output, exit codes, read-only ------------------------------------------------
+
+def test_unsupported_numbers_become_issues(us1):
+    m = _mention(us1, "12.34%")
+    issue = next(i for i in us1.issues if i.id == m.id)
+    assert issue.kind == "unsupported_number" and issue.severity == "error" and not issue.documented
+    assert "1. 산업 개요" in issue.location and "9" in issue.location
+    assert "12.34%" in issue.message
+    weak = next(i for i in us1.issues if i.id == _mention(us1, "45.67%").id)
+    assert "000660.KS.metrics.roe" in weak.message                  # the hint is shown to the reviewer
+    assert us1.exit_code == 1
+
+
+def test_no_snapshot_is_not_a_silent_pass(tmp_path):
+    result = crn.check(write_case(tmp_path, US1_REPORT))             # header names r_data.json, file absent
+    assert result.snapshot is None
+    assert any(i.kind == "no_snapshot" and i.severity == "error" for i in result.issues)
+    assert all(m.classification != "script" for m in result.mentions)
+    assert result.exit_code == 1
+
+
+CLEAN_REPORT = """# 깨끗한 보고서
+
+> **데이터 스냅샷**: `r_data.json`
+
+## 1. 산업 개요
+
+TTM 영업이익률 52.18%를 기록했고 P/B 2.44배이다. 매출 195조 원을 발표했다 [7].
+
+## 8. 참고 문헌 (References)
+
+[7] [기사 제목](https://example.com/news/1) — 2026-10-10
+"""
+
+
+def test_clean_report_exit_0(tmp_path):
+    result = crn.check(write_case(tmp_path, CLEAN_REPORT, snapshot=US1_SNAPSHOT))
+    assert [i for i in result.issues if i.severity == "error"] == []
+    assert result.exit_code == 0
+
+
+def test_main_json_and_exit_code(tmp_path, capsys):
+    path = write_case(tmp_path, US1_REPORT, snapshot=US1_SNAPSHOT)
+    out_json = tmp_path / "check.json"
+    assert crn.main([path, "--json", str(out_json)]) == 1
+    data = json.loads(out_json.read_text(encoding="utf-8"))
+    assert list(data) == ["report", "snapshot", "checked_at", "counts", "mentions", "section4",
+                          "references", "ai_todo", "issues", "exit_code"]
+    assert data["exit_code"] == 1
+    out = capsys.readouterr().out
+    assert "| 스크립트 값 일치 |" in out and "| 근거 없음 |" in out
+    assert "12.34%" in out                                           # unsupported numbers are listed
+    assert "45.67%" in out and "다른 종목 값" in out
+
+
+def test_verbose_lists_matches(tmp_path, capsys):
+    path = write_case(tmp_path, US1_REPORT, snapshot=US1_SNAPSHOT)
+    crn.main([path])
+    assert "005930.KS.cycle.opm_ttm" not in capsys.readouterr().out
+    crn.main([path, "--verbose"])
+    out = capsys.readouterr().out
+    assert "005930.KS.cycle.opm_ttm" in out and "제외" in out
+
+
+def test_checker_is_read_only(tmp_path, monkeypatch):                 # FR-014, constitution VI
+    import builtins
+    import hashlib
+    path = write_case(tmp_path, US1_REPORT, snapshot=US1_SNAPSHOT)
+    (tmp_path / "other_report_data.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "other_report.md").write_text("# other", encoding="utf-8")
+    digest = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest()
+    before = {p: digest(p) for p in (path, str(tmp_path / "r_data.json"))}
+
+    opened = []
+    real_open = builtins.open
+    def spy(file, mode="r", *args, **kwargs):
+        opened.append((os.path.abspath(str(file)), mode))
+        return real_open(file, mode, *args, **kwargs)
+    monkeypatch.setattr(builtins, "open", spy)
+    crn.main([path])
+    monkeypatch.undo()
+
+    assert {p: digest(p) for p in before} == before
+    assert all("w" not in mode and "a" not in mode for _, mode in opened)
+    names = {os.path.basename(p) for p, _ in opened}
+    assert names <= {"r.md", "r_data.json", "report-number-check.md"}, names
