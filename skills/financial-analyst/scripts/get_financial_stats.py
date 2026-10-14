@@ -16,8 +16,10 @@ import yfinance as yf
 
 import data_checks
 from data_checks import ki
+import snapshot
+from snapshot import Snapshot
 
-KST =datetime.timezone(datetime.timedelta(hours=9))
+KST = datetime.timezone(datetime.timedelta(hours=9))
 DEFAULT_WEIGHTS = (0.2, 0.5, 0.3)  # Bull, Base, Bear
 GENERAL_PILLARS = ('fpe', 'peg', 'rg', 'ev', 'roe', 'de', 'rev')
 CYCLICAL_PILLARS = ('band', 'cycle', 'rev', 'de')
@@ -33,11 +35,13 @@ MARKET_STATE_KO = {
 
 WARNINGS = []
 HISTORY = {}
+SNAP = Snapshot()
 
 
 def warn(msg):
     print(f"[Warn] {msg}", file=sys.stderr)
     WARNINGS.append(msg)
+    SNAP.warning(msg)
 
 
 def num(val):
@@ -180,7 +184,9 @@ def sanitize_metrics(info, ticker_symbol=""):
             implied_pb = pe * roe
             if pb is None or pb <= 0 or pb > implied_pb * 2.5 or pb < implied_pb / 2.5:
                 warn(f"{tag} — P/B {pb} → {implied_pb:.2f} (P/E × ROE로 역산)")
+                orig_pb = pb
                 info['priceToBook'] = implied_pb
+                SNAP.record(f"{ticker_symbol}.metrics.price_to_book", implied_pb, source="calculated", basis="derived", status="corrected", ki="KI-008", original=orig_pb)
 
         ps = info.get('priceToSalesTrailing12Months')
         ev_rev = info.get('enterpriseToRevenue')
@@ -192,19 +198,25 @@ def sanitize_metrics(info, ticker_symbol=""):
             implied_ps = pe * npm
             if ps is None or ps <= 0 or ps > implied_ps * 2.5 or ps < implied_ps / 2.5:
                 warn(f"{tag} — P/S {ps} → {implied_ps:.2f} (P/E × 순이익률로 역산)")
+                orig_ps = ps
                 ps = implied_ps
                 info['priceToSalesTrailing12Months'] = ps
+                SNAP.record(f"{ticker_symbol}.metrics.price_to_sales", ps, source="calculated", basis="derived", status="corrected", ki="KI-008", original=orig_ps)
 
         if ps and ps > 0:
             if ev_rev is None or ev_rev <= 0 or ev_rev > ps * 2.5 or ev_rev < ps / 2.5:
                 warn(f"{tag} — EV/Revenue {ev_rev} → {ps:.2f} (P/S로 대체)")
+                orig_ev_rev = ev_rev
                 ev_rev = ps
                 info['enterpriseToRevenue'] = ev_rev
+                SNAP.record(f"{ticker_symbol}.metrics.ev_to_revenue", ev_rev, source="calculated", basis="derived", status="corrected", ki="KI-008", original=orig_ev_rev)
             if ebitda_m and ebitda_m > 0:
                 implied_ev_ebitda = ev_rev / ebitda_m
                 if ev_ebitda is None or ev_ebitda <= 0 or ev_ebitda > implied_ev_ebitda * 2.0 or ev_ebitda < implied_ev_ebitda / 2.0:
                     warn(f"{tag} — EV/EBITDA {ev_ebitda} → {implied_ev_ebitda:.2f} (EV/Revenue ÷ EBITDA 마진으로 역산)")
+                    orig_ev_ebitda = ev_ebitda
                     info['enterpriseToEbitda'] = implied_ev_ebitda
+                    SNAP.record(f"{ticker_symbol}.metrics.ev_to_ebitda", implied_ev_ebitda, source="calculated", basis="derived", status="corrected", ki="KI-008", original=orig_ev_ebitda)
 
         price = info.get('currentPrice') or info.get('regularMarketPrice')
         if price and price > 0:
@@ -213,21 +225,27 @@ def sanitize_metrics(info, ticker_symbol=""):
                 t_eps = info.get('trailingEps')
                 if t_eps is None or t_eps <= 0 or t_eps > implied_teps * 1.5 or t_eps < implied_teps / 1.5:
                     warn(f"{tag} — Trailing EPS {t_eps} → {implied_teps:.2f}")
+                    orig_teps = t_eps
                     info['trailingEps'] = implied_teps
+                    SNAP.record(f"{ticker_symbol}.metrics.trailing_eps", implied_teps, source="calculated", basis="derived", status="corrected", ki="KI-008", original=orig_teps)
             fpe = info.get('forwardPE')
             if fpe and fpe > 0:
                 implied_feps = price / fpe
                 f_eps = info.get('forwardEps')
                 if f_eps is None or f_eps <= 0 or f_eps > implied_feps * 1.5 or f_eps < implied_feps / 1.5:
                     warn(f"{tag} — Forward EPS {f_eps} → {implied_feps:.2f}")
+                    orig_feps = f_eps
                     info['forwardEps'] = implied_feps
+                    SNAP.record(f"{ticker_symbol}.metrics.forward_eps", implied_feps, source="calculated", basis="derived", status="corrected", ki="KI-008", original=orig_feps)
             pb_now = info.get('priceToBook')
             if pb_now and pb_now > 0:
                 implied_bps = price / pb_now
                 bv = info.get('bookValue')
                 if bv is None or bv <= 0 or bv > implied_bps * 1.5 or bv < implied_bps / 1.5:
                     warn(f"{tag} — BPS {bv} → {implied_bps:.2f}")
+                    orig_bv = bv
                     info['bookValue'] = implied_bps
+                    SNAP.record(f"{ticker_symbol}.metrics.book_value", implied_bps, source="calculated", basis="derived", status="corrected", ki="KI-008", original=orig_bv)
 
     # 3. Fill missing EPS / BPS if price and P/E or P/B are available
     price = info.get('currentPrice') or info.get('regularMarketPrice')
@@ -380,40 +398,78 @@ def enrich_korean_stock(info, ticker_symbol, orig_fpe, orig_feps, orig_peg):
         naver_target_mean = parse_korean_number(cns.get('priceTargetMean'))
         naver_recomm = parse_korean_number(cns.get('recommMean'))
 
-        if naver_per is not None: info['trailingPE'] = naver_per
-        if naver_eps is not None: info['trailingEps'] = naver_eps
+        if naver_per is not None:
+            orig_val = info.get('trailingPE')
+            info['trailingPE'] = naver_per
+            SNAP.record(f"{ticker_symbol}.metrics.trailing_pe", naver_per, source="naver", basis="statement", status="final", original=orig_val)
+
+        if naver_eps is not None:
+            orig_val = info.get('trailingEps')
+            info['trailingEps'] = naver_eps
+            SNAP.record(f"{ticker_symbol}.metrics.trailing_eps", naver_eps, source="naver", basis="statement", status="final", original=orig_val)
+
         if naver_fwd_per is not None:
-            # Naver's consensus P/E is for the current fiscal year (FY0), not NTM
+            orig_val = info.get('forwardPE')
             info['forwardPE'] = naver_fwd_per
             info['peFY0'] = naver_fwd_per
             info['_fwd_basis'] = 'FY0(네이버)'
+            SNAP.record(f"{ticker_symbol}.metrics.forward_pe", naver_fwd_per, source="naver", basis="consensus", status="final", note="FY0(네이버)", original=orig_val)
+
         if naver_fwd_eps is not None:
+            orig_val = info.get('forwardEps')
             info['forwardEps'] = naver_fwd_eps
             info['epsFY0'] = naver_fwd_eps
             info['_naver_fy0_eps'] = naver_fwd_eps
+            SNAP.record(f"{ticker_symbol}.metrics.forward_eps", naver_fwd_eps, source="naver", basis="consensus", status="final", note="FY0(네이버)", original=orig_val)
+
         if orig_feps and orig_feps > 0:
             info['epsFY1'] = orig_feps
         if orig_fpe and orig_fpe > 0:
             info['peFY1'] = orig_fpe
-        if naver_pbr is not None: info['priceToBook'] = naver_pbr
-        if naver_bps is not None: info['bookValue'] = naver_bps
+
+        if naver_pbr is not None:
+            orig_val = info.get('priceToBook')
+            info['priceToBook'] = naver_pbr
+            SNAP.record(f"{ticker_symbol}.metrics.price_to_book", naver_pbr, source="naver", basis="statement", status="final", original=orig_val)
+
+        if naver_bps is not None:
+            orig_val = info.get('bookValue')
+            info['bookValue'] = naver_bps
+            SNAP.record(f"{ticker_symbol}.metrics.book_value", naver_bps, source="naver", basis="statement", status="final", original=orig_val)
+
         if naver_div is not None:
+            orig_val = info.get('dividendYield')
             info['dividendYield'] = naver_div
             info['_div_is_pct'] = True
-        if naver_dps is not None: info['dividendRate'] = naver_dps
-        if naver_52w_high is not None: info['fiftyTwoWeekHigh'] = naver_52w_high
-        if naver_52w_low is not None: info['fiftyTwoWeekLow'] = naver_52w_low
-        # Naver's market value counts listed common shares only. Show it, but keep Yahoo's market cap
-        # and EV untouched so EV-based multiples still include preferred equity.
+            SNAP.record(f"{ticker_symbol}.metrics.dividend_yield", naver_div, source="naver", basis="statement", status="final", original=orig_val)
+
+        if naver_dps is not None:
+            orig_val = info.get('dividendRate')
+            info['dividendRate'] = naver_dps
+            SNAP.record(f"{ticker_symbol}.metrics.dividend_rate", naver_dps, source="naver", basis="statement", status="final", original=orig_val)
+
+        if naver_52w_high is not None:
+            orig_val = info.get('fiftyTwoWeekHigh')
+            info['fiftyTwoWeekHigh'] = naver_52w_high
+            SNAP.record(f"{ticker_symbol}.quote.fifty_two_week_high", naver_52w_high, source="naver", basis="quote", status="final", original=orig_val)
+
+        if naver_52w_low is not None:
+            orig_val = info.get('fiftyTwoWeekLow')
+            info['fiftyTwoWeekLow'] = naver_52w_low
+            SNAP.record(f"{ticker_symbol}.quote.fifty_two_week_low", naver_52w_low, source="naver", basis="quote", status="final", original=orig_val)
+
         if naver_mcap is not None:
             info['marketCapCommon'] = naver_mcap
+            SNAP.record(f"{ticker_symbol}.quote.market_cap_common", naver_mcap, source="naver", basis="quote", status="final")
+
         if naver_target_mean is not None:
             info['targetMeanPriceNaver'] = naver_target_mean
+            SNAP.record(f"{ticker_symbol}.consensus.target_mean_price_naver", naver_target_mean, source="naver", basis="consensus", status="final")
             if not info.get('targetMeanPrice'):
                 info['targetMeanPrice'] = naver_target_mean
                 info['_target_source'] = '네이버'
+
         if naver_recomm is not None and (not info.get('recommendationKey') or str(info.get('recommendationKey')).lower() in ('none', 'n/a')):
-            # Naver consensus scale: 5 강력매수 · 4 매수 · 3 중립 · 2 매도 · 1 강력매도
             info['recommendationKey'] = 'strong_buy' if naver_recomm >= 4.5 else ('buy' if naver_recomm >= 3.5 else ('hold' if naver_recomm >= 2.5 else 'sell'))
 
         if not total_infos:
@@ -428,16 +484,27 @@ def enrich_korean_stock(info, ticker_symbol, orig_fpe, orig_feps, orig_peg):
         price = info.get('currentPrice') or info.get('regularMarketPrice')
         if wr_fy0 is not None and wr_fy0 > 0:
             info['epsFY0'] = wr_fy0
+            SNAP.record(f"{ticker_symbol}.estimates.fy0.eps", wr_fy0, source="wisereport", basis="consensus", status="final")
             if price and price > 0:
                 info['peFY0'] = price / wr_fy0
+                SNAP.record(f"{ticker_symbol}.estimates.fy0.pe", info['peFY0'], source="wisereport", basis="derived", status="final",
+                            inputs=[f"{ticker_symbol}.quote.current_price", f"{ticker_symbol}.estimates.fy0.eps"])
         if wr_fy1 is not None and wr_fy1 > 0:
             info['epsFY1'] = wr_fy1
+            SNAP.record(f"{ticker_symbol}.estimates.fy1.eps", wr_fy1, source="wisereport", basis="consensus", status="final")
             if price and price > 0:
                 info['peFY1'] = price / wr_fy1
+                SNAP.record(f"{ticker_symbol}.estimates.fy1.pe", info['peFY1'], source="wisereport", basis="derived", status="final",
+                            inputs=[f"{ticker_symbol}.quote.current_price", f"{ticker_symbol}.estimates.fy1.eps"])
         if ntm_eps is not None and ntm_eps > 0 and price and price > 0:
+            orig_fwd_eps = info.get('forwardEps')
+            orig_fwd_pe = info.get('forwardPE')
             info['forwardEps'] = ntm_eps
             info['forwardPE'] = price / ntm_eps
             info['_fwd_basis'] = 'NTM'
+            SNAP.record(f"{ticker_symbol}.metrics.forward_eps", ntm_eps, source="wisereport", basis="consensus", status="final", note="NTM(WiseReport)", original=orig_fwd_eps)
+            SNAP.record(f"{ticker_symbol}.metrics.forward_pe", info['forwardPE'], source="wisereport", basis="derived", status="final", note="NTM(WiseReport)", original=orig_fwd_pe,
+                        inputs=[f"{ticker_symbol}.quote.current_price", f"{ticker_symbol}.metrics.forward_eps"])
     except Exception as e:
         warn(f"{ticker_symbol}: WiseReport NTM 수집 실패 ({e})")
 
@@ -445,6 +512,8 @@ def enrich_korean_stock(info, ticker_symbol, orig_fpe, orig_feps, orig_peg):
     new_fpe = info.get('forwardPE')
     if orig_peg and orig_peg > 0 and orig_fpe and orig_fpe > 0 and new_fpe and new_fpe > 0:
         info['pegRatio'] = orig_peg * (new_fpe / orig_fpe)
+        SNAP.record(f"{ticker_symbol}.metrics.peg_ratio", info['pegRatio'], source="calculated", basis="derived", status="final",
+                    inputs=[f"{ticker_symbol}.metrics.forward_pe"])
 
     # Priority 2: PyKrx Fallback (KRX Official Data) for anything still missing
     import os
@@ -539,9 +608,17 @@ def check_krx_history(symbol, info):
     fixed, filled, replaced = data_checks.reconcile_history(hist, ref)
     HISTORY[symbol] = fixed
     if filled:
+        for d in filled:
+            c_val = float(ref.loc[d, 'Close']) if d in ref.index and 'Close' in ref.columns else None
+            if c_val is not None:
+                SNAP.record(f"{symbol}.history.{d:%Y-%m-%d}.close", c_val, source="daum", basis="krx_regular_close",
+                            as_of=f"{d:%Y-%m-%d}", status="corrected", ki="KI-002", original=None)
         warn(ki('KI-002', f"{symbol}: Yahoo 가격 이력에 없거나 빈 거래일 {len(filled)}개"
                           f"({', '.join(f'{d:%m-%d}' for d in filled[-3:])})를 거래소 종가(다음 금융)로 채웠습니다."))
     if replaced:
+        for d, y, r in replaced:
+            SNAP.record(f"{symbol}.history.{d:%Y-%m-%d}.close", float(r), source="daum", basis="krx_regular_close",
+                        as_of=f"{d:%Y-%m-%d}", status="corrected", ki="KI-006", original=float(y))
         ex = ', '.join(f"{d:%m-%d} Yahoo ₩{y:,.0f}→₩{r:,.0f}" for d, y, r in replaced[:3])
         warn(ki('KI-006', f"{symbol}: Yahoo 종가가 거래소 종가(다음 금융)와 다른 {len(replaced)}일을 거래소 종가로 바꿨습니다({ex})."))
 
@@ -560,9 +637,17 @@ def check_krx_index(bench):
     fixed, filled, replaced = data_checks.reconcile_history(hist, ref)
     HISTORY[bench] = fixed
     if filled:
+        for d in filled:
+            c_val = float(ref.loc[d, 'Close']) if d in ref.index and 'Close' in ref.columns else None
+            if c_val is not None:
+                SNAP.record(f"{bench}.history.{d:%Y-%m-%d}.close", c_val, source="daum", basis="index_close",
+                            as_of=f"{d:%Y-%m-%d}", status="corrected", ki="KI-002", original=None)
         warn(ki('KI-002', f"{bench}: Yahoo 지수 이력에 없거나 빈 거래일 {len(filled)}개"
                           f"({', '.join(f'{d:%m-%d}' for d in filled[-3:])})를 다음 금융 지수 종가로 채웠습니다."))
     if replaced:
+        for d, y, r in replaced:
+            SNAP.record(f"{bench}.history.{d:%Y-%m-%d}.close", float(r), source="daum", basis="index_close",
+                        as_of=f"{d:%Y-%m-%d}", status="corrected", ki="KI-006", original=float(y))
         ex = ', '.join(f"{d:%m-%d} {y:,.2f}→{r:,.2f}" for d, y, r in replaced[:3])
         warn(ki('KI-006', f"{bench}: Yahoo 지수 종가가 다음 금융과 다른 {len(replaced)}일을 바꿨습니다({ex})."))
 
@@ -595,6 +680,50 @@ def check_statement_lag(t, info, symbol):
                               f"(최신 {have}) — {effect}."))
 
 
+def record_yahoo_raw_info(symbol, info):
+    price = info.get('currentPrice') or info.get('regularMarketPrice')
+    if price is not None:
+        SNAP.record(f"{symbol}.quote.current_price", price, source="yahoo", basis="quote", status="final")
+    if info.get('fiftyTwoWeekHigh') is not None:
+        SNAP.record(f"{symbol}.quote.fifty_two_week_high", info.get('fiftyTwoWeekHigh'), source="yahoo", basis="quote", status="final")
+    if info.get('fiftyTwoWeekLow') is not None:
+        SNAP.record(f"{symbol}.quote.fifty_two_week_low", info.get('fiftyTwoWeekLow'), source="yahoo", basis="quote", status="final")
+    if info.get('marketCap') is not None:
+        SNAP.record(f"{symbol}.quote.market_cap", info.get('marketCap'), source="yahoo", basis="quote", status="final")
+
+    mapping = [
+        ('trailingPE', 'metrics.trailing_pe', 'statement'),
+        ('forwardPE', 'metrics.forward_pe', 'consensus'),
+        ('trailingEps', 'metrics.trailing_eps', 'statement'),
+        ('forwardEps', 'metrics.forward_eps', 'consensus'),
+        ('pegRatio', 'metrics.peg_ratio', 'consensus'),
+        ('enterpriseToEbitda', 'metrics.ev_to_ebitda', 'statement'),
+        ('enterpriseToRevenue', 'metrics.ev_to_revenue', 'statement'),
+        ('priceToSalesTrailing12Months', 'metrics.price_to_sales', 'statement'),
+        ('priceToBook', 'metrics.price_to_book', 'statement'),
+        ('bookValue', 'metrics.book_value', 'statement'),
+        ('returnOnEquity', 'metrics.roe', 'statement'),
+        ('returnOnAssets', 'metrics.roa', 'statement'),
+        ('operatingMargins', 'metrics.operating_margin', 'statement'),
+        ('profitMargins', 'metrics.profit_margin', 'statement'),
+        ('grossMargins', 'metrics.gross_margin', 'statement'),
+        ('ebitdaMargins', 'metrics.ebitda_margin', 'statement'),
+        ('revenueGrowth', 'metrics.revenue_growth', 'statement'),
+        ('earningsGrowth', 'metrics.earnings_growth', 'statement'),
+        ('debtToEquity', 'metrics.debt_to_equity', 'statement'),
+        ('currentRatio', 'metrics.current_ratio', 'statement'),
+        ('dividendYield', 'metrics.dividend_yield', 'statement'),
+        ('payoutRatio', 'metrics.payout_ratio', 'statement'),
+        ('beta', 'metrics.beta', 'derived'),
+        ('shortPercentOfFloat', 'metrics.short_percent_of_float', 'derived'),
+        ('heldPercentInstitutions', 'metrics.held_percent_institutions', 'derived'),
+    ]
+    for key, path_suffix, basis in mapping:
+        val = info.get(key)
+        if val is not None:
+            SNAP.record(f"{symbol}.{path_suffix}", val, source="yahoo", basis=basis, status="final")
+
+
 def get_stats(ticker_symbol):
     try:
         t = yf.Ticker(ticker_symbol)
@@ -611,6 +740,9 @@ def get_stats(ticker_symbol):
         if not info or 'symbol' not in info:
             return None
         info = dict(info)
+
+        # Record raw Yahoo values before any enrichment / override
+        record_yahoo_raw_info(ticker_symbol, info)
 
         # Ensure pegRatio fallback before overrides
         if info.get('pegRatio') is None and info.get('trailingPegRatio') is not None:
@@ -673,6 +805,28 @@ def fetch_estimates(t, info, symbol):
         if ee_fy1 and ref and ee_fy1 > 0 and ref > 0 and not (1 / 1.5 < ref / ee_fy1 < 1.5):
             est['scale'] = ref / ee_fy1
             warn(f"{symbol}: Yahoo 추정 EPS 단위를 x{est['scale']:.4f} 보정했습니다 (ADR·통화 단위 차이).")
+
+    scale = est.get('scale', 1.0)
+    if ee is not None:
+        for period, p_key in (('0y', 'fy0'), ('+1y', 'fy1')):
+            if period in ee.index:
+                for col, c_key in (('low', 'low_eps'), ('avg', 'mean_eps'), ('high', 'high_eps'), ('numberOfAnalysts', 'analysts_count')):
+                    if col in ee.columns:
+                        val = num(ee.loc[period, col])
+                        if val is not None:
+                            scaled_val = val if col == 'numberOfAnalysts' else val * scale
+                            SNAP.record(f"{symbol}.estimates.{p_key}.{c_key}", scaled_val, source="yahoo", basis="consensus", status="final")
+
+    rev = est.get('revisions')
+    if rev is not None:
+        for h, p_key in (('0y', 'fy0'), ('+1y', 'fy1')):
+            if h in rev.index:
+                for col, c_key in (('upLast30days', 'up_30d'), ('downLast30days', 'down_30d')):
+                    if col in rev.columns:
+                        val = num(rev.loc[h, col])
+                        if val is not None:
+                            SNAP.record(f"{symbol}.estimates.{p_key}.{c_key}", val, source="yahoo", basis="consensus", status="final")
+
     return est
 
 
@@ -726,6 +880,16 @@ def analyze_cycle(t, info, symbol):
 
     opm_ttm = num(info.get('operatingMargins'))
     out['opm_ttm'] = opm_ttm
+    if opm_ttm is not None:
+        SNAP.record(f"{symbol}.cycle.opm_ttm", opm_ttm, source="yahoo", basis="statement", status="final")
+    for c, val in out['opm_hist']:
+        c_str = f"{pd.Timestamp(c):%Y-%m-%d}"
+        SNAP.record(f"{symbol}.cycle.opm.{c_str}", val, source="yahoo", basis="statement", status="final")
+    if 'auto' in out:
+        SNAP.record(f"{symbol}.cycle.is_cyclical_auto", out['auto'], source="yahoo", basis="derived", status="final")
+    if 'basis' in out:
+        SNAP.record(f"{symbol}.cycle.auto_basis", out['basis'], source="yahoo", basis="statement", status="final")
+
     hist_vals = [v for _, v in out['opm_hist']]
     if opm_ttm is not None and len(hist_vals) >= 3:
         top, mid = max(hist_vals), statistics.median(hist_vals)
@@ -808,6 +972,22 @@ def compute_pb_band(t, info, symbol):
         sig, desc = '🟡', '중앙값~최고'
     else:
         sig, desc = '🟢', '중앙값 이하'
+
+    for d, pb_val in pbs:
+        d_str = f"{d:%Y-%m-%d}"
+        SNAP.record(f"{symbol}.pb_band.bps.{d_str}", bps[d], source="yahoo", basis="statement", status="final")
+        SNAP.record(f"{symbol}.pb_band.pb.{d_str}", pb_val, source="calculated", basis="derived", status="final",
+                    inputs=[f"{symbol}.pb_band.bps.{d_str}"])
+
+    latest_str = f"{latest:%Y-%m-%d}"
+    SNAP.record(f"{symbol}.pb_band.low", lo, source="calculated", basis="derived", status="final")
+    SNAP.record(f"{symbol}.pb_band.median", mid, source="calculated", basis="derived", status="final")
+    SNAP.record(f"{symbol}.pb_band.high", hi, source="calculated", basis="derived", status="final")
+    SNAP.record(f"{symbol}.pb_band.current_pb", cur, source="calculated", basis="derived", status="final",
+                inputs=[f"{symbol}.quote.current_price", f"{symbol}.pb_band.bps.{latest_str}"])
+    SNAP.record(f"{symbol}.pb_band.floor_price", lo * bps[latest], source="calculated", basis="derived", status="final",
+                inputs=[f"{symbol}.pb_band.low", f"{symbol}.pb_band.bps.{latest_str}"])
+
     return {
         'n': len(pbs), 'start': pbs[0][0], 'end': pbs[-1][0], 'lo': lo, 'med': mid, 'hi': hi,
         'cur': cur, 'pos': (cur - lo) / (hi - lo) if hi > lo else None, 'sig': sig, 'desc': desc,
@@ -1009,6 +1189,7 @@ def fetch_investor_trends_table(ticker_code, company_name, info):
 
     rows = []
     tot_frgn_amt = tot_org_amt = tot_ind_amt = 0.0
+    frgn_inputs, org_inputs, ind_inputs = [], [], []
     daum_row_used = False
 
     # Today has no Naver row yet: estimate today's foreign flow from the foreign-ownership change (intraday only)
@@ -1034,20 +1215,27 @@ def fetch_investor_trends_table(ticker_code, company_name, info):
                     rows.append(f'| **{date_str} (장중 잠정)** | ₩{curr_price:,.0f} | **{diff_amt:+,.0f}억 (지분 변동 추정)** | (집계 전) | (집계 전) | {ratio_str} |')
                     daum_row_used = True
                     status_note = "> ⚠️ 당일 행은 외국인 지분 변동으로 추정한 **장중 잠정치**이며, 기관·개인은 아직 집계되지 않았습니다.\n\n"
+                    sym = info.get('symbol') or f"{ticker_code}.KS"
+                    SNAP.record(f"{sym}.flows.{date_str}.price", curr_price, source="daum", basis="flow_feed_price", as_of=date_str, status="provisional")
+                    SNAP.record(f"{sym}.flows.{date_str}.foreign_net_amt", diff_amt, source="calculated", basis="derived", as_of=date_str, status="provisional", note="지분 변동 추정")
+                    frgn_inputs.append(f"{sym}.flows.{date_str}.foreign_net_amt")
+                    if ratio is not None:
+                        SNAP.record(f"{sym}.flows.{date_str}.foreign_hold_ratio", ratio, source="daum", basis="flow_feed_price", as_of=date_str, status="provisional")
         except Exception as e:
             warn(f"{company_name}({ticker_code}): 다음 금융 장중 수급 조회 실패 ({e})")
 
     krx = info.get('_krx_daily')
     basis_diffs = []
+    sym = info.get('symbol') or f"{ticker_code}.KS"
     for row in res[:4 if daum_row_used else 5]:
         bdate = digits8(row.get('bizdate'))
         date_str = f'{bdate[:4]}-{bdate[4:6]}-{bdate[6:]}' if len(bdate) == 8 else str(row.get('bizdate', ''))
         close_p = float(str(row.get('closePrice', '0')).replace(',', ''))
-        # Flow quantities and this price come from the same feed (Daum's investor feed carries the same price),
-        # so amounts keep this price even where it differs from the KRX regular-session close (KI-001).
         krx_close = data_checks.ref_close_on(krx, bdate)
+        is_diff = False
         if krx_close and abs(krx_close - close_p) > 0.5:
             basis_diffs.append((date_str, close_p, krx_close))
+            is_diff = True
         frgn_q = float(str(row.get('foreignerPureBuyQuant', '0')).replace(',', '').replace('+', ''))
         org_q = float(str(row.get('organPureBuyQuant', '0')).replace(',', '').replace('+', ''))
         ind_q = float(str(row.get('individualPureBuyQuant', '0')).replace(',', '').replace('+', ''))
@@ -1060,6 +1248,28 @@ def fetch_investor_trends_table(ticker_code, company_name, info):
         tot_org_amt += org_amt
         tot_ind_amt += ind_amt
 
+        row_status = "provisional" if (bdate == today_str and today_label == '잠정') else "final"
+        SNAP.record(f"{sym}.flows.{date_str}.price", close_p, source="naver", basis="flow_feed_price", as_of=date_str, status=row_status)
+        if krx_close is not None:
+            SNAP.record(f"{sym}.flows.{date_str}.krx_close", krx_close, source="daum", basis="krx_regular_close", as_of=date_str, status="final", ki="KI-001" if is_diff else None)
+
+        SNAP.record(f"{sym}.flows.{date_str}.foreign_net_shares", frgn_q, source="naver", basis="flow_feed_price", as_of=date_str, status=row_status)
+        SNAP.record(f"{sym}.flows.{date_str}.organ_net_shares", org_q, source="naver", basis="flow_feed_price", as_of=date_str, status=row_status)
+        SNAP.record(f"{sym}.flows.{date_str}.individual_net_shares", ind_q, source="naver", basis="flow_feed_price", as_of=date_str, status=row_status)
+
+        SNAP.record(f"{sym}.flows.{date_str}.foreign_net_amt", frgn_amt, source="calculated", basis="derived", as_of=date_str, status="estimated",
+                    inputs=[f"{sym}.flows.{date_str}.foreign_net_shares", f"{sym}.flows.{date_str}.price"])
+        SNAP.record(f"{sym}.flows.{date_str}.organ_net_amt", org_amt, source="calculated", basis="derived", as_of=date_str, status="estimated",
+                    inputs=[f"{sym}.flows.{date_str}.organ_net_shares", f"{sym}.flows.{date_str}.price"])
+        SNAP.record(f"{sym}.flows.{date_str}.individual_net_amt", ind_amt, source="calculated", basis="derived", as_of=date_str, status="estimated",
+                    inputs=[f"{sym}.flows.{date_str}.individual_net_shares", f"{sym}.flows.{date_str}.price"])
+        frgn_inputs.append(f"{sym}.flows.{date_str}.foreign_net_amt")
+        org_inputs.append(f"{sym}.flows.{date_str}.organ_net_amt")
+        ind_inputs.append(f"{sym}.flows.{date_str}.individual_net_amt")
+        hold_ratio = num(str(frgn_ratio).replace('%', '').replace(',', ''))
+        if hold_ratio is not None:
+            SNAP.record(f"{sym}.flows.{date_str}.foreign_hold_ratio", hold_ratio / 100, source="naver", basis="flow_feed_price", as_of=date_str, status=row_status)
+
         label = f"**{date_str} ({today_label})**" if (bdate == today_str and today_label) else date_str
         rows.append(f'| {label} | ₩{close_p:,.0f} | {frgn_amt:+,.0f}억 | {org_amt:+,.0f}억 | {ind_amt:+,.0f}억 | {frgn_ratio} |')
 
@@ -1069,6 +1279,13 @@ def fetch_investor_trends_table(ticker_code, company_name, info):
                           "— 금액은 순매수 수량과 같은 기준인 수급 데이터의 가격으로 계산했습니다. 주가 등락은 거래소 종가를 인용하세요."))
 
     excl = " (당일 제외)" if daum_row_used else ""
+    # The summary row is shown in Section 4, so it must be traceable in the snapshot too (amounts in 억 원).
+    for metric, total, inputs, note in (("foreign_net_amt", tot_frgn_amt, frgn_inputs, None),
+                                        ("organ_net_amt", tot_org_amt, org_inputs, excl.strip(" ()") or None),
+                                        ("individual_net_amt", tot_ind_amt, ind_inputs, excl.strip(" ()") or None)):
+        if inputs:
+            SNAP.record(f"{sym}.flows.total_5d.{metric}", total, source="calculated", basis="derived",
+                        as_of=inputs[0].split('.flows.')[1].split('.')[0], status="estimated", inputs=inputs, note=note)
     title = f'**{company_name} ({ticker_code}) 최근 5거래일 투자자별 순매매 추정**'
     header = '| 거래일자 | 종가 | 외국인 순매매 | 기관 순매매 | 개인 순매매 | 외국인 지분율 |\n|---|---|---|---|---|---|'
     summary = f'| **최근 5일 누적(추정)** | - | **{tot_frgn_amt:+,.0f}억 원** | **{tot_org_amt:+,.0f}억 원{excl}** | **{tot_ind_amt:+,.0f}억 원{excl}** | - |'
@@ -1144,6 +1361,11 @@ def technical_table(tickers_list, results):
 
         curr, c_rsi, c_sma, c_lower = close.iloc[-1], rsi.iloc[-1], sma20.iloc[-1], lower.iloc[-1]
         dev_lower = ((curr - c_lower) / c_lower) * 100
+
+        SNAP.record(f"{symbol}.technical.rsi_14", float(c_rsi), source="calculated", basis="derived", status="final")
+        SNAP.record(f"{symbol}.technical.sma_20", float(c_sma), source="calculated", basis="derived", status="final")
+        SNAP.record(f"{symbol}.technical.bollinger_lower", float(c_lower), source="calculated", basis="derived", status="final")
+        SNAP.record(f"{symbol}.technical.deviation_lower", float(dev_lower), source="calculated", basis="derived", status="final")
 
         status = "정상 밴드 내"
         if c_rsi < 30 and dev_lower < 0:
@@ -1240,10 +1462,20 @@ def market_context_table(symbols, results, benchmarks):
             return float(close.iloc[-1] / base - 1) if base else None
 
         drawdown = float(close.iloc[-1] / close.iloc[-252:].max() - 1)
+        r1, r5, r20 = ret(1), ret(5), ret(20)
+        as_of_date = f"{close.index[-1]:%Y-%m-%d}"
+        if r1 is not None:
+            SNAP.record(f"{sym}.market_context.return_1d", float(r1), source="calculated", basis="derived", as_of=as_of_date, status="final")
+        if r5 is not None:
+            SNAP.record(f"{sym}.market_context.return_5d", float(r5), source="calculated", basis="derived", as_of=as_of_date, status="final")
+        if r20 is not None:
+            SNAP.record(f"{sym}.market_context.return_20d", float(r20), source="calculated", basis="derived", as_of=as_of_date, status="final")
+        SNAP.record(f"{sym}.market_context.drawdown_52w", float(drawdown), source="calculated", basis="derived", as_of=as_of_date, status="final")
+
         name = BENCHMARK_NAMES.get(sym, sym) if is_bench else (results[sym].get('shortName') or sym)
         kind = '지수' if is_bench else '분석 기업'
-        rows.append(f"| {name} ({sym}) | {kind} | {close.index[-1]:%Y-%m-%d} | {fmt_signed_pct(ret(1))} | "
-                    f"{fmt_signed_pct(ret(5))} | {fmt_signed_pct(ret(20))} | {fmt_signed_pct(drawdown)} |")
+        rows.append(f"| {name} ({sym}) | {kind} | {as_of_date} | {fmt_signed_pct(r1)} | "
+                    f"{fmt_signed_pct(r5)} | {fmt_signed_pct(r20)} | {fmt_signed_pct(drawdown)} |")
     if not rows:
         return ''
     return ("### 1-3. 🌐 시장 비교 (지수·피어 동반 등락) — 급락·급등 원인 판별용\n\n"
@@ -1617,11 +1849,27 @@ def scenario_table(results, weights):
         tgt = num(info.get('_yahoo_target_mean'))
         mult_b = tgt / avg if (tgt and avg > 0) else None
 
+        if mult_a is not None:
+            SNAP.record(f"{sym}.scenario.multiple_a", mult_a, source="calculated", basis="derived", status="final", inputs=[f"{sym}.quote.current_price"])
+        if mult_b is not None:
+            SNAP.record(f"{sym}.scenario.multiple_b", mult_b, source="calculated", basis="derived", status="final")
+
+        scenario_keys = ('bear', 'base', 'bull')
+        scenario_eps_paths = (f"{sym}.estimates.fy1.low_eps", f"{sym}.estimates.fy1.mean_eps", f"{sym}.estimates.fy1.high_eps")
         prices = []
         for idx, (name, eps) in enumerate((('🐻 Bear (최저)', lo), ('⚖️ Base (평균)', avg), ('🐂 Bull (최고)', hi))):
             pa = eps * mult_a if (eps is not None and eps > 0 and mult_a) else None
             pb = eps * mult_b if (eps is not None and eps > 0 and mult_b) else None
             prices.append((pa, pb))
+            s_key = scenario_keys[idx]
+            eps_path = scenario_eps_paths[idx]
+            if pa is not None:
+                SNAP.record(f"{sym}.scenario.{s_key}.target_price_a", pa, source="calculated", basis="derived", status="final",
+                            inputs=[eps_path, f"{sym}.scenario.multiple_a"])
+            if pb is not None:
+                SNAP.record(f"{sym}.scenario.{s_key}.target_price_b", pb, source="calculated", basis="derived", status="final",
+                            inputs=[eps_path, f"{sym}.scenario.multiple_b"])
+
             head = f"**{sym}** (A {fmt_multiple(mult_a)} · B {fmt_multiple(mult_b)})" if idx == 0 else ""
             eps_str = format_number(eps, True, ccy)
             if eps is not None and eps <= 0:
@@ -1636,6 +1884,10 @@ def scenario_table(results, weights):
             return w_bull * bull + w_base * base + w_bear * bear
 
         ea, eb = expected(0), expected(1)
+        if ea is not None:
+            SNAP.record(f"{sym}.scenario.expected_price_a", ea, source="calculated", basis="derived", status="final")
+        if eb is not None:
+            SNAP.record(f"{sym}.scenario.expected_price_b", eb, source="calculated", basis="derived", status="final")
         lines.append(f"|  | **확률가중 기대값** | - | **{format_number(ea, True, ccy)}** | **{fmt_signed_pct(ea / price - 1) if ea else 'N/A'}** | "
                      f"**{format_number(eb, True, ccy)}** | **{fmt_signed_pct(eb / price - 1) if eb else 'N/A'}** |")
 
@@ -1662,7 +1914,47 @@ def warnings_section():
     return "\n".join(lines) + "\n"
 
 
-def generate_report(tickers_list, cyclical_add=frozenset(), cyclical_remove=frozenset(), benchmarks=None, weights=DEFAULT_WEIGHTS):
+def collect_meta(args_dict):
+    now_kst = datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST")
+    versions = {
+        'yfinance': getattr(yf, '__version__', 'unknown'),
+        'pandas': getattr(pd, '__version__', 'unknown'),
+    }
+    repo_commit = None
+    try:
+        import subprocess
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        res = subprocess.run(["git", "-C", script_dir, "rev-parse", "--short", "HEAD"],
+                             capture_output=True, text=True, timeout=2)
+        if res.returncode == 0 and res.stdout.strip():
+            repo_commit = res.stdout.strip()
+    except Exception:
+        pass
+
+    return {
+        "generated_at": now_kst,
+        "args": args_dict or {},
+        "versions": versions,
+        "repo_commit": repo_commit,
+    }
+
+
+def record_history_series():
+    for sym, hist in HISTORY.items():
+        if hist is not None and not hist.empty and 'Close' in hist.columns:
+            close_series = hist['Close'].dropna()
+            close_dict = {f"{pd.Timestamp(d):%Y-%m-%d}": float(v) for d, v in close_series.items()}
+            is_bench = sym.startswith('^')
+            b = "index_close" if is_bench else "yahoo_close"
+            src = "yahoo+daum" if sym.endswith(('.KS', '.KQ')) or sym in ('^KS11', '^KQ11') else "yahoo"
+            SNAP.series(f"{sym}.close", close_dict, source=src, basis=b, limit=260)
+            if 'Volume' in hist.columns:
+                vol_series = hist['Volume'].dropna()
+                vol_dict = {f"{pd.Timestamp(d):%Y-%m-%d}": float(v) for d, v in vol_series.items()}
+                SNAP.series(f"{sym}.volume", vol_dict, source=src, basis=b, limit=260)
+
+
+def generate_report(tickers_list, cyclical_add=frozenset(), cyclical_remove=frozenset(), benchmarks=None, weights=DEFAULT_WEIGHTS, snapshot_path=None, raw_args=None):
     results = {}
     for symbol in tickers_list:
         print(f"Fetching data for {symbol}...", file=sys.stderr)
@@ -1707,6 +1999,15 @@ def generate_report(tickers_list, cyclical_add=frozenset(), cyclical_remove=froz
         audit_table(results),
         scenario_table(results, weights),
     ]
+
+    if snapshot_path:
+        try:
+            record_history_series()
+            meta = collect_meta(raw_args)
+            SNAP.dump(snapshot_path, meta=meta)
+        except Exception as e:
+            warn(f"데이터 스냅샷 저장 실패 ({snapshot_path}): {e}")
+
     sections.append(warnings_section())
     return "\n".join(s for s in sections if s)
 
@@ -1734,6 +2035,7 @@ if __name__ == "__main__":
     parser.add_argument("--not-cyclical", type=str, default="", help="Comma-separated tickers to exclude from automatic cyclical detection")
     parser.add_argument("--benchmarks", type=str, default="", help="Comma-separated index tickers for the market comparison table (default: auto)")
     parser.add_argument("--weights", type=str, default="0.2,0.5,0.3", help="Scenario probabilities Bull,Base,Bear (must sum to 1)")
+    parser.add_argument("--snapshot", type=str, default="", help="Optional output JSON path for data snapshot")
     args = parser.parse_args()
 
     weights = parse_weights(args.weights)
@@ -1743,6 +2045,13 @@ if __name__ == "__main__":
     def split(text):
         return [x.strip() for x in text.split(',') if x.strip()]
 
-    markdown_report = generate_report(split(args.tickers), set(split(args.cyclical)), set(split(args.not_cyclical)),
-                                      split(args.benchmarks) or None, weights)
+    markdown_report = generate_report(
+        split(args.tickers),
+        set(split(args.cyclical)),
+        set(split(args.not_cyclical)),
+        split(args.benchmarks) or None,
+        weights,
+        snapshot_path=args.snapshot or None,
+        raw_args=vars(args),
+    )
     print(markdown_report)

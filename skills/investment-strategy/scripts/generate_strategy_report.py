@@ -69,6 +69,32 @@ def main():
         if not os.path.isfile(path):
             sys.exit(f"❌ 보조 스크립트를 찾을 수 없습니다: {path}")
 
+    # 1. Determine Output Filename & Snapshot Filename first
+    now_kst = datetime.datetime.now(KST)
+    safe_industry_name = args.industry.replace(' ', '_').replace('/', '_')
+    today_str = now_kst.strftime("%Y%m%d")
+
+    if args.output:
+        output_filename = args.output
+    else:
+        reports_dir = os.path.join(find_reports_root(), "reports")
+        os.makedirs(reports_dir, exist_ok=True)
+        base_name = f"{safe_industry_name}_{today_str}_Investment_Strategy_Report"
+        output_filename = os.path.join(reports_dir, f"{base_name}.md")
+        # Ensure we never overwrite an existing report (auto-increment version)
+        counter = 2
+        while os.path.exists(output_filename):
+            output_filename = os.path.join(reports_dir, f"{base_name}_v{counter}.md")
+            counter += 1
+
+    output_parent = os.path.dirname(os.path.abspath(output_filename))
+    if output_parent:
+        os.makedirs(output_parent, exist_ok=True)
+
+    base_no_ext, _ = os.path.splitext(output_filename)
+    snapshot_filename = f"{base_no_ext}_data.json"
+    snapshot_basename = os.path.basename(snapshot_filename)
+
     print(f"⏳ Generating Value Chain Diagram for {args.industry}...")
     mermaid_output = run_script(
         [py_exec, mermaid_script, "--industry", args.industry, "--upstream", args.upstream,
@@ -76,7 +102,7 @@ def main():
         "가치사슬 다이어그램 생성")
 
     print(f"⏳ Fetching Financial Data for tickers: {args.tickers}...")
-    financial_cmd = [py_exec, financial_script, "--tickers", args.tickers, "--weights", args.weights]
+    financial_cmd = [py_exec, financial_script, "--tickers", args.tickers, "--weights", args.weights, "--snapshot", snapshot_filename]
     for flag, value in (("--cyclical", args.cyclical), ("--not-cyclical", args.not_cyclical), ("--benchmarks", args.benchmarks)):
         if value:
             financial_cmd += [flag, value]
@@ -100,33 +126,13 @@ def main():
     company_analysis_section = "\n\n".join(company_blocks) if company_blocks else "[AI_TODO: 분석 대상 기업 정보를 입력하세요.]"
 
     # 3. Assemble the Master Template
-    now_kst = datetime.datetime.now(KST)
-    safe_industry_name = args.industry.replace(' ', '_').replace('/', '_')
-    today_str = now_kst.strftime("%Y%m%d")
-
-    if args.output:
-        output_filename = args.output
-    else:
-        reports_dir = os.path.join(find_reports_root(), "reports")
-        os.makedirs(reports_dir, exist_ok=True)
-        base_name = f"{safe_industry_name}_{today_str}_Investment_Strategy_Report"
-        output_filename = os.path.join(reports_dir, f"{base_name}.md")
-        # Ensure we never overwrite an existing report (auto-increment version)
-        counter = 2
-        while os.path.exists(output_filename):
-            output_filename = os.path.join(reports_dir, f"{base_name}_v{counter}.md")
-            counter += 1
-
-    output_parent = os.path.dirname(os.path.abspath(output_filename))
-    if output_parent:
-        os.makedirs(output_parent, exist_ok=True)
-
     formatted_time = now_kst.strftime("%Y-%m-%d %H:%M KST")
     peer_rows = "\n".join("| [AI_TODO] | [AI_TODO] | [AI_TODO] | [AI_TODO] |" for _ in range(max(len(tickers_list), 1)))
 
     template = f"""# {args.industry} 투자 전략 보고서
 
 > **분석 기준 시각**: {formatted_time} (시세 상태는 Section 4 첫 줄 '데이터 기준' 참고 — 장중 실행이면 시세·수급은 잠정치)
+> **데이터 스냅샷**: `{snapshot_basename}`
 > **한 줄 결론**: [AI_TODO: 🟢 매수 / 🟡 중립·관망 / 🔴 비중 축소·회피 중 하나. Section 4 › 5번 매트릭스 판정과 Section 6.1 시나리오 결과(하방 포함)를 그대로 반영하고, 핵심 논쟁(예: 피크아웃)을 한 줄로 요약. 판정과 다른 결론을 쓰려면 Section 6.2에 근거를 밝힐 것]
 
 ---
