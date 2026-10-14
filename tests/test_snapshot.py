@@ -171,6 +171,10 @@ def test_snapshot_coverage():
         # 4. Market context
         assert "005930.KS.market_context.drawdown_52w" in values
 
+        # 4-1. Investor flows (summary row and ownership column shown in Section 4 table 1-1)
+        assert "005930.KS.flows.total_5d.foreign_net_amt" in values
+        assert any(k.endswith(".foreign_hold_ratio") for k in values if k.startswith("005930.KS.flows."))
+
         # 5. Cycle & PB band
         assert "005930.KS.cycle.opm_ttm" in values
         assert "005930.KS.pb_band.low" in values
@@ -314,3 +318,53 @@ def test_warnings_and_meta_match_report_section8():
 
         # Each bullet in Section 8 must correspond to unique warnings in snapshot
         assert section8_bullets == unique_warns_in_snap
+
+
+def test_flow_table_totals_and_ratio_recorded(monkeypatch):
+    """수급 표의 '최근 5일 누적(추정)' 행과 외국인 지분율 칸도 스냅샷에 있어야 한다 (SC-002)."""
+    import requests
+    from get_financial_stats import fetch_investor_trends_table, SNAP
+
+    days = ["20261007", "20261008", "20261009", "20261012", "20261013"]
+    naver_rows = [
+        {"bizdate": d, "closePrice": "100,000", "accumulatedTradingVolume": "1,000",
+         "foreignerPureBuyQuant": f"-{i + 1}00,000", "organPureBuyQuant": "+50,000",
+         "individualPureBuyQuant": "+10,000", "foreignerHoldRatio": f"46.{i}0%"}
+        for i, d in enumerate(reversed(days))
+    ]
+
+    class FakeResponse:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def json(self):
+            return self.payload
+
+    def fake_get(url, **kwargs):
+        if "m.stock.naver.com" in url:
+            return FakeResponse(naver_rows)
+        return FakeResponse({"date": "20000101"})  # 다음 금융: 당일 거래 아님 → 장중 추정 행 없음
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    sym = "009998.KS"
+    table = fetch_investor_trends_table("009998", "테스트", {"symbol": sym})
+
+    # 표에 보인 누적 금액(억 원)과 스냅샷 값이 같아야 한다
+    frgn = SNAP.values[f"{sym}.flows.total_5d.foreign_net_amt"]
+    organ = SNAP.values[f"{sym}.flows.total_5d.organ_net_amt"]
+    indiv = SNAP.values[f"{sym}.flows.total_5d.individual_net_amt"]
+    assert frgn["value"] == pytest.approx(-(1 + 2 + 3 + 4 + 5) * 1e5 * 1e5 / 1e8)
+    assert organ["value"] == pytest.approx(5 * 5e4 * 1e5 / 1e8)
+    assert indiv["value"] == pytest.approx(5 * 1e4 * 1e5 / 1e8)
+    assert f"**{frgn['value']:+,.0f}억 원**" in table
+    for rec in (frgn, organ, indiv):
+        assert rec["basis"] == "derived"
+        assert rec["status"] == "estimated"
+        assert len(rec["inputs"]) == 5
+    assert frgn["inputs"][0].startswith(f"{sym}.flows.")
+
+    # 외국인 지분율 칸: 비율은 다른 비율 값처럼 소수로 저장
+    ratio = SNAP.values[f"{sym}.flows.2026-10-13.foreign_hold_ratio"]
+    assert ratio["value"] == pytest.approx(0.46)
+    assert ratio["source"] == "naver"
+    assert "46.00%" in table

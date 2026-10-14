@@ -1189,6 +1189,7 @@ def fetch_investor_trends_table(ticker_code, company_name, info):
 
     rows = []
     tot_frgn_amt = tot_org_amt = tot_ind_amt = 0.0
+    frgn_inputs, org_inputs, ind_inputs = [], [], []
     daum_row_used = False
 
     # Today has no Naver row yet: estimate today's foreign flow from the foreign-ownership change (intraday only)
@@ -1217,6 +1218,9 @@ def fetch_investor_trends_table(ticker_code, company_name, info):
                     sym = info.get('symbol') or f"{ticker_code}.KS"
                     SNAP.record(f"{sym}.flows.{date_str}.price", curr_price, source="daum", basis="flow_feed_price", as_of=date_str, status="provisional")
                     SNAP.record(f"{sym}.flows.{date_str}.foreign_net_amt", diff_amt, source="calculated", basis="derived", as_of=date_str, status="provisional", note="지분 변동 추정")
+                    frgn_inputs.append(f"{sym}.flows.{date_str}.foreign_net_amt")
+                    if ratio is not None:
+                        SNAP.record(f"{sym}.flows.{date_str}.foreign_hold_ratio", ratio, source="daum", basis="flow_feed_price", as_of=date_str, status="provisional")
         except Exception as e:
             warn(f"{company_name}({ticker_code}): 다음 금융 장중 수급 조회 실패 ({e})")
 
@@ -1259,6 +1263,12 @@ def fetch_investor_trends_table(ticker_code, company_name, info):
                     inputs=[f"{sym}.flows.{date_str}.organ_net_shares", f"{sym}.flows.{date_str}.price"])
         SNAP.record(f"{sym}.flows.{date_str}.individual_net_amt", ind_amt, source="calculated", basis="derived", as_of=date_str, status="estimated",
                     inputs=[f"{sym}.flows.{date_str}.individual_net_shares", f"{sym}.flows.{date_str}.price"])
+        frgn_inputs.append(f"{sym}.flows.{date_str}.foreign_net_amt")
+        org_inputs.append(f"{sym}.flows.{date_str}.organ_net_amt")
+        ind_inputs.append(f"{sym}.flows.{date_str}.individual_net_amt")
+        hold_ratio = num(str(frgn_ratio).replace('%', '').replace(',', ''))
+        if hold_ratio is not None:
+            SNAP.record(f"{sym}.flows.{date_str}.foreign_hold_ratio", hold_ratio / 100, source="naver", basis="flow_feed_price", as_of=date_str, status=row_status)
 
         label = f"**{date_str} ({today_label})**" if (bdate == today_str and today_label) else date_str
         rows.append(f'| {label} | ₩{close_p:,.0f} | {frgn_amt:+,.0f}억 | {org_amt:+,.0f}억 | {ind_amt:+,.0f}억 | {frgn_ratio} |')
@@ -1269,6 +1279,13 @@ def fetch_investor_trends_table(ticker_code, company_name, info):
                           "— 금액은 순매수 수량과 같은 기준인 수급 데이터의 가격으로 계산했습니다. 주가 등락은 거래소 종가를 인용하세요."))
 
     excl = " (당일 제외)" if daum_row_used else ""
+    # The summary row is shown in Section 4, so it must be traceable in the snapshot too (amounts in 억 원).
+    for metric, total, inputs, note in (("foreign_net_amt", tot_frgn_amt, frgn_inputs, None),
+                                        ("organ_net_amt", tot_org_amt, org_inputs, excl.strip(" ()") or None),
+                                        ("individual_net_amt", tot_ind_amt, ind_inputs, excl.strip(" ()") or None)):
+        if inputs:
+            SNAP.record(f"{sym}.flows.total_5d.{metric}", total, source="calculated", basis="derived",
+                        as_of=inputs[0].split('.flows.')[1].split('.')[0], status="estimated", inputs=inputs, note=note)
     title = f'**{company_name} ({ticker_code}) 최근 5거래일 투자자별 순매매 추정**'
     header = '| 거래일자 | 종가 | 외국인 순매매 | 기관 순매매 | 개인 순매매 | 외국인 지분율 |\n|---|---|---|---|---|---|'
     summary = f'| **최근 5일 누적(추정)** | - | **{tot_frgn_amt:+,.0f}억 원** | **{tot_org_amt:+,.0f}억 원{excl}** | **{tot_ind_amt:+,.0f}억 원{excl}** | - |'

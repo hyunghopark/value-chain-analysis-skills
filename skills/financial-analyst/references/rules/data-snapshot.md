@@ -145,6 +145,8 @@ Section 4의 표 및 계산식을 100% 역추적할 수 있도록 일관된 계�
 - **기본 시세/밸류에이션**: `{ticker}.quote.{metric}` (예: `005930.KS.quote.current_price`, `MU.quote.fifty_two_week_high`)
 - **재무 및 지표**: `{ticker}.metrics.{metric}` (예: `000660.KS.metrics.forward_pe`, `TSM.metrics.roe`)
 - **수급 데이터**: `{ticker}.flows.{date}.{metric}` (예: `000660.KS.flows.2026-10-13.foreign_net_shares`)
+  - 외국인 지분율: `{ticker}.flows.{date}.foreign_hold_ratio` (비율은 소수로 저장, 46.18% → `0.4618`)
+  - 최근 5일 누적(추정): `{ticker}.flows.total_5d.{foreign|organ|individual}_net_amt` (억 원, `basis=derived`, `inputs`에 일별 금액 경로. 당일 장중 추정 행이 있으면 기관·개인은 당일 제외이고 `note`에 표시)
 - **컨센서스 및 추정치**: `{ticker}.estimates.{period}.{metric}` (예: `005930.KS.estimates.fy1.mean_eps`)
 - **시나리오 분석**: `{ticker}.scenario.{case}.{metric}` (예: `MU.scenario.bear.target_price_a`)
 - **사이클 및 P/B 밴드**: `{ticker}.cycle.{metric}`, `{ticker}.pb_band.{metric}`

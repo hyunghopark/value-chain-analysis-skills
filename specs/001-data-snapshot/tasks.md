@@ -72,6 +72,7 @@
 
 - [x] T015 [P] SKILL.md(스냅샷 안내, Clean-Slate에 스냅샷 포함)·README·ROADMAP 상태 갱신
 - [x] T016 전체 실행 검증: T002 회귀 기준과 판정·주요 수치 비교, 스냅샷 크기 2MB 이하 확인(SC-006), CI 통과
+- [x] T017 SC-002 보완 (002 스펙 작성 중 발견): 수급 표 '최근 5일 누적(추정)' 행과 외국인 지분율 칸이 스냅샷에 없던 것을 기록 (`flows.total_5d.*`, `flows.{date}.foreign_hold_ratio`) + 네트워크 없는 재현 테스트
 
 ---
 
