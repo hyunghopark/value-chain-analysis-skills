@@ -1109,3 +1109,23 @@ def test_no_fetch_without_option(tmp_path, monkeypatch):
     assert calls == []
     assert all(r.fetch is None for r in result.references)
     assert not any(i.kind.startswith("source_") for i in result.issues)
+
+
+def test_numbers_inside_ai_todo_placeholders_are_not_checked(tmp_path):
+    text = """# 틀
+
+> **데이터 스냅샷**: `r_data.json`
+
+## 7. 투자 전략
+
+### 7.1. 실행 전략
+[AI_TODO: 종합 판정에 따라 작성하세요.
+- 🟢 매수: 분할 매수 계획 30%씩
+- 🔴 비중 축소: 재진입 조건]
+
+### 7.2. 배분
+[AI_TODO: 비중을 제시하세요(🔴 판정 기업은 0% 또는 축소).] 실제 문장 12.34%.
+"""
+    result = crn.check(write_case(tmp_path, text, snapshot=FLOW_SNAPSHOT))
+    assert [m.raw for m in result.mentions] == ["12.34%"]
+    assert len(result.ai_todo) == 2

@@ -373,6 +373,7 @@ LOW_INFO_LIMIT = 100      # integers below this, written without decimals, are '
 # --- Body numbers with their citation scope and ticker context (rules §5) -------------------
 
 CITATION_NUMBER = re.compile(r'\[(\d+)\]')
+AI_TODO_INLINE = re.compile(r'\[AI_TODO[^\]]*\]')
 SECTION4_REF = re.compile(r'Section\s*4\s*›\s*(\d+(?:-\d+)?)')
 SECTION4_TABLE = re.compile(r'^#{3,4}\s*(?:[^\w\s]+\s*)?(\d+(?:-\d+)?)\.')
 APPROXIMATE_AFTER = re.compile(r'\s?(?:원\s?)?(?:부근|내외|안팎|가량|전후)')
@@ -449,11 +450,22 @@ def extract_mentions(report, tickers=(), excluded_items=None):
         if find_ticker and section.title:
             m = find_ticker.search(section.title)
             heading_ticker = ticker_of[m.group(1)] if m else None
-        in_code = in_mermaid = False
+        in_code = in_mermaid = in_todo = False
         for offset, line in enumerate(section.lines):
             line_no = section.start + offset
             if offset == 0 and section.title:
                 continue                               # the '## ' heading itself
+            # [AI_TODO …] placeholders are instructions, reported separately as ai_todo_left (rules §2)
+            if in_todo:
+                if ']' not in line:
+                    continue
+                in_todo = False
+                cut = line.index(']') + 1
+                line = ' ' * cut + line[cut:]
+            line = AI_TODO_INLINE.sub(lambda m: ' ' * len(m.group(0)), line)
+            if '[AI_TODO' in line:
+                start = line.index('[AI_TODO')
+                line, in_todo = line[:start] + ' ' * (len(line) - start), True
             if line.startswith('```'):
                 in_mermaid = (not in_code) and line.strip().startswith('```mermaid')
                 in_code = not in_code
