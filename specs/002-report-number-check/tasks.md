@@ -18,7 +18,7 @@
 
 ## Phase 1: Setup
 
-- [ ] T001 spec·plan 검토와 승인 (사용자) → `spec.md`·`plan.md`의 Status를 Approved(날짜)로 바꾼다
+- [x] T001 spec·plan 검토와 승인 (사용자, 2026-10-14) → `spec.md`·`plan.md`의 Status를 Approved(날짜)로 바꾼다
 - [ ] T002 회귀 기준 저장: 수정 전 코드(`main`)로 `get_financial_stats.py --tickers 000660.KS,005930.KS,MU,TSM`을 실행해 Section 4를 `specs/002-report-number-check/baseline-section4.md`에 저장한다(실행 시각·커밋 기록). 판정·종합 판단 비교용
 - [ ] T003 [P] 검증 세트 자료 복사: 분석 프로젝트의 `reports/AI_메모리_반도체_20261014_Investment_Strategy_Report.md`와 `_data.json`을 `tests/fixtures/002/report.md`, `tests/fixtures/002/report_data.json`으로 복사한다. `report.md` 머리의 `**데이터 스냅샷**:` 줄을 `report_data.json`으로 바꾼다(그 밖의 글자는 고치지 않음). `tests/fixtures/002/README.md`에 출처·생성 시각·"001 보완 이전 스냅샷, section4 기준본 없음"을 적는다
 

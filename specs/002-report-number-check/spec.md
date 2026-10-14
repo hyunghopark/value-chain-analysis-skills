@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-14
 
-**Status**: Draft
+**Status**: Approved (2026-10-14)
 
 **Input**: 로드맵 2단계 — "보고서 본문의 숫자가 스냅샷이나 인용 출처에 있는지 스크립트가 점검한다" ([ROADMAP](../../ROADMAP.md)). 1단계([001](../001-data-snapshot/spec.md))의 스냅샷이 대조 기준이다.
 

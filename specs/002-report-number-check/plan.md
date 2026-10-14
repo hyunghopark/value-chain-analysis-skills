@@ -4,7 +4,7 @@
 
 **Input**: Feature specification from `specs/002-report-number-check/spec.md`
 
-**Status**: Draft (검토 대기)
+**Status**: Approved (2026-10-14)
 
 ## Summary
 
