@@ -1033,3 +1033,79 @@ def test_main_section_option(tmp_path, capsys):
     crn.main([path, "--section"])
     out = capsys.readouterr().out
     assert out.startswith("## 9. 숫자 점검 결과") and "| 스크립트 값 일치 |" not in out
+
+
+# --- T030: --fetch-sources (FR-010 b, research R7) -------------------------------------------------
+
+FETCH_REPORT = """# 기사 대조
+
+> **데이터 스냅샷**: `r_data.json`
+
+## 1. 산업 개요
+
+영업이익 107.4조 원을 냈다 [1]. 매출 195조 원을 냈다 [2]. 점유율 55.5%를 기록했다 [3].
+출하 12.5% 늘었다 [4]. 가격 9.9% 올랐다 [5]. 순이익 3조 9,334억 원이다 [6].
+
+## 8. 참고 문헌 (References)
+
+[1] [기사 1](https://example.com/news/1) — 2026-10-10
+[2] [기사 2](https://example.com/news/2) — 2026-10-10
+[3] [기사 3](https://example.com/news/3) — 2026-10-10
+[4] [기사 4](https://example.com/news/4) — 2026-10-10
+[5] [회사 홈](https://www.homepage.co.kr) — 2026-10-10
+[6] [기사 6](https://example.com/news/6) — 2026-10-10
+"""
+
+PADDING = " 본문 문장입니다." * 80
+
+
+class FakePage:
+    def __init__(self, text, status=200):
+        self.text, self.status_code = text, status
+
+
+def fake_fetch(calls):
+    import requests
+
+    def get(url, **kwargs):
+        calls.append((url, kwargs.get("timeout")))
+        if url.endswith("/1"):
+            return FakePage(f"<html><body><p>3분기 영업이익은 107.4조 원으로 집계됐다.</p>{PADDING}</body></html>")
+        if url.endswith("/2"):
+            return FakePage(f"<html><body><p>매출은 190조 원이었다.</p>{PADDING}</body></html>")
+        if url.endswith("/3"):
+            raise requests.Timeout("timed out")
+        if url.endswith("/4"):
+            return FakePage("<html><body>로그인이 필요합니다</body></html>")
+        if url.endswith("/6"):
+            return FakePage(f"<html><body><p>순이익 39,334억 원</p>{PADDING}</body></html>")
+        raise AssertionError(f"unexpected request {url}")
+    return get
+
+
+def _fetch_result(tmp_path, monkeypatch, fetch=True):
+    import requests
+    calls = []
+    monkeypatch.setattr(requests, "get", fake_fetch(calls))
+    snap = s4_snapshot(baseline="")
+    result = crn.check(write_case(tmp_path, FETCH_REPORT, snapshot=snap), fetch_sources=fetch)
+    return result, calls
+
+
+def test_fetch_statuses(tmp_path, monkeypatch):
+    result, calls = _fetch_result(tmp_path, monkeypatch)
+    status = {r.number: r.fetch["status"] for r in result.references}
+    assert status == {1: "found", 2: "not_found", 3: "unverifiable", 4: "unverifiable", 5: "unverifiable", 6: "found"}
+    assert all(timeout == 10 for _, timeout in calls)
+    assert not any("homepage" in url for url, _ in calls)          # homepage URLs are not even requested
+    kinds = {i.id: i.kind for i in result.issues}
+    assert kinds["source_not_found-2"] == "source_not_found"
+    assert kinds["source_unverifiable-3"] == "source_unverifiable"
+    assert result.references[1].fetch["missing"] == [_mention(result, "195조").id]
+
+
+def test_no_fetch_without_option(tmp_path, monkeypatch):
+    result, calls = _fetch_result(tmp_path, monkeypatch, fetch=False)
+    assert calls == []
+    assert all(r.fetch is None for r in result.references)
+    assert not any(i.kind.startswith("source_") for i in result.issues)

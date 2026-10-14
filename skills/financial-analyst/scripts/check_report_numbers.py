@@ -663,6 +663,8 @@ def check(report_path, snapshot_path=None, fetch_sources=False):
     result.issues += mention_issues(mentions)
     result.references, ref_issues = check_references(report)
     result.issues += ref_issues
+    if fetch_sources:
+        result.issues += fetch_and_verify(result)
     result.ai_todo = find_ai_todo(report)
     result.issues += [Issue(f"ai_todo_left-{t['line']}", 'ai_todo_left', 'error', f"줄 {t['line']}",
                             f"채우지 않은 자리: {t['text']}") for t in result.ai_todo]
@@ -923,6 +925,67 @@ def check_references(report):
             issues.append(Issue(f"missing_citation_target-{n}", 'missing_citation_target', 'error', f"줄 {line_no}",
                                 f"본문의 [{n}]에 해당하는 참고문헌이 없습니다"))
     return refs, issues
+
+
+FETCH_TIMEOUT = 10
+MIN_ARTICLE_CHARS = 500
+
+
+def _to_eok(value, unit):
+    return value * 1e4 if unit == '조' else value
+
+
+def number_in_document(m, tokens):
+    """Is the cited number written in the document? Same unit, or 조 and 억 converted (rules §7)."""
+    tol = 0.5 * 10 ** (-m.decimals) + 1e-9
+    for t in tokens:
+        if t.unit == m.unit and abs(abs(t.value) - abs(m.value)) <= tol:
+            return True
+        if {t.unit, m.unit} <= {'조', '억'} and t.unit != m.unit:
+            if abs(abs(_to_eok(t.value, t.unit)) - abs(_to_eok(m.value, m.unit))) <= _to_eok(tol, m.unit):
+                return True
+    return False
+
+
+def fetch_and_verify(result, get=None):
+    """--fetch-sources: download each cited reference and look for the numbers cited with it (local only)."""
+    import requests
+    from bs4 import BeautifulSoup
+    get = get or requests.get
+    issues = []
+    for ref in result.references:
+        cited = [m for m in result.mentions if m.classification == 'cited' and ref.number in m.scope_citations]
+        fetch = {'status': 'found', 'checked': [m.id for m in cited], 'missing': [], 'reason': ''}
+        ref.fetch = fetch
+        if not ref.url or is_homepage(ref.url):
+            fetch.update(status='unverifiable', reason='홈페이지 주소이거나 주소 없음')
+        else:
+            try:
+                resp = get(ref.url, timeout=FETCH_TIMEOUT, headers={'User-Agent': 'Mozilla/5.0'})
+                text = BeautifulSoup(resp.text, 'html.parser').get_text('\n') if resp.status_code == 200 else ''
+                if resp.status_code != 200:
+                    fetch.update(status='unverifiable', reason=f"HTTP {resp.status_code}")
+                elif len(text.strip()) < MIN_ARTICLE_CHARS:
+                    fetch.update(status='unverifiable', reason=f"본문 {len(text.strip())}자 — 유료·차단 추정")
+                else:
+                    tokens = [t for line in text.split('\n') for t in extract_numbers(line)[0]]
+                    fetch['missing'] = [m.id for m in cited if not number_in_document(m, tokens)]
+                    if fetch['missing']:
+                        fetch['status'] = 'not_found'
+            except Exception as e:
+                fetch.update(status='unverifiable', reason=f"접속 실패: {e}")
+        if not cited:
+            continue
+        where = f"참고문헌 › 줄 {ref.line}"
+        if fetch['status'] == 'not_found':
+            raws = ', '.join(m.raw for m in cited if m.id in fetch['missing'])
+            issues.append(Issue(f"source_not_found-{ref.number}", 'source_not_found', 'error', where,
+                                f"[{ref.number}] 문서에서 찾지 못한 인용 숫자: {raws}"))
+        elif fetch['status'] == 'unverifiable':
+            issues.append(Issue(f"source_unverifiable-{ref.number}", 'source_unverifiable', 'error', where,
+                                f"[{ref.number}] 인용 숫자를 확인하지 못함({fetch['reason']}): "
+                                + ', '.join(m.raw for m in cited)))
+    return issues
 
 
 def find_ai_todo(report):
