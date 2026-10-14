@@ -17,7 +17,7 @@
 | `.specify/` | Spec Kit: 헌법(`memory/constitution.md`), 템플릿, PowerShell 보조 스크립트. `feature.json`(현재 스펙 폴더)은 PC별이라 Git 제외. |
 | `.claude/skills/speckit-*` | Spec Kit 명령 스킬 (`/speckit-specify` 등). |
 | `docs/decisions/` | 왜 그렇게 정했는지(결정 기록). |
-| `tests/` | `data_checks.py` 테스트. |
+| `tests/` | `data_checks.py`·`snapshot.py` 테스트. |
 | `.claude/skills/karpathy-llm-wiki/` | 위키 스킬 (고정 커밋 복사본, 이 저장소에서만 작동). |
 
 ## 규칙

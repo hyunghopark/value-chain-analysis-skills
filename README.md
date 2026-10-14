@@ -17,6 +17,7 @@ Antigravity 에이전트를 위한 산업 밸류체인 분석, 정밀 기업 재
     │   ├── scripts/
     │   │   ├── get_financial_stats.py
     │   │   ├── data_checks.py       # 출처 교차 점검
+    │   │   ├── snapshot.py          # 데이터 스냅샷 기록·저장
     │   │   └── check_data_sources.py # 정기 점검 도구
     │   └── templates/
     │       └── financial_report_template.md
@@ -118,7 +119,7 @@ Python 패키지는 [uv](https://docs.astral.sh/uv/)가 있으면 SKILL.md의 `u
   - 병목(Bottleneck) 및 핵심 밸류체인 노드 도출
   - Mermaid 다이어그램 자동 생성 및 시각화 (역할 태그, 이중 역할 `[병목협력·경쟁]` 지원)
 
-### 2. `financial-analyst` (v3.1.0)
+### 2. `financial-analyst` (v3.2.0)
 - **개요**: 상장 기업의 정량 재무 지표 및 밸류에이션(Valuation) 정밀 평가
 - **핵심 기능**:
   - PER, PBR, EV/EBITDA, ROE, 부채비율 등 핵심 지표와 4-Horizon PER·EPS(TTM·FY0·FY1·NTM)
@@ -129,14 +130,17 @@ Python 패키지는 [uv](https://docs.astral.sh/uv/)가 있으면 SKILL.md의 `u
   - **[수급·시장 비교]**: 최근 5거래일 투자자별 순매매 추정(장중 행은 '잠정' 표시), 지수·해외 피어 동반 등락
   - **[데이터 품질 경고]**: 출처 간 5% 이상 차이, ADR 통화 보정, 가격 이력 누락 등을 보고서에 자동 표기. 경고마다 사건 번호 `[KI-xxx]`
   - **[출처 교차 점검]**: 한국 종목·지수 Yahoo 가격 이력을 거래소 종가(다음 금융)로 보완·교정, 수급 데이터 가격 기준 차이 경고, WiseReport 표 구조 검증, 재무제표 반영 지연·거래량 이상치 감지
+  - **[데이터 스냅샷]**: `--snapshot` 경로 지정 시 Section 4의 모든 수치·판정·지표를 출처·기준·시점·잠정/교정 이력(`status="corrected"`, `ki`, `original`)과 함께 JSON 파일로 저장 (2MB 이하)
 
-### 3. `investment-strategy` (v2.0.0)
+### 3. `investment-strategy` (v2.1.0)
 - **개요**: `value-chain-analyzer`와 `financial-analyst` 스킬을 결합한 통합 투자 전략 수립 파이프라인
 - **핵심 기능**:
   - **Phase 1**: 밸류체인 맵핑 및 '1+2+1 Framework'(타겟 1 + 직접경쟁 2 + 핵심병목 1)에 기반한 비교 분석 대상 4개사 선정, 검증 체크리스트
   - **Phase 2**: 4개사 정밀 재무 밸류에이션, 경기순환 판정, 회계 감사, 시나리오 스트레스 테스트
   - **Phase 3**: 8단계 투자 전략 보고서 도출 (판정 연동 실행 전략, 반대 논리·판단 무효화 조건, 면책 문구)
+  - **동반 데이터 스냅샷**: 보고서 생성 시 수집·계산 데이터 스냅샷(`*_data.json`)을 동반 생성하고 보고서 메타데이터에 파일명 명시
   - **객관성 원칙**: 결론을 먼저 정하지 않고, 스크립트 판정과 일치시키며, 출처·기준 시각·추정/잠정 여부를 명시
+  - **Clean-Slate 정책**: 과거 보고서 및 과거 데이터 스냅샷(`*_data.json`)을 열람하지 않는 완전 독립 신규 분석 원칙 준수
 
 ---
 
@@ -148,6 +152,12 @@ Python 패키지는 [uv](https://docs.astral.sh/uv/)가 있으면 SKILL.md의 `u
 - **정기 점검**: `check_data_sources.py` 결과를 `raw/data-checks/`에 저장하고 위키에 반영합니다. 명령은 `CLAUDE.md`에 있습니다.
 
 ## 📝 변경 이력
+
+### 2026-10-14 — 001 데이터 스냅샷 및 출처 정보 추적 구현 (v3.2.0 / v2.1.0)
+- **데이터 스냅샷 자동 생성**: 보고서 생성 시 수집된 원천 수치·지표를 출처·시점·잠정 여부·교정 이력(KI 번호 및 원본값)과 함께 `*_data.json` 파일로 보존.
+- **스냅샷 커버리지 100%**: Section 4의 모든 정량 지표와 표 데이터, 판정 매트릭스를 단일 스냅샷에 구조화 기록.
+- **Clean-Slate 원칙 강화**: 과거 보고서뿐만 아니라 과거 스냅샷 파일(`*_data.json`)에 대한 열람·참조를 금지하여 오염 없는 독립적 신규 분석 보장.
+- **형식 규칙 문서화**: `references/rules/data-snapshot.md`에 스냅샷 구조, 필드 명명 규칙 및 교정 기록 표준 정의.
 
 ### 2026-10-14 — 스펙 주도 개발 도입
 - **Spec Kit v1.1.3 도입** (Claude Code 통합, PowerShell 스크립트): 헌법(`.specify/memory/constitution.md`)에 객관성·출처 추적·조용한 오류 금지·규칙 단일 원본·검증·Clean-Slate 원칙을 정리했습니다.

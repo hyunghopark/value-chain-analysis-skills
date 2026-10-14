@@ -1,7 +1,7 @@
 ---
 name: financial-analyst
 description: A specialized skill for conducting high-precision financial analysis and stock valuation of companies. Use when the user asks about the financial health, stock price, valuation multiples, earnings surprises, or investment risks of specific companies.
-version: 3.1.0
+version: 3.2.0
 allowed-tools: run_command search_web read_url_content
 ---
 
@@ -32,12 +32,13 @@ Follow these steps to conduct a high-precision corporate financial analysis:
 1. Run the Python helper script in this skill folder (packages: `requirements.txt` in this skill folder).
    - **Claude Code** — `${CLAUDE_SKILL_DIR}` is replaced with this skill's folder. With [uv](https://docs.astral.sh/uv/) no setup is needed; otherwise `pip install -r "${CLAUDE_SKILL_DIR}/requirements.txt"` into a virtual environment and run the script with that Python:
      ```bash
-     uv run --no-project --with-requirements "${CLAUDE_SKILL_DIR}/requirements.txt" python "${CLAUDE_SKILL_DIR}/scripts/get_financial_stats.py" --tickers "NVDA,TSM,000660.KS" [--cyclical "000660.KS"] [--not-cyclical "..."] [--benchmarks "^KS11,^SOX"] [--weights "0.2,0.5,0.3"]
+     uv run --no-project --with-requirements "${CLAUDE_SKILL_DIR}/requirements.txt" python "${CLAUDE_SKILL_DIR}/scripts/get_financial_stats.py" --tickers "NVDA,TSM,000660.KS" [--cyclical "000660.KS"] [--not-cyclical "..."] [--benchmarks "^KS11,^SOX"] [--weights "0.2,0.5,0.3"] [--snapshot "path/to/snapshot_data.json"]
      ```
    - **Antigravity** — use the project virtual environment (Windows: `venv\Scripts\python.exe`):
      ```bash
-     venv/bin/python3 .agents/skills/financial-analyst/scripts/get_financial_stats.py --tickers "NVDA,TSM,000660.KS" [--cyclical "000660.KS"] [--not-cyclical "..."] [--benchmarks "^KS11,^SOX"] [--weights "0.2,0.5,0.3"]
+     venv/bin/python3 .agents/skills/financial-analyst/scripts/get_financial_stats.py --tickers "NVDA,TSM,000660.KS" [--cyclical "000660.KS"] [--not-cyclical "..."] [--benchmarks "^KS11,^SOX"] [--weights "0.2,0.5,0.3"] [--snapshot "path/to/snapshot_data.json"]
      ```
+   - Pass `--snapshot <filepath>` to automatically record all raw inputs, normalized metrics, corrections, and warnings into a structured snapshot JSON file (accompanying the markdown report).
 2. The script pulls market data from the Yahoo Finance API and blends Naver Finance / WiseReport consensus for Korean stocks. For Korean stocks it also reconciles Yahoo's price history with the KRX close from Daum Finance (fills missing days, replaces wrong closes in the last 100 trading days). Yahoo quotes are delayed 15–20 minutes; the first line of the output states the generation time (KST) and the market state of each ticker.
 3. Review the generated tables:
    - **1. 주요 주가 및 시가총액 현황**: Price, 52-week range, market cap (KRX stocks show Naver's common-share market cap).
@@ -103,9 +104,11 @@ Follow these steps to conduct a high-precision corporate financial analysis:
 - **Label estimates honestly:** Investor-flow amounts are estimates; intraday rows are provisional. Do not call them 확정 or say they 증명 anything.
 - **Mandatory Risk Assessment:** Every report MUST include at least 3 risks with H/M/L impact ratings (see Step 6) and a counter-thesis.
 - **Signal Matrix Interpretation:** Always include a written interpretation of the 🟢🟡🔴 matrices in the conclusion, including which pillars drove the verdict.
+- **Clean-Slate Policy for Snapshots:** Past snapshot files (`*_data.json`) are strictly for post-run audit, verification, and debugging. When executing a new analysis, NEVER read or anchor to past snapshot files. Always collect fresh real-time data from APIs and live sources.
 
 ## Resources
 
 - **`templates/financial_report_template.md`**: The standard layout template for corporate financial analysis reports.
-- **`references/rules/`**: Source of truth for verdict thresholds (`verdict-matrix.md`), the cycle-position signal (`cycle-position.md`) and data-source rules (`data-quality.md`).
+- **`references/rules/`**: Source of truth for verdict thresholds (`verdict-matrix.md`), the cycle-position signal (`cycle-position.md`), data-source rules (`data-quality.md`), and data snapshot format (`data-snapshot.md`).
+- **`scripts/snapshot.py`**: Standard data snapshot recorder and serializer.
 - **`scripts/check_data_sources.py`**: Periodic cross-source health check (Yahoo vs KRX close via Daum vs Naver, Yahoo vs Nasdaq.com, statement freshness, WiseReport layout).

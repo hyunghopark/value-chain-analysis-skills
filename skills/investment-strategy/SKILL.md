@@ -1,7 +1,7 @@
 ---
 name: investment-strategy
 description: Use when the user requests an investment analysis of an industry, combining value chain mapping (upstream/midstream/downstream), bottleneck identification, and stock valuation (4-horizon P/E, cyclical-aware decision matrix, consensus revisions, data-driven scenario stress test, and a verdict-conditional trading plan).
-version: 2.0.0
+version: 2.1.0
 allowed-skills: value-chain-analyzer financial-analyst
 ---
 
@@ -28,7 +28,7 @@ The Investment Strategy Skill coordinates the `value-chain-analyzer` and `financ
 ## Process Flow
 
 > ⚠️ **[중요 원칙: 독립적 신규 분석 원칙 (Clean-Slate Policy)]**  
-> 스킬 실행 시 기존 프로젝트에 저장되어 있는 과거 보고서 파일들(`*_Investment_Strategy_Report.md` 등)을 **일체 검색하거나 열람하지 마십시오**. 과거 보고서에 의존할 경우 낡은 데이터 오염(Data Contamination)이나 편향(Anchoring Bias)이 발생합니다. 항상 현재 시점의 새로운 웹 리서치와 실시간 API 데이터만을 바탕으로 독립적인 신규 분석을 수행해야 합니다.
+> 스킬 실행 시 기존 프로젝트에 저장되어 있는 과거 보고서 파일들(`*_Investment_Strategy_Report.md` 등) 및 과거 데이터 스냅샷 파일들(`*_data.json`)을 **일체 검색하거나 열람하지 마십시오**. 과거 보고서나 스냅샷에 의존할 경우 낡은 데이터 오염(Data Contamination)이나 편향(Anchoring Bias)이 발생합니다. 항상 현재 시점의 새로운 웹 리서치와 실시간 API 데이터만을 바탕으로 독립적인 신규 분석을 수행해야 합니다. (스냅샷 파일은 사후 감사·재현을 위한 기록용입니다.)
 
 When the user triggers this skill (e.g. "I want an investment strategy for [Industry]" or typing `/investment-strategy`), execute the following steps:
 
@@ -81,8 +81,9 @@ To prevent omissions (e.g., missing financial tables), you MUST use the master s
      venv/bin/python3 .agents/skills/investment-strategy/scripts/generate_strategy_report.py --industry "[Industry Name]" --upstream "[Upstream info]" --midstream "[Midstream info]" --downstream "[Downstream info]" --tickers "[Target,Peer1,Peer2,Bottleneck]" [--cyclical "[Tickers]"] [--not-cyclical "[Tickers]"] [--benchmarks "^KS11,^SOX"] [--weights "0.2,0.5,0.3"]
      ```
    - 보조 스크립트(다이어그램·재무 데이터)가 실패하면 보고서 파일을 만들지 않고 종료합니다. **표를 손으로 채우지 말고** 오류를 해결한 뒤 다시 실행합니다.
-2. The script creates a new file `reports/[Industry_Name]_[YYYYMMDD]_Investment_Strategy_Report.md` (KST date; same-day reruns get `_v2.md`, `_v3.md` ... so nothing is overwritten). `reports/` goes in the project folder when the skills are installed inside a project (`<project>/.agents/skills` or `<project>/.claude/skills`), and in the current working folder for personal installs (`~/.claude/skills`, `~/.agents/skills`); `--output` sets the path explicitly. The file already contains:
+2. The script creates a new file `reports/[Industry_Name]_[YYYYMMDD]_Investment_Strategy_Report.md` and a companion data snapshot `reports/[Industry_Name]_[YYYYMMDD]_Investment_Strategy_Report_data.json` (KST date; same-day reruns get `_v2.md`, `_v3.md` ... so nothing is overwritten). `reports/` goes in the project folder when the skills are installed inside a project (`<project>/.agents/skills` or `<project>/.claude/skills`), and in the current working folder for personal installs (`~/.claude/skills`, `~/.agents/skills`); `--output` sets the path explicitly. The file already contains:
    - The analysis timestamp (KST) and market state of each ticker.
+   - The companion snapshot file path stated in the header metadata block.
    - Mermaid value chain flowchart.
    - All quantitative tables (Section 4), including the verdicts, cyclical diagnostics, scenario table and data-quality warnings.
    - Ticker-specific analysis blocks under Section 5, the verification checklist (1.3), and the Bear-thesis section (6.2).
@@ -91,7 +92,7 @@ To prevent omissions (e.g., missing financial tables), you MUST use the master s
 
 ## Best Practices
 
-- **Zero-Prior-File Dependency (Clean-Slate):** 과거 작성된 보고서 파일을 참조하지 않고, 오직 실시간 시장 데이터와 최신 공시/뉴스만을 기준으로 리포트를 작성합니다.
+- **Zero-Prior-File Dependency (Clean-Slate):** 과거 작성된 보고서 파일 및 데이터 스냅샷(`*_data.json`)을 참조하지 않고, 오직 실시간 시장 데이터와 최신 공시/뉴스만을 기준으로 리포트를 작성합니다.
 - **Never Overwrite (히스토리 보존):** 보고서는 항상 `reports/` 디렉토리에 실행 날짜 기반 신규 파일로 누적 보관되어 시계열적 투자 판단 변화를 추적할 수 있도록 합니다.
 - **장기 구조 + 단기 시황을 함께 보되, 순서를 지킵니다:** 장기 밸류체인 구조(해자)와 단기 급변동을 균형 있게 다룹니다. 급락장에서는 "왜 빠졌는지"를 데이터로 먼저 판별하고, 매매 전략은 판정에 따라 제시합니다.
 - **Connect Supply Chain Strengths to Financial Multiples:** Explain *why* a company trades at a premium or discount. For cyclical companies, explain the multiple in the context of the earnings cycle (a low P/E at peak earnings is not, by itself, cheapness).
