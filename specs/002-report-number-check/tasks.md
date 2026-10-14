@@ -58,10 +58,10 @@
 
 **Independent Test**: 새 보고서의 Section 4 숫자 하나와 판정 하나를 고쳐 점검하면 둘 다 보고되고, 생성 직후에는 스냅샷 누락 0건.
 
-- [ ] T014 [US2] `TRN`·`tests/test_snapshot.py`에 테스트 작성(실패 확인): `attach_section4`가 `section4.text`·`sha256`·`attached_at`(KST)을 쓴다, 스냅샷 파일 없으면 예외. `check_section4`가 숫자 변경·판정 기호(🟢🟡🔴) 변경·판정 문구 변경을 `{line, current, original}`로 보고, 기준본 없음 → `no_baseline`, 경고 줄이 스냅샷 `warnings`에 없음 → `warning_not_in_snapshot`
-- [ ] T015 [P] [US2] `FA/scripts/snapshot.py`에 `attach_section4(path, text)` 추가(JSON 읽기 → 최상위 `section4` 추가 → 다시 쓰기, 실패 시 예외)
-- [ ] T016 [US2] `IS/scripts/generate_strategy_report.py`: 하위 프로세스 결과(`cleaned_financial`)로 `attach_section4` 호출(스냅샷 파일이 있을 때만). 실패하면 보고서 머리의 '데이터 스냅샷' 줄 옆에 "(Section 4 기준본 저장 실패: 사유)" 표시
-- [ ] T017 [US2] `CHK` `check_section4`: 기준본과 현재 Section 4를 `difflib`로 줄 비교, 기준본 Section 4 숫자를 T006·T007·T010 규칙으로 스냅샷과 전수 대조해 `section4_not_in_snapshot` 보고, 8번 데이터 품질 경고 줄은 숫자 대조 대신 스냅샷 `warnings[].msg`에 같은 문장이 있는지 확인. 비교 범위는 data-model §1-1(`## 4.` 다음 줄부터 다음 `---`·`## ` 전까지, 앞뒤 빈 줄·줄 끝 공백 무시) — 생성 직후 보고서에서 변경 0건이어야 한다. T014 통과
+- [x] T014 [US2] `TRN`·`tests/test_snapshot.py`에 테스트 작성(실패 확인): `attach_section4`가 `section4.text`·`sha256`·`attached_at`(KST)을 쓴다, 스냅샷 파일 없으면 예외. `check_section4`가 숫자 변경·판정 기호(🟢🟡🔴) 변경·판정 문구 변경을 `{line, current, original}`로 보고, 기준본 없음 → `no_baseline`, 경고 줄이 스냅샷 `warnings`에 없음 → `warning_not_in_snapshot`
+- [x] T015 [P] [US2] `FA/scripts/snapshot.py`에 `attach_section4(path, text)` 추가(JSON 읽기 → 최상위 `section4` 추가 → 다시 쓰기, 실패 시 예외)
+- [x] T016 [US2] `IS/scripts/generate_strategy_report.py`: 하위 프로세스 결과(`cleaned_financial`)로 `attach_section4` 호출(스냅샷 파일이 있을 때만). 실패하면 보고서 머리의 '데이터 스냅샷' 줄 옆에 "(Section 4 기준본 저장 실패: 사유)" 표시
+- [x] T017 [US2] `CHK` `check_section4`: 기준본과 현재 Section 4를 `difflib`로 줄 비교, 기준본 Section 4 숫자를 T006·T007·T010 규칙으로 스냅샷과 전수 대조해 `section4_not_in_snapshot` 보고, 8번 데이터 품질 경고 줄은 숫자 대조 대신 스냅샷 `warnings[].msg`에 같은 문장이 있는지 확인. 비교 범위는 data-model §1-1(`## 4.` 다음 줄부터 다음 `---`·`## ` 전까지, 앞뒤 빈 줄·줄 끝 공백 무시) — 생성 직후 보고서에서 변경 0건이어야 한다. T014 통과
 - [ ] T018 [US2] `FA/scripts/get_financial_stats.py` `consensus_tables`: 목표가 최저·평균·최고와 상승여력, 추정치 30일 변화율, EPS 서프라이즈 표(분기별 실제·추정 EPS·서프라이즈 %)를 `SNAP.record`로 기록(research R10 표 경로 예를 따르되 표 열 이름에 맞춰 확정). 계산·표 출력 불변
 - [ ] T019 [US2] `get_financial_stats.py` `audit_table`: 일회성 손익, 명목·정규화 ROE·EPS 등 표의 값 기록
 - [ ] T020 [US2] `get_financial_stats.py` `scenario_table`: 현재가 대비 등락률(배수 A·B, 시나리오별, 확률가중), 밴드 최저 P/B 회귀 시 주가·등락률 기록

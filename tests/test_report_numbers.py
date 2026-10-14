@@ -496,7 +496,8 @@ TTM 영업이익률 52.18%를 기록했고 P/B 2.44배이다. 매출 195조 원�
 
 
 def test_clean_report_exit_0(tmp_path):
-    result = crn.check(write_case(tmp_path, CLEAN_REPORT, snapshot=US1_SNAPSHOT))
+    snapshot = dict(US1_SNAPSHOT, section4={"text": "", "sha256": "", "attached_at": ""})  # report has no Section 4
+    result = crn.check(write_case(tmp_path, CLEAN_REPORT, snapshot=snapshot))
     assert [i for i in result.issues if i.severity == "error"] == []
     assert result.exit_code == 0
 
@@ -734,3 +735,99 @@ def test_build_aliases():
     assert aliases["삼성전자"] == "005930.KS" and aliases["마이크론"] == "MU" and aliases["SK하이닉스"] == "000660.KS"
     assert "지수" not in aliases
     assert aliases["SOX"] == "^SOX" and aliases["코스피"] == "^KS11"
+
+
+# --- T014: Section 4 baseline and snapshot coverage (US2) ----------------------------------------
+
+S4_BODY = """### 1. 주요 주가
+
+| 기업 | 현재 주가 | 판정 |
+|---|---|---|
+| **005930.KS** | ₩237,500 | 🟢 매수 고려 |
+
+### 8. ⚠️ 데이터 품질 경고 (스크립트 자동 점검)
+
+- [KI-001] 005930.KS: 수급 표 종가 차이"""
+
+S4_REPORT = """# 섹션 4 테스트
+
+> **데이터 스냅샷**: `r_data.json`
+
+## 1. 산업 개요
+
+본문.
+
+## 4. 정량 재무 지표 및 투자 시그널 매트릭스 (스크립트 자동 산출 — 수치 수정 금지)
+
+{body}
+
+---
+
+## 5. 기업별 분석
+
+분석.
+"""
+
+
+def s4_snapshot(baseline=S4_BODY, warnings=("[KI-001] 005930.KS: 수급 표 종가 차이",), extra_values=None):
+    import hashlib
+    snap = {
+        "meta": {"args": {"tickers": "005930.KS"}},
+        "values": {"005930.KS.quote.current_price": {"value": 237500, "status": "final"}},
+        "series": {},
+        "warnings": [{"ki": "KI-001", "msg": w} for w in warnings],
+    }
+    snap["values"].update(extra_values or {})
+    if baseline is not None:
+        snap["section4"] = {"text": baseline, "sha256": hashlib.sha256(baseline.encode("utf-8")).hexdigest(),
+                            "attached_at": "2026-10-14 12:00 KST"}
+    return snap
+
+
+def _s4(tmp_path, body=S4_BODY, **kw):
+    return crn.check(write_case(tmp_path, S4_REPORT.format(body=body), snapshot=s4_snapshot(**kw)))
+
+
+def _kinds(result):
+    return {i.kind for i in result.issues}
+
+
+def test_section4_unchanged(tmp_path):
+    r = _s4(tmp_path)
+    assert r.section4.baseline == "present"
+    assert r.section4.changed_lines == [] and r.section4.snapshot_missing == [] and r.section4.warnings_missing == []
+    assert not _kinds(r) & {"section4_changed", "section4_not_in_snapshot", "warning_not_in_snapshot", "no_baseline"}
+
+
+def test_section4_number_change_detected(tmp_path):
+    r = _s4(tmp_path, body=S4_BODY.replace("₩237,500", "₩238,000"))
+    (c,) = r.section4.changed_lines
+    assert "₩238,000" in c["current"] and "₩237,500" in c["original"]
+    assert c["line"] > 0
+    assert "section4_changed" in _kinds(r)
+
+
+def test_section4_verdict_change_detected(tmp_path):
+    r = _s4(tmp_path, body=S4_BODY.replace("🟢 매수 고려", "🔴 신중 접근"))
+    assert len(r.section4.changed_lines) == 1
+    assert "section4_changed" in _kinds(r)
+
+
+def test_section4_missing_baseline(tmp_path):
+    r = _s4(tmp_path, baseline=None)
+    assert r.section4.baseline == "missing"
+    assert "no_baseline" in _kinds(r)
+
+
+def test_section4_warning_not_in_snapshot(tmp_path):
+    r = _s4(tmp_path, warnings=())
+    assert r.section4.warnings_missing == ["[KI-001] 005930.KS: 수급 표 종가 차이"]
+    assert "warning_not_in_snapshot" in _kinds(r)
+
+
+def test_section4_number_not_in_snapshot(tmp_path):
+    body = S4_BODY.replace("| **005930.KS** | ₩237,500 | 🟢 매수 고려 |",
+                           "| **005930.KS** | ₩237,500 | 🟢 매수 고려 |\n| **005930.KS** | ₩999,999 | 🟡 |")
+    r = _s4(tmp_path, body=body, baseline=body)
+    assert [m["raw"] for m in r.section4.snapshot_missing] == ["₩999,999"]
+    assert "section4_not_in_snapshot" in _kinds(r)

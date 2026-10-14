@@ -4,6 +4,8 @@ Spec: specs/001-data-snapshot/
 Rules: skills/financial-analyst/references/rules/data-snapshot.md
 """
 
+import datetime
+import hashlib
 import json
 import os
 import re
@@ -154,3 +156,20 @@ class Snapshot:
         payload = self.to_dict(meta=meta)
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
+
+
+def attach_section4(file_path: str, text: str) -> None:
+    """Add the report's Section 4 as written (the baseline for later edit checks) to a saved snapshot.
+
+    Spec 002 (data-model §1-1). Raises if the snapshot cannot be read or written.
+    """
+    with open(file_path, 'r', encoding='utf-8') as f:
+        payload = json.load(f)
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    payload['section4'] = {
+        'text': text,
+        'sha256': hashlib.sha256(text.encode('utf-8')).hexdigest(),
+        'attached_at': datetime.datetime.now(kst).strftime('%Y-%m-%d %H:%M KST'),
+    }
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)

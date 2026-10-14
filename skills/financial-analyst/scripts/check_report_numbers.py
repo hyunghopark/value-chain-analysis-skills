@@ -9,8 +9,9 @@ Network access happens only with --fetch-sources.
 Exit codes: 0 no undocumented errors, 1 undocumented errors, 2 cannot run.
 """
 import argparse
-import hashlib
 import datetime
+import difflib
+import hashlib
 import json
 import os
 import re
@@ -269,7 +270,7 @@ MASKS = [
     ('period_label', re.compile(r'\b(?:FY)?\d{1,2}[QH]\d{2}\b|\bFY\d{1,4}\b|\bQ[1-4]\b|\b[1-4]Q\b|\d분기')),
     ('product_spec', re.compile(r'\b[A-Za-z]+-?\d+[A-Za-z0-9]*(?:-[A-Za-z0-9]+)*'
                                 r'|\d+-?(?:Hi|bit)\b|\d+(?:nm|나노|세대)|\d+단(?!계|기|위|순)|\b\d[a-wyz]\b|\b\d+(?:\.\d+)?D\b')),
-    ('duration', re.compile(r'\d+(?:\s?~\s?\d+)?\s?(?:거래일간?|영업일|개월간?|일간|일|년간|주간|시간)'
+    ('duration', re.compile(r'\d+(?:\s?~\s?\d+)?\s?(?:거래일간?|영업일|개월간?|일간|일|년간|주간|시간|분(?!기))'
                             r'|(?<![\d,.])\d{1,3}주(?=\s?(?:최고|최저|고점|저점|범위|신고|신저|동안|이동))'
                             r'|(?<![\d,.$₩])\d{1,2}M\b'
                             r'|(?<![\d,.])\d{1,2}년(?![도대])')),
@@ -654,9 +655,102 @@ def check(report_path, snapshot_path=None, fetch_sources=False):
     if not snap_path:
         result.issues.append(Issue('no_snapshot-report', 'no_snapshot', 'error', '머리',
                                    '짝 스냅샷을 찾을 수 없어 스크립트 값 대조를 하지 못했습니다(대조 불가).'))
+    if snapshot:
+        result.section4 = check_section4(report, snapshot, snapshot_candidates(snapshot))
+        result.issues += section4_issues(result.section4)
     result.issues += mention_issues(mentions)
     result.exit_code = exit_code(result.issues)
     return result
+
+
+WARNINGS_TABLE = re.compile(r'^#{3,4}\s*(?:[^\w\s]+\s*)?8\.')
+
+
+def section4_region(section):
+    """(line number, text) of Section 4 from the line after its heading to the next '---', trimmed."""
+    pairs = []
+    for offset, line in enumerate(section.lines[1:], start=1):
+        if line.strip() == '---':
+            break
+        pairs.append((section.start + offset, line.rstrip()))
+    while pairs and not pairs[0][1].strip():
+        pairs.pop(0)
+    while pairs and not pairs[-1][1].strip():
+        pairs.pop()
+    return pairs
+
+
+def _trimmed(lines):
+    lines = [l.rstrip() for l in lines]
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    return lines
+
+
+def check_section4(report, snapshot, candidates):
+    """Edits since generation (against the snapshot's baseline) and Section 4 numbers missing from it."""
+    chk = Section4Check()
+    sec = next((s for s in report.sections if s.kind == 'section4'), None)
+    current = section4_region(sec) if sec else []
+    first = current[0][0] if current else (sec.start + 1 if sec else 0)
+    baseline = (snapshot.get('section4') or {}).get('text')
+    if baseline is not None:
+        chk.baseline = 'present'
+        original = _trimmed(baseline.split('\n'))
+        now = [text for _, text in current]
+        ops = difflib.SequenceMatcher(a=original, b=now, autojunk=False).get_opcodes()
+        for tag, i1, i2, j1, j2 in ops:
+            if tag == 'equal':
+                continue
+            for k in range(max(i2 - i1, j2 - j1)):
+                cur = current[j1 + k] if j1 + k < j2 else None
+                chk.changed_lines.append({
+                    'line': cur[0] if cur else (current[j1 - 1][0] if j1 > 0 else first),
+                    'current': cur[1] if cur else None,
+                    'original': original[i1 + k] if i1 + k < i2 else None,
+                })
+        lines = [(first + i, text) for i, text in enumerate(original)]
+    else:
+        lines = current
+
+    # Section 4 is script output: every number in it should be a snapshot value (FR-015). The
+    # information-content rules of the body check do not apply; only presence is asked.
+    warning_msgs = {(w or {}).get('msg', '').strip() for w in (snapshot.get('warnings') or [])}
+    in_warnings = False
+    for line_no, text in lines:
+        if text.startswith('#'):
+            in_warnings = bool(WARNINGS_TABLE.match(text))
+            continue
+        if in_warnings:
+            if text.startswith('- ') and text[2:].strip() not in warning_msgs:
+                chk.warnings_missing.append(text[2:].strip())
+            continue
+        for t in extract_numbers(text)[0]:
+            probe = NumberMention(id='', raw=t.raw, value=t.value, unit=t.unit, decimals=t.decimals,
+                                  explicit_sign=t.sign, section='4', line=line_no, context='', currency=t.currency)
+            if not any(match_rank(probe, c) is not None for c in candidates):
+                chk.snapshot_missing.append({'line': line_no, 'raw': t.raw,
+                                             'context': text[max(0, t.start - 40):t.end + 40].strip()})
+    return chk
+
+
+def section4_issues(chk):
+    issues = []
+    if chk.baseline == 'missing':
+        issues.append(Issue('no_baseline-section4', 'no_baseline', 'error', 'Section 4',
+                            '스냅샷에 Section 4 기준본이 없어 생성 후 수정 여부를 확인하지 못했습니다.'))
+    for c in chk.changed_lines:
+        issues.append(Issue(f"section4_changed-{c['line']}", 'section4_changed', 'error', f"Section 4 › 줄 {c['line']}",
+                            f'현재 "{c["current"] or "(삭제됨)"}" / 기준본 "{c["original"] or "(없음)"}"'))
+    for m in chk.snapshot_missing:
+        issues.append(Issue(f"section4_not_in_snapshot-{m['line']}-{m['raw']}", 'section4_not_in_snapshot', 'error',
+                            f"Section 4 › 줄 {m['line']}", f'"{m["raw"]}"가 스냅샷에 없습니다 — {m["context"]}'))
+    for n, w in enumerate(chk.warnings_missing, start=1):
+        issues.append(Issue(f"warning_not_in_snapshot-{n}", 'warning_not_in_snapshot', 'error', 'Section 4 › 8번',
+                            f'데이터 품질 경고가 스냅샷 warnings에 없습니다: {w}'))
+    return issues
 
 
 def mention_issues(mentions):
