@@ -881,3 +881,84 @@ def test_section4_live_fully_in_snapshot(tmp_path):
                            raw_args={"tickers": "005930.KS,MU"})
     chk = _coverage(text, crn.load_snapshot(str(path)))
     assert chk.snapshot_missing == [], [(m["raw"], m["context"][:60]) for m in chk.snapshot_missing[:10]]
+
+
+# --- T026: citations, references and [AI_TODO] (US3) ----------------------------------------------
+
+REF_REPORT = """# 참고문헌 테스트
+
+> **데이터 스냅샷**: `r_data.json`
+
+## 1. 산업 개요
+
+좋은 출처 [1]. 홈페이지 출처 [2]. 날짜 없는 출처 [4]. 없는 번호 [18].
+[AI_TODO: 이 문단을 채우세요]
+
+## 4. 정량 재무 지표 (스크립트 자동 산출 — 수치 수정 금지)
+
+### 1. 표
+
+## 8. 참고 문헌 (References)
+
+[1] [좋은 기사](https://example.com/news/2026/10/1) — 2026-10-10
+[2] 한국경제 기사 — 2026-10-11 — https://www.hankyung.com
+[3] [쓰지 않은 기사](https://example.com/a/3) — 2026-10-12
+[4] [날짜 없는 기사](https://example.com/a/4)
+[5] — 2026-10-12 — https://example.com/a/5
+
+---
+
+*면책 문구*
+"""
+
+
+@pytest.fixture
+def refs(tmp_path):
+    return crn.check(write_case(tmp_path, REF_REPORT, snapshot=s4_snapshot(baseline="### 1. 표")))
+
+
+def _ref(result, n):
+    return next(r for r in result.references if r.number == n)
+
+
+def test_reference_formats_are_parsed(refs):
+    one, two = _ref(refs, 1), _ref(refs, 2)
+    assert (one.title, one.date, one.url) == ("좋은 기사", "2026-10-10", "https://example.com/news/2026/10/1")
+    assert (two.title, two.date, two.url) == ("한국경제 기사", "2026-10-11", "https://www.hankyung.com")
+    assert one.problems == [] and one.cited
+
+
+def test_reference_problems(refs):
+    assert "homepage_url" in _ref(refs, 2).problems
+    assert "missing_date" in _ref(refs, 4).problems
+    assert "missing_title" in _ref(refs, 5).problems
+    assert _ref(refs, 3).problems == ["unused"] and not _ref(refs, 3).cited
+
+
+def test_reference_issues_and_severity(refs):
+    by_id = {i.id: i for i in refs.issues}
+    assert by_id["reference_format-2"].severity == "error" and "홈페이지" in by_id["reference_format-2"].message
+    assert by_id["reference_format-4"].kind == "reference_format"
+    assert by_id["missing_citation_target-18"].severity == "error"
+    assert by_id["unused_reference-3"].severity == "warning"
+
+
+def test_ai_todo_is_reported(refs):
+    assert [t["line"] for t in refs.ai_todo] == [8]
+    assert any(i.kind == "ai_todo_left" for i in refs.issues)
+
+
+def test_unused_reference_alone_does_not_fail(tmp_path):
+    text = REF_REPORT.replace("홈페이지 출처 [2]. 날짜 없는 출처 [4]. 없는 번호 [18].\n[AI_TODO: 이 문단을 채우세요]", "") \
+        .replace("[2] 한국경제 기사 — 2026-10-11 — https://www.hankyung.com\n", "") \
+        .replace("[4] [날짜 없는 기사](https://example.com/a/4)\n", "") \
+        .replace("[5] — 2026-10-12 — https://example.com/a/5\n", "")
+    result = crn.check(write_case(tmp_path, text, snapshot=s4_snapshot(baseline="### 1. 표")))
+    assert [i.kind for i in result.issues] == ["unused_reference"]
+    assert result.exit_code == 0
+
+
+def test_homepage_references_in_validation_report():                 # SC-005
+    result = crn.check(os.path.join(FIXTURE_DIR, "report.md"), os.path.join(FIXTURE_DIR, "report_data.json"))
+    homepage = [r.number for r in result.references if "homepage_url" in r.problems]
+    assert len(homepage) == 17

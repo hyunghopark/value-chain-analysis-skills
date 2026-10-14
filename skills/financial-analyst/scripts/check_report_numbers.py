@@ -16,6 +16,7 @@ import json
 import os
 import re
 import sys
+import urllib.parse
 from dataclasses import asdict, dataclass, field
 from typing import List, Optional
 
@@ -660,6 +661,11 @@ def check(report_path, snapshot_path=None, fetch_sources=False):
         result.section4 = check_section4(report, snapshot, snapshot_candidates(snapshot))
         result.issues += section4_issues(result.section4)
     result.issues += mention_issues(mentions)
+    result.references, ref_issues = check_references(report)
+    result.issues += ref_issues
+    result.ai_todo = find_ai_todo(report)
+    result.issues += [Issue(f"ai_todo_left-{t['line']}", 'ai_todo_left', 'error', f"줄 {t['line']}",
+                            f"채우지 않은 자리: {t['text']}") for t in result.ai_todo]
     result.exit_code = exit_code(result.issues)
     return result
 
@@ -752,6 +758,90 @@ def section4_issues(chk):
         issues.append(Issue(f"warning_not_in_snapshot-{n}", 'warning_not_in_snapshot', 'error', 'Section 4 › 8번',
                             f'데이터 품질 경고가 스냅샷 warnings에 없습니다: {w}'))
     return issues
+
+
+REFERENCE_LINE = re.compile(r'^\s*\[(\d+)\]\s*(.*)$')
+MARKDOWN_LINK = re.compile(r'\[([^\]]+)\]\((https?://[^)\s]+)\)')
+BARE_URL = re.compile(r'https?://[^\s)>\]]+')
+ISO_DATE = re.compile(r'\b(\d{4}-\d{2}-\d{2})\b')
+HOMEPAGE_PATHS = {'', '/', '/index.html', '/index.htm', '/main', '/home'}
+
+
+def is_homepage(url):
+    parts = urllib.parse.urlsplit(url)
+    return parts.path.rstrip('/') in {p.rstrip('/') for p in HOMEPAGE_PATHS} and not parts.query
+
+
+def parse_reference(number, text, line_no):
+    """'[n] [title](url) — date' or '[n] title — date — url' (rules §6)."""
+    link = MARKDOWN_LINK.search(text)
+    if link:
+        title, url = link.group(1).strip(), link.group(2)
+    else:
+        bare = BARE_URL.search(text)
+        url = bare.group(0) if bare else None
+        head = text[:bare.start()] if bare else text
+        title = next((p.strip() for p in re.split(r'\s*[—–]\s*', head) if p.strip() and not ISO_DATE.fullmatch(p.strip())), None)
+    date = ISO_DATE.search(text)
+    ref = Reference(number=number, title=title or None, date=date.group(1) if date else None, url=url, line=line_no)
+    if not ref.title:
+        ref.problems.append('missing_title')
+    if not ref.date:
+        ref.problems.append('missing_date')
+    if not ref.url:
+        ref.problems.append('missing_url')
+    elif is_homepage(ref.url):
+        ref.problems.append('homepage_url')
+    return ref
+
+
+def body_citations(report):
+    """Citation numbers used outside the reference list and the check section, with their first line."""
+    used = {}
+    for section in report.sections:
+        if section.kind in ('references', 'check'):
+            continue
+        for offset, line in enumerate(section.lines):
+            for n in CITATION_NUMBER.findall(MARKDOWN_LINK.sub('', line)):
+                used.setdefault(int(n), section.start + offset)
+    return used
+
+
+def check_references(report):
+    """Reference entries with their problems, and the issues they raise (rules §6)."""
+    refs = []
+    for section in report.sections:
+        if section.kind != 'references':
+            continue
+        for offset, line in enumerate(section.lines[1:], start=1):
+            m = REFERENCE_LINE.match(line)
+            if m:
+                refs.append(parse_reference(int(m.group(1)), m.group(2), section.start + offset))
+    used = body_citations(report)
+    numbers = {r.number for r in refs}
+    issues = []
+    labels = {'missing_title': '제목 없음', 'missing_date': '발행일(YYYY-MM-DD) 없음', 'missing_url': '주소 없음',
+              'homepage_url': '홈페이지 주소(기사·문서 주소가 아님)'}
+    for r in refs:
+        r.cited = r.number in used
+        if not r.cited:
+            r.problems.append('unused')
+            issues.append(Issue(f"unused_reference-{r.number}", 'unused_reference', 'warning', f"참고문헌 › 줄 {r.line}",
+                                f"[{r.number}]이 본문에서 인용되지 않았습니다"))
+        bad = [labels[p] for p in r.problems if p in labels]
+        if bad:
+            issues.append(Issue(f"reference_format-{r.number}", 'reference_format', 'error', f"참고문헌 › 줄 {r.line}",
+                                f"[{r.number}] {', '.join(bad)}" + (f" ({r.url})" if r.url else '')))
+    for n, line_no in sorted(used.items()):
+        if n not in numbers:
+            issues.append(Issue(f"missing_citation_target-{n}", 'missing_citation_target', 'error', f"줄 {line_no}",
+                                f"본문의 [{n}]에 해당하는 참고문헌이 없습니다"))
+    return refs, issues
+
+
+def find_ai_todo(report):
+    return [{'line': no, 'text': line.strip()[:120]}
+            for no, line in enumerate(report.lines, start=1) if '[AI_TODO' in line]
 
 
 def mention_issues(mentions):
