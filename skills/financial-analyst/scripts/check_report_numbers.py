@@ -234,6 +234,82 @@ def parse_numbers(text):
     return tokens
 
 
+# --- Non-quantities (rules §2) --------------------------------------------------------------
+
+EXCLUDE_CATEGORIES = ('diagram_style', 'citation', 'date', 'ticker_code', 'period_label',
+                      'product_spec', 'duration', 'year', 'numbering')
+SPEC_UNITS = ('nm', '나노', '단', 'Hi', 'bit', '세대')
+
+MERMAID_STYLE_LINE = re.compile(r'\s*(?:style|classDef|linkStyle|class)\b')
+# (category, pattern) in the order they are masked. 'numbering' runs twice: line-head numbers and
+# section references before dates, bare one-digit integers after the numbers are read.
+MASKS = [
+    ('diagram_style', re.compile(r'#[0-9A-Fa-f]{3,8}\b')),
+    ('citation', re.compile(r'https?://[^\s)\]>]+|`[^`]*`|\[\d+\]|KI-\d{3}')),
+    ('numbering', re.compile(r'^\s*#{1,6}\s*(?:[^\w\s]+\s*)?\d+(?:[.\-]\d+)*[.)]?'
+                             r'|^\s*(?:[-*]\s+)?\d+[.)](?=\s)'
+                             r'|Section\s*\d+(?:\.\d+)*(?:\s*›\s*\d+(?:-\d+)?번?)?'
+                             r'|\d+(?:-\d+)?번째?')),
+    ('date', re.compile(r'\d{4}[-.]\d{2}[-.]\d{2}'
+                        r'|\d{4}-\d{2}(?!\d)'
+                        r'|(?<![\d,.])\d{1,2}-\d{1,2}(?![\d%.,])'
+                        r'|\d{1,2}월\s?\d{1,2}(?:\s?~\s?\d{1,2})?일'
+                        r'|\d{1,2}월(?:\s?(?:초|중순|상순|하순|말|중))?'
+                        r'|\d{1,2}:\d{2}')),
+    ('ticker_code', re.compile(r'\^[A-Z]{2,}\d*|(?<![\d,.₩$])\d{6}(?:\.K[SQ])?(?![\d,.])')),
+    ('period_label', re.compile(r'\b(?:FY)?\d{1,2}[QH]\d{2}\b|\bFY\d{1,4}\b|\bQ[1-4]\b|\b[1-4]Q\b|\d분기')),
+    ('product_spec', re.compile(r'\b[A-Za-z]+-?\d+[A-Za-z0-9]*(?:-[A-Za-z0-9]+)*'
+                                r'|\d+-?(?:Hi|bit)\b|\d+(?:nm|나노|세대)|\d+단(?!계|기|위|순)|\b\d[a-wyz]\b')),
+    ('duration', re.compile(r'\d+(?:\s?~\s?\d+)?\s?(?:거래일간?|영업일|개월간?|일간|일|년간|주간|시간)'
+                            r'|(?<![\d,.])\d{1,3}주(?=\s?(?:최고|최저|고점|저점|범위|신고|신저|동안|이동))'
+                            r'|(?<![\d,.$₩])\d{1,2}M\b'
+                            r'|(?<![\d,.])\d{1,2}년(?![도대])')),
+    ('year', re.compile(r'(?<![\d,.$₩])(?:19|20)\d{2}(?!\d|,\d|\.\d|%|조|억|만|배|건|주)(?:년)?')),
+]
+
+
+def mask_non_quantities(line, in_mermaid=False):
+    """Blank out non-quantity notations (keeping positions) and count them by category."""
+    counts = dict.fromkeys(EXCLUDE_CATEGORIES, 0)
+    if in_mermaid and MERMAID_STYLE_LINE.match(line):
+        counts['diagram_style'] += 1
+        return ' ' * len(line), counts
+
+    def blank(category):
+        def repl(m):
+            counts[category] += 1
+            return ' ' * len(m.group(0))
+        return repl
+
+    for category, pattern in MASKS:
+        line = pattern.sub(blank(category), line)
+    return line, counts
+
+
+def extract_numbers(line, in_mermaid=False):
+    """Quantities in one line, plus counts of the non-quantities that were left out."""
+    masked, counts = mask_non_quantities(line, in_mermaid)
+    tokens = []
+    for t in parse_numbers(masked):
+        if not t.unit and not t.currency and not t.sign and t.decimals == 0 and abs(t.value) < 10:
+            counts['numbering'] += 1      # bare one-digit integer: an ordinal or a count word
+            continue
+        tokens.append(t)
+    return tokens, counts
+
+
+# --- Matching against the snapshot (rules §4) -----------------------------------------------
+
+UNIT_SCALES = {
+    '%': (100.0, 1.0), '%p': (100.0, 1.0),
+    '조': (1e-12, 1e-4), '억': (1e-8, 1.0), '만': (1e-4,),
+    'T': (1e-12,), 'B': (1e-9,), 'M': (1e-6,), 'K': (1e-3,),
+    '배': (1.0,), 'x': (1.0,), '건': (1.0,), '주': (1.0,), 'GB': (1.0,), 'TB': (1.0,),
+    'bp': (1.0, 1e4), '': (1.0,),
+}
+FETCH_STATUSES = ('found', 'not_found', 'unverifiable')
+
+
 # --- Entry point ----------------------------------------------------------------------------
 
 def build_parser():

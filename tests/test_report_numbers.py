@@ -163,3 +163,116 @@ def test_parse_numbers_positions_and_raw():
     (t,) = crn.parse_numbers(text)
     assert t.raw == "-3조 9,334억"
     assert text[t.start:t.end] == t.raw
+
+
+# --- T007: exclusion categories (rules §2) ------------------------------------------------------
+
+@pytest.mark.parametrize("text, category, in_mermaid", [
+    ("    classDef x fill:#f9f9f9,stroke:#333,stroke-width:2px;", "diagram_style", True),
+    ("색상 #512da8 사용", "diagram_style", False),
+    ("확인했습니다 [7].", "citation", False),
+    ("출처 [7], [8]", "citation", False),
+    ("KI-001 경고", "citation", False),
+    ("https://www.yna.co.kr/view/AKR20261010", "citation", False),
+    ("`AI_20261014_data.json`", "citation", False),
+    ("2026-10-28 발표", "date", False),
+    ("2026-10 한국경제", "date", False),
+    ("최종 체결 10-14 KST", "date", False),
+    ("10월 27~28일 예정", "date", False),
+    ("10월 말 발표", "date", False),
+    ("한국 시각 15:00", "date", False),
+    ("코드 005930", "ticker_code", False),
+    ("005930.KS 분석", "ticker_code", False),
+    ("^KS11 지수", "ticker_code", False),
+    ("3Q26 잠정", "period_label", False),
+    ("FY4Q26 매출", "period_label", False),
+    ("1H26 실적", "period_label", False),
+    ("FY1 EPS", "period_label", False),
+    ("3분기 실적", "period_label", False),
+    ("HBM4 전환", "product_spec", False),
+    ("LPDDR5X 탑재", "product_spec", False),
+    ("MI350 시리즈", "product_spec", False),
+    ("16-Hi 적층", "product_spec", False),
+    ("4나노 수율", "product_spec", False),
+    ("3nm 공정", "product_spec", False),
+    ("12단 제품", "product_spec", False),
+    ("2048-bit 인터페이스", "product_spec", False),
+    ("1c D램", "product_spec", False),
+    ("6세대 제품", "product_spec", False),
+    ("최근 30일 추정치", "duration", False),
+    ("5거래일 기준", "duration", False),
+    ("20일간 하락", "duration", False),
+    ("최근 1~5거래일간", "duration", False),
+    ("52주 최고가", "duration", False),
+    ("PEG (12M, 단순 추정)", "duration", False),
+    ("3개월 내", "duration", False),
+    ("2027년 가이던스", "year", False),
+    ("2034", "year", False),
+    ("### 6.1. 시나리오 해석", "numbering", False),
+    ("### 🎯 7.1. 판정별 실행 전략", "numbering", False),
+    ("### 💰 7.2. 포트폴리오 배분 제안", "numbering", False),
+    ("Section 4 › 1-1 표", "numbering", False),
+    ("Section 4 › 5번 매트릭스", "numbering", False),
+    ("5번 매트릭스", "numbering", False),
+    ("주의 신호 2개", "numbering", False),
+    ("1. **AI 가속기**", "numbering", False),
+])
+def test_excluded_categories(text, category, in_mermaid):
+    tokens, counts = crn.extract_numbers(text, in_mermaid=in_mermaid)
+    assert tokens == [], [t.raw for t in tokens]
+    assert counts[category] >= 1, dict(counts)
+
+
+def test_year_range_with_arrow_is_two_years():
+    tokens, counts = crn.extract_numbers("(2022→2023 -74%)")
+    assert [t.raw for t in tokens] == ["-74%"]
+    assert counts["year"] == 2
+
+
+def test_heading_with_ticker_is_excluded():
+    tokens, counts = crn.extract_numbers("### 1) 005930.KS (Samsung Electronics)")
+    assert tokens == []
+    assert counts["numbering"] == 1 and counts["ticker_code"] == 1
+
+
+@pytest.mark.parametrize("text", [
+    "TTM 영업이익률 52.18%", "₩237,500", "-39,334억 원", "P/B 2.44배", "16GB", "상향 7건",
+    "52주 최고가(₩380,000) 대비 -34.3%", "지분율 46.18%", "2,034억 원", "백분위 62%",
+])
+def test_quantities_are_kept(text):
+    tokens, _ = crn.extract_numbers(text)
+    assert tokens, f"no quantity read from {text!r}"
+
+
+def _rules_tables():
+    """Tables in the rules document whose first header cell is '키', keyed by the nearest heading."""
+    tables, heading, current = [], "", None
+    with open(RULES_DOC, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if line.startswith("#"):
+                heading = line.lstrip("#").strip()
+            if line.startswith("| 키 |"):
+                current = {"heading": heading, "header": [c.strip() for c in line.strip("|").split("|")], "rows": []}
+                tables.append(current)
+            elif current is not None and line.startswith("|") and not line.startswith("|---"):
+                current["rows"].append([c.strip() for c in line.strip("|").split("|")])
+            elif not line.startswith("|"):
+                current = None
+    return tables
+
+
+def _keys(table):
+    return {row[0].strip("`") for row in table["rows"]}
+
+
+def test_rules_document_matches_constants():
+    tables = _rules_tables()
+    by = lambda heading_prefix, col: next(t for t in tables if t["heading"].startswith(heading_prefix) and t["header"][1] == col)
+    assert _keys(by("2.", "범주")) == set(crn.EXCLUDE_CATEGORIES)
+    assert _keys(by("2.", "뜻")) == set(crn.SPEC_UNITS)
+    scales = by("4-2.", "배율")
+    doc_scales = {("" if row[0] == "(없음)" else row[0].strip("`")): [float(x) for x in row[1].split(",")] for row in scales["rows"]}
+    assert doc_scales == {k: list(v) for k, v in crn.UNIT_SCALES.items()}
+    assert _keys(by("7.", "뜻")) == set(crn.FETCH_STATUSES)
+    assert _keys(by("8.", "뜻")) == {str(crn.EXIT_OK), str(crn.EXIT_ISSUES), str(crn.EXIT_CANNOT_RUN)}
