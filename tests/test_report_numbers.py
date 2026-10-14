@@ -276,3 +276,162 @@ def test_rules_document_matches_constants():
     assert doc_scales == {k: list(v) for k, v in crn.UNIT_SCALES.items()}
     assert _keys(by("7.", "뜻")) == set(crn.FETCH_STATUSES)
     assert _keys(by("8.", "뜻")) == {str(crn.EXIT_OK), str(crn.EXIT_ISSUES), str(crn.EXIT_CANNOT_RUN)}
+
+
+# --- T008: US1 classification (spec US1 acceptance scenarios 1-8) -------------------------------
+
+US1_SNAPSHOT = {
+    "meta": {"args": {"tickers": "005930.KS,000660.KS"}},
+    "values": {
+        "005930.KS.cycle.opm_ttm": {"value": 0.52183, "source": "calculated", "basis": "derived", "status": "final"},
+        "005930.KS.pb_band.current_pb": {"value": 2.4417, "source": "calculated", "basis": "derived", "status": "final"},
+        "005930.KS.flows.total_5d.foreign_net_amt": {"value": -39334.2, "source": "calculated", "basis": "derived", "status": "estimated"},
+        "005930.KS.quote.current_price": {"value": 237500, "source": "yahoo", "basis": "quote", "status": "provisional"},
+        "005930.KS.market_context.drawdown_52w": {"value": -0.3430, "source": "calculated", "basis": "derived", "status": "final"},
+        "005930.KS.estimates.revisions.down_30d": {"value": 25, "source": "yahoo", "basis": "consensus", "status": "final"},
+        "000660.KS.estimates.revisions.down_30d": {"value": 11, "source": "yahoo", "basis": "consensus", "status": "final"},
+        "005930.KS.metrics.part_a": {"value": 120.5, "source": "yahoo", "basis": "statement", "status": "final"},
+        "005930.KS.metrics.part_b": {"value": 30.25, "source": "yahoo", "basis": "statement", "status": "final"},
+        "000660.KS.metrics.roe": {"value": 0.4567, "source": "yahoo", "basis": "statement", "status": "final"},
+        "^KS11.market_context.return_5d": {"value": -0.119, "source": "calculated", "basis": "derived", "status": "final"},
+    },
+    "series": {"005930.KS.close": {"source": "yahoo", "basis": "yahoo_close", "data": {"2026-10-13": 232000}}},
+    "warnings": [],
+}
+
+US1_REPORT = """# 테스트 보고서
+
+> **데이터 스냅샷**: `r_data.json`
+
+## 1. 산업 개요
+
+TTM 영업이익률 52.18%를 기록했다. P/B 2.44배 수준이다.
+3분기 잠정 영업이익 107.4조 원을 발표했다 [7].
+근거 없는 숫자 12.34%가 문장에 있다.
+외국인은 -3조 9,334억 원(추정) 순매도했다.
+두 지표의 합은 150.75이다.
+005930.KS 하락 속에 지수는 -11.9% 내렸고 000660.KS는 하향 11건이다.
+고점 대비 34.3% 하락했다. 다른 문장에서는 고점 대비 +34.3% 올랐다고 썼다.
+2027년 HBM4 출하가 예정되어 있다.
+하향 11건이 나왔다.
+현재가 ₩237,500이고 전일 종가는 ₩232,000이다.
+
+| 항목 | 결과 | 출처 |
+|---|---|---|
+| 실적 | 매출 195조 원 | [연합뉴스](https://example.com/news/1) [7] |
+
+## 5. 기업별 분석
+
+### 1) 005930.KS (Samsung Electronics)
+
+추정치는 하향 25건이다. 상향 11건은 이 종목 값이 아니다. ROE 45.67%는 다른 종목 값이다.
+
+## 8. 참고 문헌 (References)
+
+[7] [기사 제목](https://example.com/news/1) — 2026-10-10
+"""
+
+
+@pytest.fixture
+def us1(tmp_path):
+    path = write_case(tmp_path, US1_REPORT, snapshot=US1_SNAPSHOT)
+    result = crn.check(path)
+    return result
+
+
+def _mention(result, raw, nth=0):
+    found = [m for m in result.mentions if m.raw == raw]
+    assert len(found) > nth, f"{raw!r} not found in {[m.raw for m in result.mentions]}"
+    return found[nth]
+
+
+def test_us1_ratio_matches_with_path(us1):                       # scenario 1
+    m = _mention(us1, "52.18%")
+    assert m.classification == "script"
+    assert m.matched_path == "005930.KS.cycle.opm_ttm"
+
+
+def test_us1_display_precision(us1):                              # scenario 2
+    assert _mention(us1, "2.44배").classification == "script"
+
+
+def test_us1_citation_in_sentence(us1):                           # scenario 3
+    m = _mention(us1, "107.4조")
+    assert m.classification == "cited"
+    assert m.scope_citations == [7]
+
+
+def test_us1_citation_in_table_row(us1):                          # scenario 4
+    m = _mention(us1, "195조")
+    assert m.classification == "cited"
+    assert m.scope_citations == [7]
+
+
+def test_us1_unsupported_has_location_and_context(us1):           # scenario 5
+    m = _mention(us1, "12.34%")
+    assert m.classification == "unsupported"
+    assert m.section == "1. 산업 개요"
+    assert m.line == 9
+    assert "근거 없는 숫자" in m.context
+
+
+def test_us1_unit_conversion_korean_amount(us1):                  # scenario 6
+    m = _mention(us1, "-3조 9,334억")
+    assert m.classification == "script"
+    assert m.matched_path == "005930.KS.flows.total_5d.foreign_net_amt"
+
+
+def test_us1_derived_sum_is_unsupported(us1):                     # scenario 7
+    assert _mention(us1, "150.75").classification == "unsupported"
+
+
+def test_us1_non_quantities_excluded(us1):                        # scenario 8
+    raws = {m.raw for m in us1.mentions}
+    assert not raws & {"2027", "2027년", "4", "7", "3"}
+    assert us1.counts["excluded"]["year"] >= 1
+    assert us1.counts["excluded"]["product_spec"] >= 1
+
+
+def test_us1_sign(us1):
+    assert _mention(us1, "34.3%").classification == "script"     # direction in words → absolute value
+    assert _mention(us1, "+34.3%").classification == "unsupported"  # explicit sign must agree
+
+
+def test_us1_low_information_numbers(us1):
+    no_context = _mention(us1, "11건", 1)                            # no ticker context → not matched at all
+    assert no_context.classification == "unsupported" and no_context.matched_path is None
+    strong = _mention(us1, "25건")                                   # ticker context 005930.KS
+    assert strong.classification == "script" and not strong.weak
+    assert strong.ticker_context == "005930.KS"
+    assert strong.matched_path == "005930.KS.estimates.revisions.down_30d"
+    other = _mention(us1, "11건", 2)                                 # only 000660.KS has 11 → not this ticker's value
+    assert other.classification == "unsupported"
+
+
+def test_us1_weak_match_from_other_ticker(us1):
+    m = _mention(us1, "45.67%")                                     # 005930.KS section, value only under 000660.KS
+    assert m.classification == "unsupported" and m.weak             # not a pass: another company's value
+    assert m.matched_path == "000660.KS.metrics.roe"
+    assert not _mention(us1, "52.18%").weak
+
+
+def test_us1_line_with_several_tickers_and_index(us1):
+    idx = _mention(us1, "-11.9%")                                   # index values may be cited in any sentence
+    assert idx.classification == "script" and not idx.weak
+    assert set(idx.ticker_context.split(",")) == {"005930.KS", "000660.KS"}
+    second = _mention(us1, "11건", 0)                                # 000660.KS is also in this line's context
+    assert second.classification == "script"
+    assert second.matched_path == "000660.KS.estimates.revisions.down_30d"
+
+
+def test_us1_series_and_status(us1):
+    assert _mention(us1, "₩237,500").snapshot_status == "provisional"
+    assert _mention(us1, "₩232,000").matched_path == "005930.KS.close.2026-10-13"
+
+
+def test_us1_mention_ids_are_stable(us1):
+    ids = [m.id for m in us1.mentions]
+    assert len(ids) == len(set(ids))
+    assert _mention(us1, "11건", 1).id.endswith("-11건-2")             # second in '1. 산업 개요'
+    m = _mention(us1, "11건", 2)                                     # first in the 005930.KS subsection
+    assert m.id.endswith("-11건-1") and len(m.id.split("-")[0]) == 4

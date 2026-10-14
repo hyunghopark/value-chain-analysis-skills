@@ -42,10 +42,10 @@
 | `section` | string | 가장 가까운 `##`/`###` 제목 |
 | `line` | int | 줄 번호 (표시용, ID에는 쓰지 않음) |
 | `context` | string | 앞뒤 문맥 (약 40자) |
-| `ticker_context` | string/null | 제목·같은 줄에서 특정한 종목 |
+| `ticker_context` | string/null | 같은 줄의 종목 전부(쉼표로 연결), 없으면 상위 제목의 종목 |
 | `scope_citations` | int[] | 같은 문장·표 행·목록 항목의 인용 번호 |
 | `classification` | enum | `script` / `cited` / `unsupported` |
-| `weak` | bool | 정보량 낮은 숫자를 종목 문맥 없이 맞춘 경우 (R4-4) |
+| `weak` | bool | 종목 문맥이 있는데 다른 종목 경로에서만 맞은 경우 — 일치로 치지 않고 참고로 `matched_path`만 남김 (규칙 §4-5) |
 | `matched_path` | string/null | 일치한 스냅샷 경로 |
 | `match_count` | int | 일치한 경로 수 |
 | `snapshot_status` | string/null | 일치한 값의 `status` (`provisional` 등) |
@@ -99,7 +99,7 @@
 | `report` | string | 보고서 경로 |
 | `snapshot` | string/null | 짝 스냅샷 경로 |
 | `checked_at` | string | KST 시각 |
-| `counts` | object | `script`, `script_weak`, `cited`, `unsupported`, `excluded`(범주별) |
+| `counts` | object | `script`, `cited`, `unsupported`, `weak`(다른 종목 값과만 맞은 수, 분류와 별개), `excluded`(범주별) |
 | `mentions` | NumberMention[] | 본문 숫자 전체 |
 | `section4` | Section4Check | |
 | `references` | Reference[] | |

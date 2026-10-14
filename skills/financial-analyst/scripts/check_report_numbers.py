@@ -9,6 +9,7 @@ Network access happens only with --fetch-sources.
 Exit codes: 0 no undocumented errors, 1 undocumented errors, 2 cannot run.
 """
 import argparse
+import hashlib
 import datetime
 import json
 import os
@@ -308,6 +309,195 @@ UNIT_SCALES = {
     'bp': (1.0, 1e4), '': (1.0,),
 }
 FETCH_STATUSES = ('found', 'not_found', 'unverifiable')
+LOW_INFO_LIMIT = 100      # integers below this, written without decimals, are 'low information' (rules §4-4)
+
+
+# --- Body numbers with their citation scope and ticker context (rules §5) -------------------
+
+CITATION_NUMBER = re.compile(r'\[(\d+)\]')
+SENTENCE_BREAK = re.compile(r'(?<=다\.)\s+|(?<=\.)\s+(?=\S)|<br\s*/?>')
+
+
+def scopes(line):
+    """Citation scopes in one line: the whole line for a table row, otherwise each sentence."""
+    if line.lstrip().startswith('|'):
+        return [(0, len(line))]
+    spans, start = [], 0
+    for m in SENTENCE_BREAK.finditer(line):
+        spans.append((start, m.start()))
+        start = m.end()
+    spans.append((start, len(line)))
+    return spans
+
+
+def ticker_pattern(tickers):
+    if not tickers:
+        return None
+    alts = '|'.join(re.escape(t) for t in sorted(tickers, key=len, reverse=True))
+    return re.compile(r'(?<![A-Za-z0-9.^])(' + alts + r')(?![A-Za-z0-9])')  # Korean particles may follow
+
+
+def _heading_title(line):
+    return line.lstrip('#').strip()
+
+
+def extract_mentions(report, tickers=()):
+    """Every quantity in the head and body sections, with section, line, context, citations and ticker.
+
+    Returns (mentions, excluded counts by category).
+    """
+    find_ticker = ticker_pattern(tickers)
+    excluded = dict.fromkeys(EXCLUDE_CATEGORIES, 0)
+    mentions = []
+    seen = {}
+    for section in report.sections:
+        if section.kind not in ('head', 'body'):
+            continue
+        heading = section.title or '(머리)'
+        heading_ticker = None
+        if find_ticker and section.title:
+            m = find_ticker.search(section.title)
+            heading_ticker = m.group(1) if m else None
+        in_code = in_mermaid = False
+        for offset, line in enumerate(section.lines):
+            line_no = section.start + offset
+            if offset == 0 and section.title:
+                continue                               # the '## ' heading itself
+            if line.startswith('```'):
+                in_mermaid = (not in_code) and line.strip().startswith('```mermaid')
+                in_code = not in_code
+                continue
+            if line.startswith('###'):
+                heading = _heading_title(line)
+                m = find_ticker.search(line) if find_ticker else None
+                heading_ticker = m.group(1) if m else None
+            tokens, counts = extract_numbers(line, in_mermaid)
+            for k, v in counts.items():
+                excluded[k] += v
+            if not tokens:
+                continue
+            line_tickers = list(dict.fromkeys(find_ticker.findall(line))) if find_ticker else []
+            context_tickers = line_tickers or ([heading_ticker] if heading_ticker else [])
+            spans = scopes(line)
+            for t in tokens:
+                lo, hi = next(((a, b) for a, b in spans if a <= t.start < b), (0, len(line)))
+                cites = [int(n) for n in CITATION_NUMBER.findall(line[lo:hi])]
+                key = (heading, t.raw)
+                seen[key] = seen.get(key, 0) + 1
+                mid = f"{hashlib.sha1(heading.encode('utf-8')).hexdigest()[:4]}-{t.raw}-{seen[key]}"
+                context = line[max(0, t.start - 40):t.end + 40].strip()
+                mentions.append(NumberMention(
+                    id=mid, raw=t.raw, value=t.value, unit=t.unit, decimals=t.decimals,
+                    explicit_sign=t.sign, section=heading, line=line_no, context=context,
+                    ticker_context=','.join(context_tickers) or None, scope_citations=cites))
+    return mentions, excluded
+
+
+# --- Classification (rules §4, §5) ----------------------------------------------------------
+
+@dataclass
+class Candidate:
+    path: str
+    value: float
+    status: Optional[str]
+
+
+def snapshot_candidates(snapshot):
+    """Every numeric value in the snapshot (values and series) as a matching candidate."""
+    cands = []
+    for path, rec in (snapshot.get('values') or {}).items():
+        v = rec.get('value') if isinstance(rec, dict) else None
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            cands.append(Candidate(path, float(v), rec.get('status')))
+    for path, s in (snapshot.get('series') or {}).items():
+        for day, v in ((s or {}).get('data') or {}).items():
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                cands.append(Candidate(f"{path}.{day}", float(v), None))
+    return cands
+
+
+def snapshot_tickers(snapshot):
+    raw = ((snapshot.get('meta') or {}).get('args') or {}).get('tickers') or ''
+    return [t.strip() for t in str(raw).split(',') if t.strip()]
+
+
+def value_matches(m, value):
+    """Does snapshot value v, under any scale for the mention's unit, read as the written number?"""
+    tol = 0.5 * 10 ** (-m.decimals) + 1e-9
+    for scale in UNIT_SCALES.get(m.unit, (1.0,)):
+        c = value * scale
+        if m.explicit_sign == '-' and c > 0 or m.explicit_sign == '+' and c < 0:
+            continue
+        if m.explicit_sign:
+            if abs(c - m.value) <= tol:
+                return True
+        elif abs(abs(c) - abs(m.value)) <= tol:
+            return True
+    return False
+
+
+def context_filter(ticker_context):
+    """Paths a mention may match: its tickers, rule thresholds and indices (rules §4-4)."""
+    if not ticker_context:
+        return lambda c: True
+    prefixes = tuple(t + '.' for t in ticker_context.split(',')) + ('rules.', '^')
+    return lambda c: c.path.startswith(prefixes)
+
+
+def is_low_information(m):
+    return m.decimals == 0 and abs(m.value) < LOW_INFO_LIMIT
+
+
+def classify(mentions, candidates):
+    """script (snapshot match) → cited (citation in scope) → unsupported, per rules §5."""
+    for m in mentions:
+        own = context_filter(m.ticker_context)
+        if is_low_information(m):
+            # Small integers match by chance: only the context ticker's values count, and without a
+            # ticker context they are not compared at all (rules §4-4).
+            pool = [c for c in candidates if own(c)] if m.ticker_context else []
+        else:
+            pool = candidates
+        matches = [c for c in pool if value_matches(m, c.value)]
+        matches.sort(key=lambda c: not own(c))
+        if matches:
+            m.matched_path = matches[0].path
+            m.snapshot_status = matches[0].status
+            m.match_count = len(matches)
+        if matches and own(matches[0]):
+            m.classification = 'script'
+            continue
+        m.weak = bool(matches)        # only another company's value matched: a hint, not a pass (rules §4-5)
+        if m.scope_citations:
+            m.classification = 'cited'
+        else:
+            m.classification = 'unsupported'
+    return mentions
+
+
+def count_classes(mentions, excluded):
+    return {
+        'script': sum(m.classification == 'script' for m in mentions),
+        'weak': sum(m.weak for m in mentions),
+        'cited': sum(m.classification == 'cited' for m in mentions),
+        'unsupported': sum(m.classification == 'unsupported' for m in mentions),
+        'excluded': dict(excluded),
+    }
+
+
+def check(report_path, snapshot_path=None, fetch_sources=False):
+    """Run every check on one report and return a CheckResult."""
+    report = load_report(report_path)
+    snap_path = find_snapshot(report, snapshot_path)
+    snapshot = load_snapshot(snap_path) if snap_path else None
+    tickers = snapshot_tickers(snapshot) if snapshot else []
+    result = CheckResult(report=report_path, snapshot=snap_path,
+                         checked_at=datetime.datetime.now(KST).strftime('%Y-%m-%d %H:%M KST'))
+    mentions, excluded = extract_mentions(report, tickers)
+    classify(mentions, snapshot_candidates(snapshot) if snapshot else [])
+    result.mentions = mentions
+    result.counts = count_classes(mentions, excluded)
+    return result
 
 
 # --- Entry point ----------------------------------------------------------------------------
@@ -324,11 +514,7 @@ def build_parser():
 
 
 def run(args):
-    report = load_report(args.report)
-    snapshot_path = find_snapshot(report, args.snapshot or None)
-    result = CheckResult(report=args.report, snapshot=snapshot_path,
-                         checked_at=datetime.datetime.now(KST).strftime('%Y-%m-%d %H:%M KST'))
-    return result
+    return check(args.report, args.snapshot or None, fetch_sources=args.fetch_sources)
 
 
 def main(argv=None):
