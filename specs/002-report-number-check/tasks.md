@@ -84,8 +84,8 @@
 
 - [x] T026 [US3] `TRN`에 테스트 작성(실패 확인): 참고문헌 두 형식(`[n] 제목 — 발행일 — URL`, `[n] [제목](URL) — 날짜`) 파싱, `homepage_url`(경로 없음·`/`·`/index.html`), `missing_date`, `missing_title`, `missing_url`, 없는 인용([18]), 미사용 참고문헌(`warning`, 종료 코드에 영향 없음), `[AI_TODO]` 위치, 검증 세트에서 `homepage_url` 17건
 - [x] T027 [US3] `CHK` `check_references`, `find_ai_todo` 구현. 참고문헌 파싱은 '## 9.' 제목에서 끝난다. T026 통과
-- [ ] T028 [US3] `TRN`에 섹션 기록 흐름 테스트 작성(실패 확인): `--section` 출력 형식(contracts/cli.md: 머리 줄 개수, 표 `ID | 위치 | 숫자 | 문제 | 사유`, 남은 문제 없으면 "남은 문제 없음"), 섹션 없음 → `check_section_missing`, 개수 다름 → `check_section_stale`, 사유가 `[AI_TODO]` → `documented: false`, 모든 남은 문제에 사유 → 종료 코드 0. 섹션 자체는 숫자 대조에서 빠진다
-- [ ] T029 [US3] `CHK` `render_section`, `read_check_section`, 문제 ID(R9), `documented` 판정과 종료 코드 규칙(contracts/cli.md '종료 코드'). T028 통과
+- [x] T028 [US3] `TRN`에 섹션 기록 흐름 테스트 작성(실패 확인): `--section` 출력 형식(contracts/cli.md: 머리 줄 개수, 표 `ID | 위치 | 숫자 | 문제 | 사유`, 남은 문제 없으면 "남은 문제 없음"), 섹션 없음 → `check_section_missing`, 개수 다름 → `check_section_stale`, 사유가 `[AI_TODO]` → `documented: false`, 모든 남은 문제에 사유 → 종료 코드 0. 섹션 자체는 숫자 대조에서 빠진다
+- [x] T029 [US3] `CHK` `render_section`, `read_check_section`, 문제 ID(R9), `documented` 판정과 종료 코드 규칙(contracts/cli.md '종료 코드'). T028 통과
 - [ ] T030 [US3] `TRN`에 기사 대조 테스트(실패 확인, `requests.get`을 흉내 냄): 문서에 숫자 있음 → `found`, 없음 → `not_found`(`source_not_found` 문제), 시간 초과·홈페이지 주소·본문 500자 미만 → `unverifiable`(`source_unverifiable` 문제, 통과 아님). `--fetch-sources` 없이는 `requests.get`이 호출되지 않음
 - [ ] T031 [US3] `CHK` `fetch_and_verify`: 제한 시간 10초, 재시도 없음, `beautifulsoup4`로 본문 글자 추출, T006 숫자 해석·R4 단위 규칙으로 대조. T030 통과
 

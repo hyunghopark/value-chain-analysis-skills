@@ -962,3 +962,74 @@ def test_homepage_references_in_validation_report():                 # SC-005
     result = crn.check(os.path.join(FIXTURE_DIR, "report.md"), os.path.join(FIXTURE_DIR, "report_data.json"))
     homepage = [r.number for r in result.references if "homepage_url" in r.problems]
     assert len(homepage) == 17
+
+
+# --- T028: the '숫자 점검 결과' section (FR-011, research R9) -------------------------------------
+
+FLOW_REPORT = CLEAN_REPORT.replace("P/B 2.44배이다.", "P/B 2.44배이다. 근거 없는 12.34%도 있다.")
+FLOW_SNAPSHOT = dict(US1_SNAPSHOT, section4={"text": "", "sha256": "", "attached_at": ""})
+
+
+def _with_section(text, section):
+    return text.rstrip("\n") + "\n\n" + section + "\n"
+
+
+def test_render_section_lists_open_issues(tmp_path):
+    result = crn.check(write_case(tmp_path, FLOW_REPORT, snapshot=FLOW_SNAPSHOT))
+    section = crn.render_section(result)
+    assert section.startswith("## 9. 숫자 점검 결과 (스크립트 자동 점검)")
+    assert "스크립트 값 일치 2 · 인용 1 · 근거 없음 1 · 제외" in section
+    assert "| ID | 위치 | 숫자 | 문제 | 사유 |" in section
+    m = _mention(result, "12.34%")
+    assert f"| {m.id} |" in section and "[AI_TODO: 남긴 이유]" in section
+
+
+def test_render_section_without_issues(tmp_path):
+    result = crn.check(write_case(tmp_path, CLEAN_REPORT, snapshot=FLOW_SNAPSHOT))
+    assert "남은 문제 없음" in crn.render_section(result)
+
+
+def test_section_flow_missing_then_documented(tmp_path):
+    path = write_case(tmp_path, FLOW_REPORT, snapshot=FLOW_SNAPSHOT)
+    first = crn.check(path)
+    assert "check_section_missing" in _kinds(first) and first.exit_code == 1
+
+    section = crn.render_section(first)
+    (tmp_path / "r.md").write_text(_with_section(FLOW_REPORT, section), encoding="utf-8")
+    second = crn.check(path)
+    assert "check_section_missing" not in _kinds(second)
+    assert "ai_todo_left" in _kinds(second)                         # reason not written yet
+    unsupported = next(i for i in second.issues if i.kind == "unsupported_number")
+    assert not unsupported.documented and second.exit_code == 1
+    assert {m.raw for m in second.mentions} == {m.raw for m in first.mentions}   # the section itself is not checked
+
+    filled = section.replace("[AI_TODO: 남긴 이유]", "기사 원문에서 확인했으나 링크가 유료라 인용하지 않음")
+    (tmp_path / "r.md").write_text(_with_section(FLOW_REPORT, filled), encoding="utf-8")
+    third = crn.check(path)
+    assert next(i for i in third.issues if i.kind == "unsupported_number").documented
+    assert third.exit_code == 0
+
+
+def test_section_stale_after_edit(tmp_path):
+    path = write_case(tmp_path, FLOW_REPORT, snapshot=FLOW_SNAPSHOT)
+    section = crn.render_section(crn.check(path)).replace("[AI_TODO: 남긴 이유]", "사유")
+    edited = FLOW_REPORT.replace("근거 없는 12.34%도 있다.", "근거 없는 12.34%도 있다. 새 숫자 98.76%도 넣었다.")
+    (tmp_path / "r.md").write_text(_with_section(edited, section), encoding="utf-8")
+    result = crn.check(path)
+    assert "check_section_stale" in _kinds(result)
+    new = next(i for i in result.issues if i.id == _mention(result, "98.76%").id)
+    assert not new.documented and result.exit_code == 1
+
+
+def test_render_section_keeps_written_reasons(tmp_path):
+    path = write_case(tmp_path, FLOW_REPORT, snapshot=FLOW_SNAPSHOT)
+    section = crn.render_section(crn.check(path)).replace("[AI_TODO: 남긴 이유]", "이미 적은 사유")
+    (tmp_path / "r.md").write_text(_with_section(FLOW_REPORT, section), encoding="utf-8")
+    assert "이미 적은 사유" in crn.render_section(crn.check(path))
+
+
+def test_main_section_option(tmp_path, capsys):
+    path = write_case(tmp_path, FLOW_REPORT, snapshot=FLOW_SNAPSHOT)
+    crn.main([path, "--section"])
+    out = capsys.readouterr().out
+    assert out.startswith("## 9. 숫자 점검 결과") and "| 스크립트 값 일치 |" not in out

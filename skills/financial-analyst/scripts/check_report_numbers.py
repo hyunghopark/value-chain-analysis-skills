@@ -666,8 +666,94 @@ def check(report_path, snapshot_path=None, fetch_sources=False):
     result.ai_todo = find_ai_todo(report)
     result.issues += [Issue(f"ai_todo_left-{t['line']}", 'ai_todo_left', 'error', f"줄 {t['line']}",
                             f"채우지 않은 자리: {t['text']}") for t in result.ai_todo]
+    apply_check_section(result, read_check_section(report))
     result.exit_code = exit_code(result.issues)
     return result
+
+
+# --- The '숫자 점검 결과' section (contracts/cli.md, research R9) --------------------------------
+
+CHECK_SECTION_TITLE = "## 9. 숫자 점검 결과 (스크립트 자동 점검)"
+CHECK_HEADER = re.compile(r'스크립트 값 일치 (\d+) · 인용 (\d+) · 근거 없음 (\d+) · 제외 (\d+) · '
+                          r'Section 4 변경 (\d+) · 참고문헌 문제 (\d+)')
+REASON_TODO = "[AI_TODO: 남긴 이유]"
+# Issues that cannot be closed by writing a reason: fill the gap or refresh the section instead.
+UNDOCUMENTABLE = {'ai_todo_left', 'check_section_missing', 'check_section_stale'}
+KIND_LABELS = {
+    'unsupported_number': '근거 없음', 'section4_changed': 'Section 4 수정됨', 'section4_not_in_snapshot': 'Section 4 값이 스냅샷에 없음',
+    'warning_not_in_snapshot': '경고가 스냅샷에 없음', 'reference_format': '참고문헌 형식', 'missing_citation_target': '없는 인용 번호',
+    'no_snapshot': '짝 스냅샷 없음', 'no_baseline': 'Section 4 기준본 없음', 'source_not_found': '기사에 숫자 없음',
+    'source_unverifiable': '기사 확인 불가',
+}
+
+
+def header_counts(result):
+    c = result.counts
+    return (c.get('script', 0), c.get('cited', 0), c.get('unsupported', 0), sum((c.get('excluded') or {}).values()),
+            len(result.section4.changed_lines),
+            sum(i.kind in ('reference_format', 'missing_citation_target') for i in result.issues))
+
+
+def documentable(result):
+    return [i for i in result.issues if i.severity == 'error' and i.kind not in UNDOCUMENTABLE]
+
+
+def _cells(line):
+    return [c.strip().replace('\\|', '|') for c in re.split(r'(?<!\\)\|', line.strip().strip('|'))]
+
+
+def read_check_section(report):
+    """Counts and per-issue reasons written in the report's check section, or None if there is none."""
+    section = next((s for s in report.sections if s.kind == 'check'), None)
+    if section is None:
+        return None
+    counts, reasons = None, {}
+    for line in section.lines:
+        m = CHECK_HEADER.search(line)
+        if m:
+            counts = tuple(int(x) for x in m.groups())
+        elif line.lstrip().startswith('|') and not line.lstrip().startswith('|---'):
+            cells = _cells(line)
+            if len(cells) >= 5 and cells[0] != 'ID':
+                reasons[cells[0]] = cells[4]
+    return {'counts': counts, 'reasons': reasons}
+
+
+def apply_check_section(result, written):
+    """Mark issues documented by the check section, or report the section as missing or stale."""
+    open_issues = documentable(result)
+    if written is None:
+        if open_issues:
+            result.issues.append(Issue('check_section_missing', 'check_section_missing', 'error', '보고서 끝',
+                                       "남은 문제를 '9. 숫자 점검 결과' 섹션에 사유와 함께 기록하세요(--section 출력을 붙임)."))
+        return
+    if written['counts'] != header_counts(result):
+        result.issues.append(Issue('check_section_stale', 'check_section_stale', 'error', '9. 숫자 점검 결과',
+                                   "섹션의 개수가 현재 점검과 다릅니다. --section으로 다시 만들어 바꿔 넣으세요(적은 사유는 유지됨)."))
+    for issue in open_issues:
+        reason = written['reasons'].get(issue.id, '')
+        issue.documented = bool(reason) and '[AI_TODO' not in reason
+
+
+def render_section(result):
+    """The block to put after the reference list; reasons already written in the report are kept."""
+    written = read_check_section(load_report(result.report)) or {'reasons': {}}
+    raws = {m.id: m.raw for m in result.mentions}
+    script, cited, unsupported, excluded, changed, ref_problems = header_counts(result)
+    lines = [CHECK_SECTION_TITLE, "",
+             f"> 점검 시각: {result.checked_at} · 스크립트 값 일치 {script} · 인용 {cited} · 근거 없음 {unsupported} · "
+             f"제외 {excluded} · Section 4 변경 {changed} · 참고문헌 문제 {ref_problems}", ""]
+    rows = documentable(result)
+    if not rows:
+        lines.append("남은 문제 없음")
+        return '\n'.join(lines)
+    esc = lambda text: str(text).replace('|', '\\|')
+    lines += ["| ID | 위치 | 숫자 | 문제 | 사유 |", "|---|---|---|---|---|"]
+    for i in rows:
+        reason = written['reasons'].get(i.id) or REASON_TODO
+        lines.append(f"| {esc(i.id)} | {esc(i.location)} | {esc(raws.get(i.id, '-'))} | "
+                     f"{KIND_LABELS.get(i.kind, i.kind)} | {esc(reason)} |")
+    return '\n'.join(lines)
 
 
 WARNINGS_TABLE = re.compile(r'^#{3,4}\s*(?:[^\w\s]+\s*)?8\.')
@@ -933,7 +1019,7 @@ def main(argv=None):
     if args.json:
         with open(args.json, 'w', encoding='utf-8') as f:
             json.dump(asdict(result), f, ensure_ascii=False, indent=2)
-    print(render_summary(result, verbose=args.verbose))
+    print(render_section(result) if args.section else render_summary(result, verbose=args.verbose))
     return result.exit_code
 
 
