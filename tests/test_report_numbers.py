@@ -244,6 +244,11 @@ def test_quantities_are_kept(text):
     assert tokens, f"no quantity read from {text!r}"
 
 
+def _cells(line):
+    import re as _re
+    return [c.strip() for c in _re.split(r"(?<!\\)\|", line.strip().strip("|"))]
+
+
 def _rules_tables():
     """Tables in the rules document whose first header cell is '키', keyed by the nearest heading."""
     tables, heading, current = [], "", None
@@ -253,10 +258,10 @@ def _rules_tables():
             if line.startswith("#"):
                 heading = line.lstrip("#").strip()
             if line.startswith("| 키 |"):
-                current = {"heading": heading, "header": [c.strip() for c in line.strip("|").split("|")], "rows": []}
+                current = {"heading": heading, "header": _cells(line), "rows": []}
                 tables.append(current)
             elif current is not None and line.startswith("|") and not line.startswith("|---"):
-                current["rows"].append([c.strip() for c in line.strip("|").split("|")])
+                current["rows"].append(_cells(line))
             elif not line.startswith("|"):
                 current = None
     return tables
@@ -271,9 +276,16 @@ def test_rules_document_matches_constants():
     by = lambda heading_prefix, col: next(t for t in tables if t["heading"].startswith(heading_prefix) and t["header"][1] == col)
     assert _keys(by("2.", "범주")) == set(crn.EXCLUDE_CATEGORIES)
     assert _keys(by("2.", "뜻")) == set(crn.SPEC_UNITS)
-    scales = by("4-2.", "배율")
-    doc_scales = {("" if row[0] == "(없음)" else row[0].strip("`")): [float(x) for x in row[1].split(",")] for row in scales["rows"]}
-    assert doc_scales == {k: list(v) for k, v in crn.UNIT_SCALES.items()}
+    import re as _re
+    kinds = by("4-2.", "경로 패턴")
+    doc_kinds = [(row[0].strip("`"), row[1].strip("`").replace("\\|", "|")) for row in kinds["rows"]]
+    assert doc_kinds == [(k, p.pattern) for k, p in crn.PATH_KINDS]
+    units = by("4-3.", "대조할 경로 종류(배율)")
+    doc_units = {row[0].strip("`"): [(k, float(x)) for k, x in _re.findall(r"`(\w+)` ×([\d.e\-]+)", row[1])]
+                 for row in units["rows"]}
+    assert doc_units == {k: list(v) for k, v in crn.UNIT_KINDS.items()}
+    aliases = by("4-6.", "별칭")
+    assert {row[0].strip("`"): tuple(x.strip() for x in row[1].split(",")) for row in aliases["rows"]} == crn.INDEX_ALIASES
     assert _keys(by("7.", "뜻")) == set(crn.FETCH_STATUSES)
     assert _keys(by("8.", "뜻")) == {str(crn.EXIT_OK), str(crn.EXIT_ISSUES), str(crn.EXIT_CANNOT_RUN)}
 
@@ -320,11 +332,20 @@ TTM 영업이익률 52.18%를 기록했다. P/B 2.44배 수준이다.
 |---|---|---|
 | 실적 | 매출 195조 원 | [연합뉴스](https://example.com/news/1) [7] |
 
+## 4. 정량 재무 지표 (스크립트 자동 산출 — 수치 수정 금지)
+
+### 3-1. 이익 추정치 동향
+
+| 기업 | 상향 | 하향 |
+|---|---|---|
+| 005930.KS | 7건 | 25건 |
+
 ## 5. 기업별 분석
 
 ### 1) 005930.KS (Samsung Electronics)
 
-추정치는 하향 25건이다. 상향 11건은 이 종목 값이 아니다. ROE 45.67%는 다른 종목 값이다.
+추정치는 하향 25건이다(Section 4 › 3-1 표). 상향 11건은 이 종목 값이 아니다(Section 4 › 3-1). ROE 45.67%는 다른 종목 값이다.
+비중은 0%로 둔다. 하향 25건은 출처 표시 없이 다시 쓴다.
 
 ## 8. 참고 문헌 (References)
 
@@ -398,14 +419,18 @@ def test_us1_sign(us1):
 
 
 def test_us1_low_information_numbers(us1):
-    no_context = _mention(us1, "11건", 1)                            # no ticker context → not matched at all
-    assert no_context.classification == "unsupported" and no_context.matched_path is None
-    strong = _mention(us1, "25건")                                   # ticker context 005930.KS
-    assert strong.classification == "script" and not strong.weak
-    assert strong.ticker_context == "005930.KS"
-    assert strong.matched_path == "005930.KS.estimates.revisions.down_30d"
-    other = _mention(us1, "11건", 2)                                 # only 000660.KS has 11 → not this ticker's value
-    assert other.classification == "unsupported"
+    # small integers are never compared with snapshot values (rules §4-5) ...
+    no_ref = _mention(us1, "11건", 1)
+    assert no_ref.classification == "unsupported" and no_ref.matched_path is None
+    # ... but count when the same sentence points at a Section 4 table that shows the same notation
+    in_table = _mention(us1, "25건", 0)
+    assert in_table.section4_refs == ["3-1"]
+    assert in_table.classification == "script" and in_table.matched_path == "section4 › 3-1"
+    assert in_table.ticker_context == "005930.KS"
+    not_in_table = _mention(us1, "11건", 2)                          # the 3-1 table has no '11건'
+    assert not_in_table.classification == "unsupported"
+    assert _mention(us1, "25건", 1).classification == "unsupported"  # same number, no table reference
+    assert _mention(us1, "0%").classification == "unsupported"       # zero carries no information
 
 
 def test_us1_weak_match_from_other_ticker(us1):
@@ -419,9 +444,7 @@ def test_us1_line_with_several_tickers_and_index(us1):
     idx = _mention(us1, "-11.9%")                                   # index values may be cited in any sentence
     assert idx.classification == "script" and not idx.weak
     assert set(idx.ticker_context.split(",")) == {"005930.KS", "000660.KS"}
-    second = _mention(us1, "11건", 0)                                # 000660.KS is also in this line's context
-    assert second.classification == "script"
-    assert second.matched_path == "000660.KS.estimates.revisions.down_30d"
+    assert _mention(us1, "11건", 0).ticker_context == "005930.KS,000660.KS"
 
 
 def test_us1_series_and_status(us1):
@@ -558,3 +581,148 @@ def test_validation_set():
     noise = [l for l in unsupported if l["expected"] == "excluded"]
     assert len(noise) <= 0.05 * max(len(unsupported), 1), f"SC-003 {[l['raw'] for l in noise]}"
     assert elapsed <= 10, f"SC-006 {elapsed:.1f}s"
+
+
+# --- Path kinds and unit compatibility (rules §4-2, §4-3) — false passes found in the validation set
+
+@pytest.mark.parametrize("path, kind", [
+    ("^KS11.volume.2026-03-16", "volume"),
+    ("005930.KS.flows.2026-10-13.foreign_net_amt", "flow_amount"),
+    ("005930.KS.flows.total_5d.foreign_net_amt", "flow_amount"),
+    ("005930.KS.flows.2026-10-13.foreign_net_shares", "shares"),
+    ("005930.KS.estimates.fy1.down_30d", "count"),
+    ("MU.estimates.fy1.analysts_count", "count"),
+    ("005930.KS.metrics.debt_to_equity", "percent"),
+    ("005930.KS.metrics.dividend_yield", "percent"),
+    ("005930.KS.market_context.return_1d", "fraction"),
+    ("000660.KS.cycle.opm.2025-12-31", "fraction"),
+    ("005930.KS.flows.2026-10-13.foreign_hold_ratio", "fraction"),
+    ("005930.KS.pb_band.current_pb", "multiple"),
+    ("MU.pb_band.pb.2025-08-31", "multiple"),
+    ("005930.KS.scenario.multiple_b", "multiple"),
+    ("005930.KS.estimates.fy0.pe", "multiple"),
+    ("005930.KS.quote.market_cap", "money"),
+    ("000660.KS.close.2026-02-24", "price"),
+    ("005930.KS.history.2026-10-14.close", "price"),
+    ("005930.KS.quote.fifty_two_week_high", "price"),
+    ("005930.KS.estimates.fy1.mean_eps", "price"),
+    ("005930.KS.pb_band.floor_price", "price"),
+    ("005930.KS.technical.rsi_14", "other"),
+])
+def test_path_kind(path, kind):
+    assert crn.path_kind(path) == kind
+
+
+KIND_SNAPSHOT = {
+    "meta": {"args": {"tickers": "005930.KS"}},
+    "values": {
+        "005930.KS.metrics.dividend_yield": {"value": 0.7, "status": "final"},           # percent value: 0.7%
+        "005930.KS.scenario.multiple_b": {"value": 6.63, "status": "final"},
+        "005930.KS.pb_band.current_pb": {"value": 2.4352, "status": "final"},
+        "005930.KS.market_context.return_1d": {"value": 0.0237, "status": "final"},
+        "MU.pb_band.pb.2025-08-31": {"value": 2.5, "status": "final"},
+        "005930.KS.metrics.beta": {"value": 1.52, "status": "final"},
+        "005930.KS.pb_band.low": {"value": 0.807, "status": "final"},
+        "005930.KS.flows.2026-10-08.krx_close": {"value": 262000, "status": "final"},
+    },
+    "series": {"^KS11.volume": {"data": {"2026-03-16": 1.074e14}}},
+    "warnings": [],
+}
+
+KIND_REPORT = """# 종류 테스트
+
+> **데이터 스냅샷**: `r_data.json`
+
+## 1. 산업 개요
+
+사상 최대 영업이익 107.4조 원을 냈다.
+전력 효율 2.5W를 절감했다.
+업종 고베타(1.5~2.4)를 감안한다.
+
+## 5. 기업별 분석
+
+### 1) 005930.KS (Samsung Electronics)
+
+순이익 변동성이 70%를 넘는다. 최근 상향 7건이다. 장중 +2.4% 반등했다.
+P/B 밴드 최저는 0.81이고, 중심선 ₩262,000 부근에서 저항을 받는다.
+"""
+
+
+def test_unit_kind_compatibility_prevents_false_passes(tmp_path):
+    result = crn.check(write_case(tmp_path, KIND_REPORT, snapshot=KIND_SNAPSHOT))
+    m = {x.raw: x for x in result.mentions}
+    assert m["107.4조"].classification == "unsupported"              # not an index volume ×1e-12
+    assert m["2.5W"].classification == "unsupported" and m["2.5W"].unit == "W"   # unknown unit: never compared
+    assert m["70%"].classification == "unsupported"                 # dividend_yield is a percent value (0.7%)
+    assert m["7건"].classification == "unsupported"                  # counts only match count paths
+    plus = m["+2.4%"]
+    assert plus.classification == "script"
+    assert plus.matched_path == "005930.KS.market_context.return_1d"  # fraction ×100 ranks before other kinds
+    assert m["1.5"].classification == "unsupported"                 # two significant digits, no ticker context
+    assert m["2.4"].classification == "unsupported"
+    assert m["0.81"].classification == "script"                     # same precision, but in 005930.KS context
+    assert m["₩262,000"].approximate and m["₩262,000"].classification == "unsupported"   # '부근': approximation
+
+
+def test_only_latest_series_value_is_a_candidate():
+    snap = {"values": {}, "series": {"005930.KS.close": {"data": {"2026-10-08": 262000, "2026-10-13": 232000}}}}
+    paths = {c.path for c in crn.snapshot_candidates(snap)}
+    assert paths == {"005930.KS.close.2026-10-13"}
+
+
+# --- Ticker aliases and Section 4 count tables (rules §4-5, §4-6) -------------------------------
+
+ALIAS_SNAPSHOT = {
+    "meta": {"args": {"tickers": "005930.KS,MU", "benchmarks": "^KS11,^SOX"}},
+    "values": {
+        "MU.market_context.return_5d": {"value": -0.0878, "status": "final"},
+        "^SOX.market_context.return_5d": {"value": -0.0763, "status": "final"},
+        "005930.KS.market_context.return_5d": {"value": -0.124, "status": "final"},
+    },
+    "series": {}, "warnings": [],
+}
+
+ALIAS_REPORT = """# 별칭 테스트
+
+> **데이터 스냅샷**: `r_data.json`
+
+## 1. 산업 개요
+
+삼성전자(005930.KS)와 마이크론(MU)을 비교한다. 필라델피아 반도체 지수(^SOX)도 본다.
+
+| 확인 항목 | 결과 | 출처 |
+|---|---|---|
+| 동반 등락 | 5거래일 기준 마이크론 -8.8%, SOX -7.6% | 스크립트 산출 |
+| 추정치 방향 | **삼성전자**: 상향 7건 / 하향 25건 | 스크립트 산출 (Section 4 › 3-1 표) |
+
+## 4. 정량 재무 지표 (스크립트 자동 산출 — 수치 수정 금지)
+
+#### 3-1. 이익 추정치 동향
+
+| 기업 | 30일 상향 / 하향 건수 |
+|---|---|
+| **005930.KS** | 상향 7 / 하향 25 |
+"""
+
+
+def test_aliases_from_report_and_index_table(tmp_path):
+    result = crn.check(write_case(tmp_path, ALIAS_REPORT, snapshot=ALIAS_SNAPSHOT))
+    m = {x.raw: x for x in result.mentions}
+    assert m["-8.8%"].classification == "script" and m["-8.8%"].matched_path == "MU.market_context.return_5d"
+    assert m["-7.6%"].classification == "script"                    # 'SOX' is a fixed index alias
+    assert "MU" in m["-8.8%"].ticker_context.split(",")
+
+
+def test_counts_in_section4_table_without_unit(tmp_path):
+    result = crn.check(write_case(tmp_path, ALIAS_REPORT, snapshot=ALIAS_SNAPSHOT))
+    m = {x.raw: x for x in result.mentions}
+    assert m["7건"].classification == "script" and m["7건"].matched_path == "section4 › 3-1"
+    assert m["25건"].classification == "script"
+
+
+def test_build_aliases():
+    lines = ["삼성전자(005930.KS)는", "**마이크론 (MU)**", "SK하이닉스(000660.KS)", "반도체 지수(^SOX)"]
+    aliases = crn.build_aliases(lines, ["005930.KS", "MU", "000660.KS", "^SOX"])
+    assert aliases["삼성전자"] == "005930.KS" and aliases["마이크론"] == "MU" and aliases["SK하이닉스"] == "000660.KS"
+    assert "지수" not in aliases
+    assert aliases["SOX"] == "^SOX" and aliases["코스피"] == "^KS11"

@@ -39,11 +39,14 @@
 | `unit` | string | `%`, `%p`, `배`, `조`, `억`, `원`, `T`, `B`, `M`, `""` 등 |
 | `decimals` | int | 표기된 소수 자릿수 |
 | `explicit_sign` | `+`/`-`/null | 표기에 있는 부호 |
+| `currency` | string/null | 통화 기호(₩·$) — 단위 없는 숫자의 `(통화)`·`(없음)` 구분 |
 | `section` | string | 가장 가까운 `##`/`###` 제목 |
 | `line` | int | 줄 번호 (표시용, ID에는 쓰지 않음) |
 | `context` | string | 앞뒤 문맥 (약 40자) |
 | `ticker_context` | string/null | 같은 줄의 종목 전부(쉼표로 연결), 없으면 상위 제목의 종목 |
-| `scope_citations` | int[] | 같은 문장·표 행·목록 항목의 인용 번호 |
+| `scope_citations` | int[] | 같은 문장·표 행의 인용 번호 |
+| `approximate` | bool | 숫자 뒤에 부근·내외·안팎·가량·전후 — 대조하지 않음 (규칙 §4-8) |
+| `section4_refs` | string[] | 같은 문장·표 행이 가리킨 Section 4 표 번호(`Section 4 › 3-1` → `3-1`) |
 | `classification` | enum | `script` / `cited` / `unsupported` |
 | `weak` | bool | 종목 문맥이 있는데 다른 종목 경로에서만 맞은 경우 — 일치로 치지 않고 참고로 `matched_path`만 남김 (규칙 §4-5) |
 | `matched_path` | string/null | 일치한 스냅샷 경로 |

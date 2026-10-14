@@ -8,8 +8,8 @@
    "id": "7a91-107.4조-1",
    "line": 5,
    "raw": "107.4조",
-   "expected": "script",
-   "tool": "script → ^KS11.volume.2026-03-16",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "🔴 **신중 접근** — 사상 최대 분기 실적(3Q26 잠정 영업이익 107.4조 원)에도 불구하고, D램 가격 상승률 둔화 및 메모리 피크아웃 논쟁,",
    "note": ""
   },
@@ -125,8 +125,8 @@
    "id": "be81-2.5-1",
    "line": 16,
    "raw": "2.5",
-   "expected": "script",
-   "tool": "script → MU.pb_band.pb.2025-08-31 [1,6]",
+   "expected": "cited",
+   "tool": "cited [1,6]",
    "context": "ation)**: HBM은 일반 범용 DDR5 대비 웨이퍼 면적 소비가 2.5~3배에 달하고 TSV 패키징 공정 수율 손실이 커, 메모리 3사의 HB",
    "note": ""
   },
@@ -162,7 +162,7 @@
    "line": 20,
    "raw": "+2.4%",
    "expected": "script",
-   "tool": "script → 005930.KS.pb_band.current_pb",
+   "tool": "script → 005930.KS.market_context.return_1d",
    "context": "노출했습니다. 삼성전자(005930.KS)는 2026-10-14 장중 +2.4% 반등했으나, 최근 5거래일간 -12.4%, 20거래일간 -11.4% 하",
    "note": ""
   },
@@ -215,8 +215,8 @@
    "id": "fb17-100조-1",
    "line": 23,
    "raw": "100조",
-   "expected": "script",
-   "tool": "script → 000660.KS.close.2026-02-24 [7,8]",
+   "expected": "cited",
+   "tool": "cited [7,8]",
    "context": "차익실현)**: 2026년 10월 8일 국내 기업 최초로 분기 영업이익 100조 원을 돌파한 사상 최대 3분기 잠정 실적(매출 195조 원, 영업이익",
    "note": ""
   },
@@ -233,8 +233,8 @@
    "id": "fb17-107.4조-1",
    "line": 23,
    "raw": "107.4조",
-   "expected": "script",
-   "tool": "script → ^KS11.volume.2026-03-16 [7,8]",
+   "expected": "cited",
+   "tool": "cited [7,8]",
    "context": "원을 돌파한 사상 최대 3분기 잠정 실적(매출 195조 원, 영업이익 107.4조 원)을 발표했으나, 시장 기대치 선반영 인식과 함께 대규모 차익실현 매",
    "note": ""
   },
@@ -323,8 +323,8 @@
    "id": "fcf2-107.4조-1",
    "line": 34,
    "raw": "107.4조",
-   "expected": "script",
-   "tool": "script → ^KS11.volume.2026-03-16 [7,11,12,13,7,12,13]",
+   "expected": "cited",
+   "tool": "cited [7,11,12,13,7,12,13]",
    "context": "전자**: 2026-10-08 3Q26 잠정 매출 195조 원, 영업익 107.4조 원 발표(역대 최대) [7]. Section 4 › 7번 FY1 평균",
    "note": ""
   },
@@ -386,8 +386,8 @@
    "id": "fcf2-7건-1",
    "line": 36,
    "raw": "7건",
-   "expected": "unsupported",
-   "tool": "unsupported",
+   "expected": "script",
+   "tool": "script → section4 › 3-1",
    "context": "| 최근 30일 이익 추정치 방향 | **삼성전자**: 상향 7건 / 하향 25건 (🔴 하향 우세)<br>**SK하이닉스**: 상향 10",
    "note": ""
   },
@@ -395,8 +395,8 @@
    "id": "fcf2-25건-1",
    "line": 36,
    "raw": "25건",
-   "expected": "unsupported",
-   "tool": "unsupported",
+   "expected": "script",
+   "tool": "script → section4 › 3-1",
    "context": "최근 30일 이익 추정치 방향 | **삼성전자**: 상향 7건 / 하향 25건 (🔴 하향 우세)<br>**SK하이닉스**: 상향 10건 / 하향 11",
    "note": ""
   },
@@ -404,8 +404,8 @@
    "id": "fcf2-10건-1",
    "line": 36,
    "raw": "10건",
-   "expected": "unsupported",
-   "tool": "unsupported",
+   "expected": "script",
+   "tool": "script → section4 › 3-1",
    "context": "7건 / 하향 25건 (🔴 하향 우세)<br>**SK하이닉스**: 상향 10건 / 하향 11건 (🟡 중립)<br>**마이크론**: 상향 47건 / 하",
    "note": ""
   },
@@ -413,8 +413,8 @@
    "id": "fcf2-11건-1",
    "line": 36,
    "raw": "11건",
-   "expected": "unsupported",
-   "tool": "unsupported",
+   "expected": "script",
+   "tool": "script → section4 › 3-1",
    "context": "5건 (🔴 하향 우세)<br>**SK하이닉스**: 상향 10건 / 하향 11건 (🟡 중립)<br>**마이크론**: 상향 47건 / 하향 3건 (🟢 강",
    "note": ""
   },
@@ -422,8 +422,8 @@
    "id": "fcf2-47건-1",
    "line": 36,
    "raw": "47건",
-   "expected": "unsupported",
-   "tool": "unsupported",
+   "expected": "script",
+   "tool": "script → section4 › 3-1",
    "context": "상향 10건 / 하향 11건 (🟡 중립)<br>**마이크론**: 상향 47건 / 하향 3건 (🟢 강력 상향)<br>**TSMC**: 상향 4건 /",
    "note": ""
   },
@@ -431,8 +431,8 @@
    "id": "fcf2-3건-1",
    "line": 36,
    "raw": "3건",
-   "expected": "unsupported",
-   "tool": "unsupported",
+   "expected": "script",
+   "tool": "script → section4 › 3-1",
    "context": "하향 11건 (🟡 중립)<br>**마이크론**: 상향 47건 / 하향 3건 (🟢 강력 상향)<br>**TSMC**: 상향 4건 / 하향 0건 (🟢",
    "note": ""
   },
@@ -440,8 +440,8 @@
    "id": "fcf2-4건-1",
    "line": 36,
    "raw": "4건",
-   "expected": "unsupported",
-   "tool": "unsupported",
+   "expected": "script",
+   "tool": "script → section4 › 3-1",
    "context": "향 47건 / 하향 3건 (🟢 강력 상향)<br>**TSMC**: 상향 4건 / 하향 0건 (🟢 상향) | 스크립트 산출 (Section 4 › 3",
    "note": ""
   },
@@ -449,8 +449,8 @@
    "id": "fcf2-0건-1",
    "line": 36,
    "raw": "0건",
-   "expected": "unsupported",
-   "tool": "unsupported",
+   "expected": "script",
+   "tool": "script → section4 › 3-1",
    "context": "하향 3건 (🟢 강력 상향)<br>**TSMC**: 상향 4건 / 하향 0건 (🟢 상향) | 스크립트 산출 (Section 4 › 3-1 표) |",
    "note": ""
   },
@@ -512,8 +512,8 @@
    "id": "fcf2-100%-1",
    "line": 39,
    "raw": "100%",
-   "expected": "script",
-   "tool": "script → MU.estimates.fy1.down_30d [4,15,13,4,15]",
+   "expected": "cited",
+   "tool": "cited [4,15,13,4,15]",
    "context": "가시화 [4], [15].<br>**TSMC**: 3nm/2nm 가동률 100% 지속 및 CoWoS 패키징 생산능력 전년비 2배 증설 진행 중 [13]",
    "note": ""
   },
@@ -527,38 +527,29 @@
    "note": ""
   },
   {
-   "id": "fd73-2.5-1",
-   "line": 85,
-   "raw": "2.5",
-   "expected": "unsupported",
-   "tool": "unsupported → MU.pb_band.pb.2025-08-31",
-   "context": "규격부터 요구되는 '1c D램 코어다이 + 4나노 베이스 로직 다이 + 2.5D 패키징'을 자체 공정 내에서 일괄 수행할 수 있는 유일한 원스톱 솔루",
-   "note": ""
-  },
-  {
    "id": "fd73-36GB-1",
    "line": 87,
    "raw": "36GB",
-   "expected": "script",
-   "tool": "script → MU.estimates.fy1.analysts_count",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "해자**: 1-beta 나노 공정을 선제 적용하여 HBM3E 12-Hi 36GB 제품의 전력 효율(2.5W 절감) 확보. 미국 CHIPS Act 보조금",
    "note": ""
   },
   {
-   "id": "fd73-2.5-2",
+   "id": "fd73-2.5W-1",
    "line": 87,
-   "raw": "2.5",
-   "expected": "script",
-   "tool": "script → MU.pb_band.pb.2025-08-31",
-   "context": "공정을 선제 적용하여 HBM3E 12-Hi 36GB 제품의 전력 효율(2.5W 절감) 확보. 미국 CHIPS Act 보조금 수혜 및 미국 본토 데이",
+   "raw": "2.5W",
+   "expected": "unsupported",
+   "tool": "unsupported",
+   "context": "공정을 선제 적용하여 HBM3E 12-Hi 36GB 제품의 전력 효율(2.5W 절감) 확보. 미국 CHIPS Act 보조금 수혜 및 미국 본토 데이터",
    "note": ""
   },
   {
    "id": "39da-70%-1",
    "line": 408,
    "raw": "70%",
-   "expected": "script",
-   "tool": "script → 005930.KS.metrics.dividend_yield",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "- 삼성전자는 연간 순이익 변동성이 70%를 상회(2022→2023 -74%)하는 대표적 🔄 경기순환(Cyclic",
    "note": ""
   },
@@ -647,8 +638,8 @@
    "id": "39da-7건-1",
    "line": 411,
    "raw": "7건",
-   "expected": "script",
-   "tool": "script → 005930.KS.scenario.multiple_b",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "- ③ **추정치 방향(30일)**: 최근 30일간 상향 7건 vs 하향 25건으로 하향 비율이 압도적(-30% 이하 기준 충족)이어",
    "note": ""
   },
@@ -737,8 +728,8 @@
    "id": "46ac-49%-1",
    "line": 426,
    "raw": "49%",
-   "expected": "script",
-   "tool": "script → 000660.KS.cycle.opm.2025-12-31",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "순환업종 평가 적용. P/B는 3.95배로 밴드(0.82~7.15)의 49% 위치인 🟡(중앙값 부근)입니다. 사이클 위치는 TTM 영업이익률 76.",
    "note": ""
   },
@@ -899,8 +890,8 @@
    "id": "808b-3건-1",
    "line": 438,
    "raw": "3건",
-   "expected": "script",
-   "tool": "script → MU.metrics.current_ratio",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "0.68%로 🔴(정점 경보)이나, 30일 추정치는 상향 47건 / 하향 3건으로 압도적 🟢(상향)이며 부채비율은 3.74%로 🟢입니다. 주의 신호",
    "note": ""
   },
@@ -945,7 +936,7 @@
    "line": 449,
    "raw": "0.90",
    "expected": "unsupported",
-   "tool": "unsupported → 005930.KS.pb_band.pb.2025-06-30",
+   "tool": "unsupported",
    "context": "평가 7대 지표 적용: Forward P/E 21.00배 🟡, PEG 0.90 🟢, 매출 성장률 +36.00% 🟢, EV/EBITDA 22.61배 🔴",
    "note": ""
   },
@@ -998,8 +989,8 @@
    "id": "d5d3-0건-1",
    "line": 449,
    "raw": "0건",
-   "expected": "script",
-   "tool": "script → TSM.metrics.roe",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "9.97% 🟢, D/E 16.50% 🟢, 30일 추정치 상향 4건/하향 0건 🟢.",
    "note": ""
   },
@@ -1178,8 +1169,8 @@
    "id": "5dba-+7.8%-1",
    "line": 477,
    "raw": "+7.8%",
-   "expected": "script",
-   "tool": "script → MU.metrics.ev_to_revenue",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "Base(평균 EPS ₩72,180) 시나리오에서는 ₩255,962 (+7.8%), Bull(최고 EPS ₩94,075) 시나리오에서는 ₩333,604",
    "note": ""
   },
@@ -1214,8 +1205,8 @@
    "id": "5dba-₩246,545-1",
    "line": 477,
    "raw": "₩246,545",
-   "expected": "script",
-   "tool": "script → 005930.KS.scenario.expected_price_a",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "시나리오에서는 ₩333,604 (+40.5%)이며, 확률가중 기대값은 ₩246,545 (+3.8%)로 현 주가 수준과 큰 차이가 없습니다.",
    "note": ""
   },
@@ -1223,8 +1214,8 @@
    "id": "5dba-+3.8%-1",
    "line": 477,
    "raw": "+3.8%",
-   "expected": "script",
-   "tool": "script → 000660.KS.pb_band.pb.2025-12-31",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "333,604 (+40.5%)이며, 확률가중 기대값은 ₩246,545 (+3.8%)로 현 주가 수준과 큰 차이가 없습니다.",
    "note": ""
   },
@@ -1232,8 +1223,8 @@
    "id": "5dba-0.81배-1",
    "line": 479,
    "raw": "0.81배",
-   "expected": "script",
-   "tool": "script → 005930.KS.pb_band.pb.2024-12-31",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "운턴 극단 구간(2022~2026년 밴드)에서 기록했던 **최저 P/B 0.81배로 회귀할 경우 이론적 주가는 ₩78,710 (-66.9%)**까지 열려",
    "note": ""
   },
@@ -1313,8 +1304,8 @@
    "id": "e73f-100%-1",
    "line": 493,
    "raw": "100%",
-   "expected": "script",
-   "tool": "script → MU.estimates.fy1.down_30d",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "쓴 경우의 근거**: 해당 없음 (스크립트 판정 🔴 **신중 접근**과 100% 일치).",
    "note": ""
   },
@@ -1340,8 +1331,8 @@
    "id": "f39c-₩262,000-1",
    "line": 503,
    "raw": "₩262,000",
-   "expected": "script",
-   "tool": "script → 005930.KS.flows.2026-10-08.krx_close",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "- 기존 보유자의 경우 기술적 반등(볼린저 중심선 ₩262,000 부근) 출회 시 비중을 일부 축소하여 리스크를 관리할 것을 권고합니다.",
    "note": ""
   },
@@ -1367,8 +1358,8 @@
    "id": "1905-40%-1",
    "line": 514,
    "raw": "40%",
-   "expected": "script",
-   "tool": "script → TSM.metrics.roe",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "| **TSMC (TSM)** | **40%** | 🟢 매수 고려 판정 기업. AI 가속기 파운드리 독점 및 CoW",
    "note": ""
   },
@@ -1376,8 +1367,8 @@
    "id": "1905-20%-1",
    "line": 515,
    "raw": "20%",
-   "expected": "script",
-   "tool": "script → 000660.KS.metrics.peg_ratio",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "| **SK하이닉스 (000660.KS)** | **20%** | 🟡 중립/관망 판정 기업. HBM3E 시장 과점 지위 보유. 실",
    "note": ""
   },
@@ -1385,8 +1376,8 @@
    "id": "1905-0%-1",
    "line": 516,
    "raw": "0%",
-   "expected": "script",
-   "tool": "script → 005930.KS.metrics.peg_ratio",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "| **삼성전자 (005930.KS)** | **0% (편입 보류)** | 🔴 신중 접근 판정 기업. 피크아웃 우려 및 수급",
    "note": ""
   },
@@ -1394,8 +1385,8 @@
    "id": "1905-0%-2",
    "line": 517,
    "raw": "0%",
-   "expected": "script",
-   "tool": "script → MU.metrics.peg_ratio",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "| **마이크론 (MU)** | **0% (편입 보류)** | 🟡 중립/관망 판정 기업. P/B 밴드 상단(98",
    "note": ""
   },
@@ -1421,8 +1412,8 @@
    "id": "1905-1.5-1",
    "line": 518,
    "raw": "1.5",
-   "expected": "script",
-   "tool": "script → 005930.KS.metrics.beta",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "자산 (MMF / USD)** | **40%** | 반도체 업종 고베타(1.5~2.4) 및 글로벌 거시경제 하방 위험 헤지, 저점 매수 실탄 확보.",
    "note": ""
   },
@@ -1430,8 +1421,8 @@
    "id": "1905-2.4-1",
    "line": 518,
    "raw": "2.4",
-   "expected": "script",
-   "tool": "script → 005930.KS.pb_band.current_pb",
+   "expected": "unsupported",
+   "tool": "unsupported",
    "context": "MMF / USD)** | **40%** | 반도체 업종 고베타(1.5~2.4) 및 글로벌 거시경제 하방 위험 헤지, 저점 매수 실탄 확보. |",
    "note": ""
   }
@@ -2797,7 +2788,16 @@
    "note": ""
   },
   {
-   "id": "x85-numbering-151",
+   "id": "x85-product_spec-151",
+   "line": 85,
+   "category": "product_spec",
+   "text": "2.5D",
+   "expected": "excluded",
+   "context": "| **삼성전자 [타겟]** | `005930.KS` | 미드스트림 (종합 반도체 IDM) | **규모의 경제 및 메모리-파운드리 턴키(Turnkey) 생태계**: 글로벌 D램·NAND 1위 캐파 보유. HBM4 규",
+   "note": ""
+  },
+  {
+   "id": "x85-numbering-152",
    "line": 85,
    "category": "numbering",
    "text": "1",
@@ -2806,7 +2806,7 @@
    "note": ""
   },
   {
-   "id": "x86-citation-152",
+   "id": "x86-citation-153",
    "line": 86,
    "category": "citation",
    "text": "`000660.KS`",
@@ -2815,7 +2815,7 @@
    "note": ""
   },
   {
-   "id": "x86-product_spec-153",
+   "id": "x86-product_spec-154",
    "line": 86,
    "category": "product_spec",
    "text": "HBM3",
@@ -2824,7 +2824,7 @@
    "note": ""
   },
   {
-   "id": "x86-product_spec-154",
+   "id": "x86-product_spec-155",
    "line": 86,
    "category": "product_spec",
    "text": "HBM3E",
@@ -2833,7 +2833,7 @@
    "note": ""
   },
   {
-   "id": "x86-product_spec-155",
+   "id": "x86-product_spec-156",
    "line": 86,
    "category": "product_spec",
    "text": "HBM4",
@@ -2842,7 +2842,7 @@
    "note": ""
   },
   {
-   "id": "x87-citation-156",
+   "id": "x87-citation-157",
    "line": 87,
    "category": "citation",
    "text": "`MU`",
@@ -2851,7 +2851,7 @@
    "note": ""
   },
   {
-   "id": "x87-product_spec-157",
+   "id": "x87-product_spec-158",
    "line": 87,
    "category": "product_spec",
    "text": "HBM3E",
@@ -2860,19 +2860,10 @@
    "note": ""
   },
   {
-   "id": "x87-product_spec-158",
+   "id": "x87-product_spec-159",
    "line": 87,
    "category": "product_spec",
    "text": "12-Hi",
-   "expected": "excluded",
-   "context": "| **마이크론 테크놀로지 [직접경쟁]** | `MU` | 미드스트림 (메모리 제조) | **1-beta 미세공정 선행 도입 및 대미 공급망 안보 해자**: 1-beta 나노 공정을 선제 적용하여 HBM3E 12-H",
-   "note": ""
-  },
-  {
-   "id": "x87-numbering-159",
-   "line": 87,
-   "category": "numbering",
-   "text": "1",
    "expected": "excluded",
    "context": "| **마이크론 테크놀로지 [직접경쟁]** | `MU` | 미드스트림 (메모리 제조) | **1-beta 미세공정 선행 도입 및 대미 공급망 안보 해자**: 1-beta 나노 공정을 선제 적용하여 HBM3E 12-H",
    "note": ""
@@ -2887,7 +2878,16 @@
    "note": ""
   },
   {
-   "id": "x88-citation-161",
+   "id": "x87-numbering-161",
+   "line": 87,
+   "category": "numbering",
+   "text": "1",
+   "expected": "excluded",
+   "context": "| **마이크론 테크놀로지 [직접경쟁]** | `MU` | 미드스트림 (메모리 제조) | **1-beta 미세공정 선행 도입 및 대미 공급망 안보 해자**: 1-beta 나노 공정을 선제 적용하여 HBM3E 12-H",
+   "note": ""
+  },
+  {
+   "id": "x88-citation-162",
    "line": 88,
    "category": "citation",
    "text": "`TSM`",
@@ -2896,7 +2896,7 @@
    "note": ""
   },
   {
-   "id": "x403-numbering-162",
+   "id": "x403-numbering-163",
    "line": 403,
    "category": "numbering",
    "text": "Section 4",
@@ -2905,7 +2905,7 @@
    "note": ""
   },
   {
-   "id": "x403-numbering-163",
+   "id": "x403-numbering-164",
    "line": 403,
    "category": "numbering",
    "text": "5번",
@@ -2914,7 +2914,7 @@
    "note": ""
   },
   {
-   "id": "x403-numbering-164",
+   "id": "x403-numbering-165",
    "line": 403,
    "category": "numbering",
    "text": "3",
@@ -2923,7 +2923,7 @@
    "note": ""
   },
   {
-   "id": "x405-numbering-165",
+   "id": "x405-numbering-166",
    "line": 405,
    "category": "numbering",
    "text": "### 1)",
@@ -2932,7 +2932,7 @@
    "note": ""
   },
   {
-   "id": "x405-ticker_code-166",
+   "id": "x405-ticker_code-167",
    "line": 405,
    "category": "ticker_code",
    "text": "005930.KS",
@@ -2941,7 +2941,7 @@
    "note": ""
   },
   {
-   "id": "x406-numbering-167",
+   "id": "x406-numbering-168",
    "line": 406,
    "category": "numbering",
    "text": "2",
@@ -2950,7 +2950,7 @@
    "note": ""
   },
   {
-   "id": "x408-year-168",
+   "id": "x408-year-169",
    "line": 408,
    "category": "year",
    "text": "2022",
@@ -2959,7 +2959,7 @@
    "note": ""
   },
   {
-   "id": "x408-year-169",
+   "id": "x408-year-170",
    "line": 408,
    "category": "year",
    "text": "2023",
@@ -2968,7 +2968,7 @@
    "note": ""
   },
   {
-   "id": "x408-numbering-170",
+   "id": "x408-numbering-171",
    "line": 408,
    "category": "numbering",
    "text": "4",
@@ -2977,7 +2977,7 @@
    "note": ""
   },
   {
-   "id": "x409-year-171",
+   "id": "x409-year-172",
    "line": 409,
    "category": "year",
    "text": "2022년",
@@ -2986,7 +2986,7 @@
    "note": ""
   },
   {
-   "id": "x410-duration-172",
+   "id": "x410-duration-173",
    "line": 410,
    "category": "duration",
    "text": "4년",
@@ -2995,7 +2995,7 @@
    "note": ""
   },
   {
-   "id": "x411-duration-173",
+   "id": "x411-duration-174",
    "line": 411,
    "category": "duration",
    "text": "30일",
@@ -3004,7 +3004,7 @@
    "note": ""
   },
   {
-   "id": "x411-duration-174",
+   "id": "x411-duration-175",
    "line": 411,
    "category": "duration",
    "text": "30일간",
@@ -3013,7 +3013,7 @@
    "note": ""
   },
   {
-   "id": "x413-duration-175",
+   "id": "x413-duration-176",
    "line": 413,
    "category": "duration",
    "text": "30일",
@@ -3022,7 +3022,7 @@
    "note": ""
   },
   {
-   "id": "x413-numbering-176",
+   "id": "x413-numbering-177",
    "line": 413,
    "category": "numbering",
    "text": "2",
@@ -3031,7 +3031,7 @@
    "note": ""
   },
   {
-   "id": "x415-citation-177",
+   "id": "x415-citation-178",
    "line": 415,
    "category": "citation",
    "text": "[4]",
@@ -3040,7 +3040,7 @@
    "note": ""
   },
   {
-   "id": "x415-citation-178",
+   "id": "x415-citation-179",
    "line": 415,
    "category": "citation",
    "text": "[15]",
@@ -3049,7 +3049,7 @@
    "note": ""
   },
   {
-   "id": "x415-date-179",
+   "id": "x415-date-180",
    "line": 415,
    "category": "date",
    "text": "2026-09",
@@ -3058,19 +3058,10 @@
    "note": ""
   },
   {
-   "id": "x415-date-180",
+   "id": "x415-date-181",
    "line": 415,
    "category": "date",
    "text": "2026-10",
-   "expected": "excluded",
-   "context": "- [촉매 1] 엔비디아 향 HBM4 및 HBM4E 12단 퀄 테스트 통과 및 양산 공급망 진입 가시화 (2026-09 이코노미트리뷴 [4], 2026-10 한국경제 [15]).",
-   "note": ""
-  },
-  {
-   "id": "x415-product_spec-181",
-   "line": 415,
-   "category": "product_spec",
-   "text": "HBM4",
    "expected": "excluded",
    "context": "- [촉매 1] 엔비디아 향 HBM4 및 HBM4E 12단 퀄 테스트 통과 및 양산 공급망 진입 가시화 (2026-09 이코노미트리뷴 [4], 2026-10 한국경제 [15]).",
    "note": ""
@@ -3079,7 +3070,7 @@
    "id": "x415-product_spec-182",
    "line": 415,
    "category": "product_spec",
-   "text": "HBM4E",
+   "text": "HBM4",
    "expected": "excluded",
    "context": "- [촉매 1] 엔비디아 향 HBM4 및 HBM4E 12단 퀄 테스트 통과 및 양산 공급망 진입 가시화 (2026-09 이코노미트리뷴 [4], 2026-10 한국경제 [15]).",
    "note": ""
@@ -3088,13 +3079,22 @@
    "id": "x415-product_spec-183",
    "line": 415,
    "category": "product_spec",
+   "text": "HBM4E",
+   "expected": "excluded",
+   "context": "- [촉매 1] 엔비디아 향 HBM4 및 HBM4E 12단 퀄 테스트 통과 및 양산 공급망 진입 가시화 (2026-09 이코노미트리뷴 [4], 2026-10 한국경제 [15]).",
+   "note": ""
+  },
+  {
+   "id": "x415-product_spec-184",
+   "line": 415,
+   "category": "product_spec",
    "text": "12단",
    "expected": "excluded",
    "context": "- [촉매 1] 엔비디아 향 HBM4 및 HBM4E 12단 퀄 테스트 통과 및 양산 공급망 진입 가시화 (2026-09 이코노미트리뷴 [4], 2026-10 한국경제 [15]).",
    "note": ""
   },
   {
-   "id": "x415-numbering-184",
+   "id": "x415-numbering-185",
    "line": 415,
    "category": "numbering",
    "text": "1",
@@ -3103,7 +3103,7 @@
    "note": ""
   },
   {
-   "id": "x416-citation-185",
+   "id": "x416-citation-186",
    "line": 416,
    "category": "citation",
    "text": "[16]",
@@ -3112,19 +3112,10 @@
    "note": ""
   },
   {
-   "id": "x416-date-186",
+   "id": "x416-date-187",
    "line": 416,
    "category": "date",
    "text": "2026-09",
-   "expected": "excluded",
-   "context": "- [촉매 2] 삼성 파운드리 4나노 수율 80%대 안정화 및 엔비디아 차세대 추론 칩렛·HBM4 베이스 로직 다이 턴키 수주 확대 (2026-09 비즈워치 [16]).",
-   "note": ""
-  },
-  {
-   "id": "x416-product_spec-187",
-   "line": 416,
-   "category": "product_spec",
-   "text": "4나노",
    "expected": "excluded",
    "context": "- [촉매 2] 삼성 파운드리 4나노 수율 80%대 안정화 및 엔비디아 차세대 추론 칩렛·HBM4 베이스 로직 다이 턴키 수주 확대 (2026-09 비즈워치 [16]).",
    "note": ""
@@ -3133,13 +3124,22 @@
    "id": "x416-product_spec-188",
    "line": 416,
    "category": "product_spec",
+   "text": "4나노",
+   "expected": "excluded",
+   "context": "- [촉매 2] 삼성 파운드리 4나노 수율 80%대 안정화 및 엔비디아 차세대 추론 칩렛·HBM4 베이스 로직 다이 턴키 수주 확대 (2026-09 비즈워치 [16]).",
+   "note": ""
+  },
+  {
+   "id": "x416-product_spec-189",
+   "line": 416,
+   "category": "product_spec",
    "text": "HBM4",
    "expected": "excluded",
    "context": "- [촉매 2] 삼성 파운드리 4나노 수율 80%대 안정화 및 엔비디아 차세대 추론 칩렛·HBM4 베이스 로직 다이 턴키 수주 확대 (2026-09 비즈워치 [16]).",
    "note": ""
   },
   {
-   "id": "x416-numbering-189",
+   "id": "x416-numbering-190",
    "line": 416,
    "category": "numbering",
    "text": "2",
@@ -3148,7 +3148,7 @@
    "note": ""
   },
   {
-   "id": "x417-product_spec-190",
+   "id": "x417-product_spec-191",
    "line": 417,
    "category": "product_spec",
    "text": "1c",
@@ -3157,7 +3157,7 @@
    "note": ""
   },
   {
-   "id": "x417-numbering-191",
+   "id": "x417-numbering-192",
    "line": 417,
    "category": "numbering",
    "text": "3",
@@ -3166,7 +3166,7 @@
    "note": ""
   },
   {
-   "id": "x419-duration-192",
+   "id": "x419-duration-193",
    "line": 419,
    "category": "duration",
    "text": "5일간",
@@ -3175,7 +3175,7 @@
    "note": ""
   },
   {
-   "id": "x423-numbering-193",
+   "id": "x423-numbering-194",
    "line": 423,
    "category": "numbering",
    "text": "### 2)",
@@ -3184,7 +3184,7 @@
    "note": ""
   },
   {
-   "id": "x423-ticker_code-194",
+   "id": "x423-ticker_code-195",
    "line": 423,
    "category": "ticker_code",
    "text": "000660.KS",
@@ -3193,7 +3193,7 @@
    "note": ""
   },
   {
-   "id": "x424-numbering-195",
+   "id": "x424-numbering-196",
    "line": 424,
    "category": "numbering",
    "text": "1",
@@ -3202,7 +3202,7 @@
    "note": ""
   },
   {
-   "id": "x426-duration-196",
+   "id": "x426-duration-197",
    "line": 426,
    "category": "duration",
    "text": "30일",
@@ -3211,7 +3211,7 @@
    "note": ""
   },
   {
-   "id": "x426-numbering-197",
+   "id": "x426-numbering-198",
    "line": 426,
    "category": "numbering",
    "text": "1",
@@ -3220,7 +3220,7 @@
    "note": ""
   },
   {
-   "id": "x427-numbering-198",
+   "id": "x427-numbering-199",
    "line": 427,
    "category": "numbering",
    "text": "Section 4 › 6번",
@@ -3229,7 +3229,7 @@
    "note": ""
   },
   {
-   "id": "x427-date-199",
+   "id": "x427-date-200",
    "line": 427,
    "category": "date",
    "text": "2026-06",
@@ -3238,7 +3238,7 @@
    "note": ""
   },
   {
-   "id": "x429-citation-200",
+   "id": "x429-citation-201",
    "line": 429,
    "category": "citation",
    "text": "[17]",
@@ -3247,19 +3247,10 @@
    "note": ""
   },
   {
-   "id": "x429-citation-201",
+   "id": "x429-citation-202",
    "line": 429,
    "category": "citation",
    "text": "[11]",
-   "expected": "excluded",
-   "context": "- [촉매 1] 엔비디아 차세대 GPU 향 HBM3E 12-Hi 지배적 공급 및 HBM4 TSMC 파운드리 동맹 강화 (2026-09 SK하이닉스 뉴스룸 [17], 2026-10 이코노미스트 [11]).",
-   "note": ""
-  },
-  {
-   "id": "x429-date-202",
-   "line": 429,
-   "category": "date",
-   "text": "2026-09",
    "expected": "excluded",
    "context": "- [촉매 1] 엔비디아 차세대 GPU 향 HBM3E 12-Hi 지배적 공급 및 HBM4 TSMC 파운드리 동맹 강화 (2026-09 SK하이닉스 뉴스룸 [17], 2026-10 이코노미스트 [11]).",
    "note": ""
@@ -3268,16 +3259,16 @@
    "id": "x429-date-203",
    "line": 429,
    "category": "date",
-   "text": "2026-10",
+   "text": "2026-09",
    "expected": "excluded",
    "context": "- [촉매 1] 엔비디아 차세대 GPU 향 HBM3E 12-Hi 지배적 공급 및 HBM4 TSMC 파운드리 동맹 강화 (2026-09 SK하이닉스 뉴스룸 [17], 2026-10 이코노미스트 [11]).",
    "note": ""
   },
   {
-   "id": "x429-product_spec-204",
+   "id": "x429-date-204",
    "line": 429,
-   "category": "product_spec",
-   "text": "HBM3E",
+   "category": "date",
+   "text": "2026-10",
    "expected": "excluded",
    "context": "- [촉매 1] 엔비디아 차세대 GPU 향 HBM3E 12-Hi 지배적 공급 및 HBM4 TSMC 파운드리 동맹 강화 (2026-09 SK하이닉스 뉴스룸 [17], 2026-10 이코노미스트 [11]).",
    "note": ""
@@ -3286,7 +3277,7 @@
    "id": "x429-product_spec-205",
    "line": 429,
    "category": "product_spec",
-   "text": "12-Hi",
+   "text": "HBM3E",
    "expected": "excluded",
    "context": "- [촉매 1] 엔비디아 차세대 GPU 향 HBM3E 12-Hi 지배적 공급 및 HBM4 TSMC 파운드리 동맹 강화 (2026-09 SK하이닉스 뉴스룸 [17], 2026-10 이코노미스트 [11]).",
    "note": ""
@@ -3295,13 +3286,22 @@
    "id": "x429-product_spec-206",
    "line": 429,
    "category": "product_spec",
+   "text": "12-Hi",
+   "expected": "excluded",
+   "context": "- [촉매 1] 엔비디아 차세대 GPU 향 HBM3E 12-Hi 지배적 공급 및 HBM4 TSMC 파운드리 동맹 강화 (2026-09 SK하이닉스 뉴스룸 [17], 2026-10 이코노미스트 [11]).",
+   "note": ""
+  },
+  {
+   "id": "x429-product_spec-207",
+   "line": 429,
+   "category": "product_spec",
    "text": "HBM4",
    "expected": "excluded",
    "context": "- [촉매 1] 엔비디아 차세대 GPU 향 HBM3E 12-Hi 지배적 공급 및 HBM4 TSMC 파운드리 동맹 강화 (2026-09 SK하이닉스 뉴스룸 [17], 2026-10 이코노미스트 [11]).",
    "note": ""
   },
   {
-   "id": "x429-numbering-207",
+   "id": "x429-numbering-208",
    "line": 429,
    "category": "numbering",
    "text": "1",
@@ -3310,7 +3310,7 @@
    "note": ""
   },
   {
-   "id": "x430-citation-208",
+   "id": "x430-citation-209",
    "line": 430,
    "category": "citation",
    "text": "[11]",
@@ -3319,7 +3319,7 @@
    "note": ""
   },
   {
-   "id": "x430-date-209",
+   "id": "x430-date-210",
    "line": 430,
    "category": "date",
    "text": "10월 27~28일",
@@ -3328,7 +3328,7 @@
    "note": ""
   },
   {
-   "id": "x430-period_label-210",
+   "id": "x430-period_label-211",
    "line": 430,
    "category": "period_label",
    "text": "3분기",
@@ -3337,7 +3337,7 @@
    "note": ""
   },
   {
-   "id": "x430-year-211",
+   "id": "x430-year-212",
    "line": 430,
    "category": "year",
    "text": "2026년",
@@ -3346,7 +3346,7 @@
    "note": ""
   },
   {
-   "id": "x430-numbering-212",
+   "id": "x430-numbering-213",
    "line": 430,
    "category": "numbering",
    "text": "2",
@@ -3355,7 +3355,7 @@
    "note": ""
   },
   {
-   "id": "x433-duration-213",
+   "id": "x433-duration-214",
    "line": 433,
    "category": "duration",
    "text": "5거래일",
@@ -3364,7 +3364,7 @@
    "note": ""
   },
   {
-   "id": "x433-duration-214",
+   "id": "x433-duration-215",
    "line": 433,
    "category": "duration",
    "text": "52주",
@@ -3373,7 +3373,7 @@
    "note": ""
   },
   {
-   "id": "x435-numbering-215",
+   "id": "x435-numbering-216",
    "line": 435,
    "category": "numbering",
    "text": "### 3)",
@@ -3382,7 +3382,7 @@
    "note": ""
   },
   {
-   "id": "x436-numbering-216",
+   "id": "x436-numbering-217",
    "line": 436,
    "category": "numbering",
    "text": "1",
@@ -3391,7 +3391,7 @@
    "note": ""
   },
   {
-   "id": "x438-duration-217",
+   "id": "x438-duration-218",
    "line": 438,
    "category": "duration",
    "text": "30일",
@@ -3400,7 +3400,7 @@
    "note": ""
   },
   {
-   "id": "x438-numbering-218",
+   "id": "x438-numbering-219",
    "line": 438,
    "category": "numbering",
    "text": "1",
@@ -3409,7 +3409,7 @@
    "note": ""
   },
   {
-   "id": "x439-citation-219",
+   "id": "x439-citation-220",
    "line": 439,
    "category": "citation",
    "text": "KI-003",
@@ -3418,7 +3418,7 @@
    "note": ""
   },
   {
-   "id": "x439-numbering-220",
+   "id": "x439-numbering-221",
    "line": 439,
    "category": "numbering",
    "text": "Section 4 › 8번",
@@ -3427,7 +3427,7 @@
    "note": ""
   },
   {
-   "id": "x439-date-221",
+   "id": "x439-date-222",
    "line": 439,
    "category": "date",
    "text": "2026-09",
@@ -3436,7 +3436,7 @@
    "note": ""
   },
   {
-   "id": "x441-citation-222",
+   "id": "x441-citation-223",
    "line": 441,
    "category": "citation",
    "text": "[12]",
@@ -3445,7 +3445,7 @@
    "note": ""
   },
   {
-   "id": "x441-date-223",
+   "id": "x441-date-224",
    "line": 441,
    "category": "date",
    "text": "2026-10-01",
@@ -3454,7 +3454,7 @@
    "note": ""
   },
   {
-   "id": "x441-period_label-224",
+   "id": "x441-period_label-225",
    "line": 441,
    "category": "period_label",
    "text": "FY4Q26",
@@ -3463,7 +3463,7 @@
    "note": ""
   },
   {
-   "id": "x441-period_label-225",
+   "id": "x441-period_label-226",
    "line": 441,
    "category": "period_label",
    "text": "FY1Q27",
@@ -3472,7 +3472,7 @@
    "note": ""
   },
   {
-   "id": "x441-numbering-226",
+   "id": "x441-numbering-227",
    "line": 441,
    "category": "numbering",
    "text": "1",
@@ -3481,7 +3481,7 @@
    "note": ""
   },
   {
-   "id": "x442-citation-227",
+   "id": "x442-citation-228",
    "line": 442,
    "category": "citation",
    "text": "[12]",
@@ -3490,7 +3490,7 @@
    "note": ""
   },
   {
-   "id": "x442-product_spec-228",
+   "id": "x442-product_spec-229",
    "line": 442,
    "category": "product_spec",
    "text": "HBM3E",
@@ -3499,7 +3499,7 @@
    "note": ""
   },
   {
-   "id": "x442-product_spec-229",
+   "id": "x442-product_spec-230",
    "line": 442,
    "category": "product_spec",
    "text": "12-Hi",
@@ -3508,7 +3508,7 @@
    "note": ""
   },
   {
-   "id": "x442-numbering-230",
+   "id": "x442-numbering-231",
    "line": 442,
    "category": "numbering",
    "text": "2",
@@ -3517,7 +3517,7 @@
    "note": ""
   },
   {
-   "id": "x442-numbering-231",
+   "id": "x442-numbering-232",
    "line": 442,
    "category": "numbering",
    "text": "1",
@@ -3526,7 +3526,7 @@
    "note": ""
   },
   {
-   "id": "x446-numbering-232",
+   "id": "x446-numbering-233",
    "line": 446,
    "category": "numbering",
    "text": "### 4)",
@@ -3535,7 +3535,7 @@
    "note": ""
   },
   {
-   "id": "x449-duration-233",
+   "id": "x449-duration-234",
    "line": 449,
    "category": "duration",
    "text": "30일",
@@ -3544,7 +3544,7 @@
    "note": ""
   },
   {
-   "id": "x449-numbering-234",
+   "id": "x449-numbering-235",
    "line": 449,
    "category": "numbering",
    "text": "7",
@@ -3553,19 +3553,10 @@
    "note": ""
   },
   {
-   "id": "x450-numbering-235",
-   "line": 450,
-   "category": "numbering",
-   "text": "4",
-   "expected": "excluded",
-   "context": "- 🟢 신호 4개, 🟡 신호 1개, 🔴 신호 1개(EV/EBITDA 22.6배)로 기준(🟢 3개 이상 & 🔴 1개 이하)을 충족하여 🟢 **매수 고려** 판정이 도출되었습니다.",
-   "note": ""
-  },
-  {
    "id": "x450-numbering-236",
    "line": 450,
    "category": "numbering",
-   "text": "1",
+   "text": "4",
    "expected": "excluded",
    "context": "- 🟢 신호 4개, 🟡 신호 1개, 🔴 신호 1개(EV/EBITDA 22.6배)로 기준(🟢 3개 이상 & 🔴 1개 이하)을 충족하여 🟢 **매수 고려** 판정이 도출되었습니다.",
    "note": ""
@@ -3583,7 +3574,7 @@
    "id": "x450-numbering-238",
    "line": 450,
    "category": "numbering",
-   "text": "3",
+   "text": "1",
    "expected": "excluded",
    "context": "- 🟢 신호 4개, 🟡 신호 1개, 🔴 신호 1개(EV/EBITDA 22.6배)로 기준(🟢 3개 이상 & 🔴 1개 이하)을 충족하여 🟢 **매수 고려** 판정이 도출되었습니다.",
    "note": ""
@@ -3592,13 +3583,22 @@
    "id": "x450-numbering-239",
    "line": 450,
    "category": "numbering",
+   "text": "3",
+   "expected": "excluded",
+   "context": "- 🟢 신호 4개, 🟡 신호 1개, 🔴 신호 1개(EV/EBITDA 22.6배)로 기준(🟢 3개 이상 & 🔴 1개 이하)을 충족하여 🟢 **매수 고려** 판정이 도출되었습니다.",
+   "note": ""
+  },
+  {
+   "id": "x450-numbering-240",
+   "line": 450,
+   "category": "numbering",
    "text": "1",
    "expected": "excluded",
    "context": "- 🟢 신호 4개, 🟡 신호 1개, 🔴 신호 1개(EV/EBITDA 22.6배)로 기준(🟢 3개 이상 & 🔴 1개 이하)을 충족하여 🟢 **매수 고려** 판정이 도출되었습니다.",
    "note": ""
   },
   {
-   "id": "x451-citation-240",
+   "id": "x451-citation-241",
    "line": 451,
    "category": "citation",
    "text": "KI-008",
@@ -3607,19 +3607,10 @@
    "note": ""
   },
   {
-   "id": "x453-citation-241",
+   "id": "x453-citation-242",
    "line": 453,
    "category": "citation",
    "text": "[13]",
-   "expected": "excluded",
-   "context": "- [촉매 1] 2026-10-10 공개된 9월 잠정 매출 기준 3분기 합산 매출 1조 4,942억 TWD로 분기 사상 최대 실적 달성 [13].",
-   "note": ""
-  },
-  {
-   "id": "x453-date-242",
-   "line": 453,
-   "category": "date",
-   "text": "2026-10-10",
    "expected": "excluded",
    "context": "- [촉매 1] 2026-10-10 공개된 9월 잠정 매출 기준 3분기 합산 매출 1조 4,942억 TWD로 분기 사상 최대 실적 달성 [13].",
    "note": ""
@@ -3628,13 +3619,22 @@
    "id": "x453-date-243",
    "line": 453,
    "category": "date",
+   "text": "2026-10-10",
+   "expected": "excluded",
+   "context": "- [촉매 1] 2026-10-10 공개된 9월 잠정 매출 기준 3분기 합산 매출 1조 4,942억 TWD로 분기 사상 최대 실적 달성 [13].",
+   "note": ""
+  },
+  {
+   "id": "x453-date-244",
+   "line": 453,
+   "category": "date",
    "text": "9월",
    "expected": "excluded",
    "context": "- [촉매 1] 2026-10-10 공개된 9월 잠정 매출 기준 3분기 합산 매출 1조 4,942억 TWD로 분기 사상 최대 실적 달성 [13].",
    "note": ""
   },
   {
-   "id": "x453-period_label-244",
+   "id": "x453-period_label-245",
    "line": 453,
    "category": "period_label",
    "text": "3분기",
@@ -3643,7 +3643,7 @@
    "note": ""
   },
   {
-   "id": "x453-numbering-245",
+   "id": "x453-numbering-246",
    "line": 453,
    "category": "numbering",
    "text": "1",
@@ -3652,7 +3652,7 @@
    "note": ""
   },
   {
-   "id": "x454-citation-246",
+   "id": "x454-citation-247",
    "line": 454,
    "category": "citation",
    "text": "[13]",
@@ -3661,7 +3661,7 @@
    "note": ""
   },
   {
-   "id": "x454-citation-247",
+   "id": "x454-citation-248",
    "line": 454,
    "category": "citation",
    "text": "[14]",
@@ -3670,7 +3670,7 @@
    "note": ""
   },
   {
-   "id": "x454-date-248",
+   "id": "x454-date-249",
    "line": 454,
    "category": "date",
    "text": "2026-10-15",
@@ -3679,7 +3679,7 @@
    "note": ""
   },
   {
-   "id": "x454-period_label-249",
+   "id": "x454-period_label-250",
    "line": 454,
    "category": "period_label",
    "text": "3Q26",
@@ -3688,7 +3688,7 @@
    "note": ""
   },
   {
-   "id": "x454-product_spec-250",
+   "id": "x454-product_spec-251",
    "line": 454,
    "category": "product_spec",
    "text": "3nm",
@@ -3697,7 +3697,7 @@
    "note": ""
   },
   {
-   "id": "x454-product_spec-251",
+   "id": "x454-product_spec-252",
    "line": 454,
    "category": "product_spec",
    "text": "2nm",
@@ -3706,7 +3706,7 @@
    "note": ""
   },
   {
-   "id": "x454-year-252",
+   "id": "x454-year-253",
    "line": 454,
    "category": "year",
    "text": "2027년",
@@ -3715,7 +3715,7 @@
    "note": ""
   },
   {
-   "id": "x454-numbering-253",
+   "id": "x454-numbering-254",
    "line": 454,
    "category": "numbering",
    "text": "2",
@@ -3724,7 +3724,7 @@
    "note": ""
   },
   {
-   "id": "x464-year-254",
+   "id": "x464-year-255",
    "line": 464,
    "category": "year",
    "text": "2027년",
@@ -3733,7 +3733,7 @@
    "note": ""
   },
   {
-   "id": "x465-product_spec-255",
+   "id": "x465-product_spec-256",
    "line": 465,
    "category": "product_spec",
    "text": "DDR4",
@@ -3742,7 +3742,7 @@
    "note": ""
   },
   {
-   "id": "x465-product_spec-256",
+   "id": "x465-product_spec-257",
    "line": 465,
    "category": "product_spec",
    "text": "DDR5",
@@ -3751,7 +3751,7 @@
    "note": ""
   },
   {
-   "id": "x468-numbering-257",
+   "id": "x468-numbering-258",
    "line": 468,
    "category": "numbering",
    "text": "### 6.1.",
@@ -3760,7 +3760,7 @@
    "note": ""
   },
   {
-   "id": "x470-numbering-258",
+   "id": "x470-numbering-259",
    "line": 470,
    "category": "numbering",
    "text": "Section 4 › 7번",
@@ -3769,7 +3769,7 @@
    "note": ""
   },
   {
-   "id": "x472-numbering-259",
+   "id": "x472-numbering-260",
    "line": 472,
    "category": "numbering",
    "text": "7번",
@@ -3778,7 +3778,7 @@
    "note": ""
   },
   {
-   "id": "x473-numbering-260",
+   "id": "x473-numbering-261",
    "line": 473,
    "category": "numbering",
    "text": "1.",
@@ -3787,7 +3787,7 @@
    "note": ""
   },
   {
-   "id": "x475-numbering-261",
+   "id": "x475-numbering-262",
    "line": 475,
    "category": "numbering",
    "text": "2.",
@@ -3796,7 +3796,7 @@
    "note": ""
   },
   {
-   "id": "x478-numbering-262",
+   "id": "x478-numbering-263",
    "line": 478,
    "category": "numbering",
    "text": "3.",
@@ -3805,7 +3805,7 @@
    "note": ""
   },
   {
-   "id": "x478-numbering-263",
+   "id": "x478-numbering-264",
    "line": 478,
    "category": "numbering",
    "text": "Section 4 › 2-2",
@@ -3814,7 +3814,7 @@
    "note": ""
   },
   {
-   "id": "x479-year-264",
+   "id": "x479-year-265",
    "line": 479,
    "category": "year",
    "text": "2022",
@@ -3823,7 +3823,7 @@
    "note": ""
   },
   {
-   "id": "x479-year-265",
+   "id": "x479-year-266",
    "line": 479,
    "category": "year",
    "text": "2026년",
@@ -3832,7 +3832,7 @@
    "note": ""
   },
   {
-   "id": "x481-numbering-266",
+   "id": "x481-numbering-267",
    "line": 481,
    "category": "numbering",
    "text": "### 6.2.",
@@ -3841,7 +3841,7 @@
    "note": ""
   },
   {
-   "id": "x485-citation-267",
+   "id": "x485-citation-268",
    "line": 485,
    "category": "citation",
    "text": "[1]",
@@ -3850,19 +3850,10 @@
    "note": ""
   },
   {
-   "id": "x485-citation-268",
+   "id": "x485-citation-269",
    "line": 485,
    "category": "citation",
    "text": "[5]",
-   "expected": "excluded",
-   "context": "| **HBM4 및 커스텀 AI 가속기 수요 폭증으로 인한 '슈퍼사이클 장기화'** | HBM 규격이 HBM4로 넘어가며 커스텀 로직 다이 결합이 필수화되어, 일반적인 2년 메모리 주기가 아닌 3~4년 이상의 구조적",
-   "note": ""
-  },
-  {
-   "id": "x485-product_spec-269",
-   "line": 485,
-   "category": "product_spec",
-   "text": "HBM4",
    "expected": "excluded",
    "context": "| **HBM4 및 커스텀 AI 가속기 수요 폭증으로 인한 '슈퍼사이클 장기화'** | HBM 규격이 HBM4로 넘어가며 커스텀 로직 다이 결합이 필수화되어, 일반적인 2년 메모리 주기가 아닌 3~4년 이상의 구조적",
    "note": ""
@@ -3877,10 +3868,10 @@
    "note": ""
   },
   {
-   "id": "x485-duration-271",
+   "id": "x485-product_spec-271",
    "line": 485,
-   "category": "duration",
-   "text": "2년",
+   "category": "product_spec",
+   "text": "HBM4",
    "expected": "excluded",
    "context": "| **HBM4 및 커스텀 AI 가속기 수요 폭증으로 인한 '슈퍼사이클 장기화'** | HBM 규격이 HBM4로 넘어가며 커스텀 로직 다이 결합이 필수화되어, 일반적인 2년 메모리 주기가 아닌 3~4년 이상의 구조적",
    "note": ""
@@ -3889,13 +3880,22 @@
    "id": "x485-duration-272",
    "line": 485,
    "category": "duration",
+   "text": "2년",
+   "expected": "excluded",
+   "context": "| **HBM4 및 커스텀 AI 가속기 수요 폭증으로 인한 '슈퍼사이클 장기화'** | HBM 규격이 HBM4로 넘어가며 커스텀 로직 다이 결합이 필수화되어, 일반적인 2년 메모리 주기가 아닌 3~4년 이상의 구조적",
+   "note": ""
+  },
+  {
+   "id": "x485-duration-273",
+   "line": 485,
+   "category": "duration",
    "text": "4년",
    "expected": "excluded",
    "context": "| **HBM4 및 커스텀 AI 가속기 수요 폭증으로 인한 '슈퍼사이클 장기화'** | HBM 규격이 HBM4로 넘어가며 커스텀 로직 다이 결합이 필수화되어, 일반적인 2년 메모리 주기가 아닌 3~4년 이상의 구조적",
    "note": ""
   },
   {
-   "id": "x485-year-273",
+   "id": "x485-year-274",
    "line": 485,
    "category": "year",
    "text": "2027년",
@@ -3904,7 +3904,7 @@
    "note": ""
   },
   {
-   "id": "x485-numbering-274",
+   "id": "x485-numbering-275",
    "line": 485,
    "category": "numbering",
    "text": "3",
@@ -3913,7 +3913,7 @@
    "note": ""
   },
   {
-   "id": "x486-citation-275",
+   "id": "x486-citation-276",
    "line": 486,
    "category": "citation",
    "text": "[4]",
@@ -3922,7 +3922,7 @@
    "note": ""
   },
   {
-   "id": "x486-citation-276",
+   "id": "x486-citation-277",
    "line": 486,
    "category": "citation",
    "text": "[16]",
@@ -3931,19 +3931,10 @@
    "note": ""
   },
   {
-   "id": "x486-product_spec-277",
-   "line": 486,
-   "category": "product_spec",
-   "text": "4나노",
-   "expected": "excluded",
-   "context": "| **삼성 파운드리 4나노 턴키 수주 및 HBM4E 엔비디아 점유율 급등** | 삼성전자가 HBM4E 12단 퀄을 통과하고 파운드리 4나노 공정에서 엔비디아의 핵심 로직 칩을 턴키 수주한다는 발표 공식화 [4], ",
-   "note": ""
-  },
-  {
    "id": "x486-product_spec-278",
    "line": 486,
    "category": "product_spec",
-   "text": "HBM4E",
+   "text": "4나노",
    "expected": "excluded",
    "context": "| **삼성 파운드리 4나노 턴키 수주 및 HBM4E 엔비디아 점유율 급등** | 삼성전자가 HBM4E 12단 퀄을 통과하고 파운드리 4나노 공정에서 엔비디아의 핵심 로직 칩을 턴키 수주한다는 발표 공식화 [4], ",
    "note": ""
@@ -3961,7 +3952,7 @@
    "id": "x486-product_spec-280",
    "line": 486,
    "category": "product_spec",
-   "text": "12단",
+   "text": "HBM4E",
    "expected": "excluded",
    "context": "| **삼성 파운드리 4나노 턴키 수주 및 HBM4E 엔비디아 점유율 급등** | 삼성전자가 HBM4E 12단 퀄을 통과하고 파운드리 4나노 공정에서 엔비디아의 핵심 로직 칩을 턴키 수주한다는 발표 공식화 [4], ",
    "note": ""
@@ -3970,13 +3961,22 @@
    "id": "x486-product_spec-281",
    "line": 486,
    "category": "product_spec",
+   "text": "12단",
+   "expected": "excluded",
+   "context": "| **삼성 파운드리 4나노 턴키 수주 및 HBM4E 엔비디아 점유율 급등** | 삼성전자가 HBM4E 12단 퀄을 통과하고 파운드리 4나노 공정에서 엔비디아의 핵심 로직 칩을 턴키 수주한다는 발표 공식화 [4], ",
+   "note": ""
+  },
+  {
+   "id": "x486-product_spec-282",
+   "line": 486,
+   "category": "product_spec",
    "text": "4나노",
    "expected": "excluded",
    "context": "| **삼성 파운드리 4나노 턴키 수주 및 HBM4E 엔비디아 점유율 급등** | 삼성전자가 HBM4E 12단 퀄을 통과하고 파운드리 4나노 공정에서 엔비디아의 핵심 로직 칩을 턴키 수주한다는 발표 공식화 [4], ",
    "note": ""
   },
   {
-   "id": "x487-citation-282",
+   "id": "x487-citation-283",
    "line": 487,
    "category": "citation",
    "text": "[8]",
@@ -3985,7 +3985,7 @@
    "note": ""
   },
   {
-   "id": "x487-year-283",
+   "id": "x487-year-284",
    "line": 487,
    "category": "year",
    "text": "2008년",
@@ -3994,7 +3994,7 @@
    "note": ""
   },
   {
-   "id": "x490-numbering-284",
+   "id": "x490-numbering-285",
    "line": 490,
    "category": "numbering",
    "text": "  1.",
@@ -4003,7 +4003,7 @@
    "note": ""
   },
   {
-   "id": "x490-date-285",
+   "id": "x490-date-286",
    "line": 490,
    "category": "date",
    "text": "2026-10-28",
@@ -4012,7 +4012,7 @@
    "note": ""
   },
   {
-   "id": "x490-period_label-286",
+   "id": "x490-period_label-287",
    "line": 490,
    "category": "period_label",
    "text": "3분기",
@@ -4021,7 +4021,7 @@
    "note": ""
   },
   {
-   "id": "x490-period_label-287",
+   "id": "x490-period_label-288",
    "line": 490,
    "category": "period_label",
    "text": "4Q26",
@@ -4030,7 +4030,7 @@
    "note": ""
   },
   {
-   "id": "x490-product_spec-288",
+   "id": "x490-product_spec-289",
    "line": 490,
    "category": "product_spec",
    "text": "HBM4",
@@ -4039,7 +4039,7 @@
    "note": ""
   },
   {
-   "id": "x490-year-289",
+   "id": "x490-year-290",
    "line": 490,
    "category": "year",
    "text": "2027년",
@@ -4048,7 +4048,7 @@
    "note": ""
   },
   {
-   "id": "x491-numbering-290",
+   "id": "x491-numbering-291",
    "line": 491,
    "category": "numbering",
    "text": "  2.",
@@ -4057,7 +4057,7 @@
    "note": ""
   },
   {
-   "id": "x491-duration-291",
+   "id": "x491-duration-292",
    "line": 491,
    "category": "duration",
    "text": "30일",
@@ -4066,7 +4066,7 @@
    "note": ""
   },
   {
-   "id": "x492-numbering-292",
+   "id": "x492-numbering-293",
    "line": 492,
    "category": "numbering",
    "text": "  3.",
@@ -4075,7 +4075,7 @@
    "note": ""
   },
   {
-   "id": "x492-duration-293",
+   "id": "x492-duration-294",
    "line": 492,
    "category": "duration",
    "text": "20일",
@@ -4084,7 +4084,7 @@
    "note": ""
   },
   {
-   "id": "x499-numbering-294",
+   "id": "x499-numbering-295",
    "line": 499,
    "category": "numbering",
    "text": "### 🎯 7.1.",
@@ -4093,7 +4093,7 @@
    "note": ""
   },
   {
-   "id": "x500-ticker_code-295",
+   "id": "x500-ticker_code-296",
    "line": 500,
    "category": "ticker_code",
    "text": "005930.KS",
@@ -4102,7 +4102,7 @@
    "note": ""
   },
   {
-   "id": "x501-duration-296",
+   "id": "x501-duration-297",
    "line": 501,
    "category": "duration",
    "text": "52주",
@@ -4111,7 +4111,7 @@
    "note": ""
   },
   {
-   "id": "x502-date-297",
+   "id": "x502-date-298",
    "line": 502,
    "category": "date",
    "text": "10월 28일",
@@ -4120,7 +4120,7 @@
    "note": ""
   },
   {
-   "id": "x502-duration-298",
+   "id": "x502-duration-299",
    "line": 502,
    "category": "duration",
    "text": "30일",
@@ -4129,7 +4129,7 @@
    "note": ""
   },
   {
-   "id": "x502-year-299",
+   "id": "x502-year-300",
    "line": 502,
    "category": "year",
    "text": "2027년",
@@ -4138,7 +4138,7 @@
    "note": ""
   },
   {
-   "id": "x504-ticker_code-300",
+   "id": "x504-ticker_code-301",
    "line": 504,
    "category": "ticker_code",
    "text": "000660.KS",
@@ -4147,7 +4147,7 @@
    "note": ""
   },
   {
-   "id": "x505-date-301",
+   "id": "x505-date-302",
    "line": 505,
    "category": "date",
    "text": "10월 27~28일",
@@ -4156,7 +4156,7 @@
    "note": ""
   },
   {
-   "id": "x505-period_label-302",
+   "id": "x505-period_label-303",
    "line": 505,
    "category": "period_label",
    "text": "3분기",
@@ -4165,7 +4165,7 @@
    "note": ""
   },
   {
-   "id": "x508-date-303",
+   "id": "x508-date-304",
    "line": 508,
    "category": "date",
    "text": "10월 15일",
@@ -4174,7 +4174,7 @@
    "note": ""
   },
   {
-   "id": "x508-period_label-304",
+   "id": "x508-period_label-305",
    "line": 508,
    "category": "period_label",
    "text": "3분기",
@@ -4183,7 +4183,7 @@
    "note": ""
   },
   {
-   "id": "x508-duration-305",
+   "id": "x508-duration-306",
    "line": 508,
    "category": "duration",
    "text": "30일",
@@ -4192,7 +4192,7 @@
    "note": ""
   },
   {
-   "id": "x508-numbering-306",
+   "id": "x508-numbering-307",
    "line": 508,
    "category": "numbering",
    "text": "3",
@@ -4201,7 +4201,7 @@
    "note": ""
   },
   {
-   "id": "x510-numbering-307",
+   "id": "x510-numbering-308",
    "line": 510,
    "category": "numbering",
    "text": "### 💰 7.2.",
@@ -4210,7 +4210,7 @@
    "note": ""
   },
   {
-   "id": "x515-ticker_code-308",
+   "id": "x515-ticker_code-309",
    "line": 515,
    "category": "ticker_code",
    "text": "000660.KS",
@@ -4219,7 +4219,7 @@
    "note": ""
   },
   {
-   "id": "x515-product_spec-309",
+   "id": "x515-product_spec-310",
    "line": 515,
    "category": "product_spec",
    "text": "HBM3E",
@@ -4228,7 +4228,7 @@
    "note": ""
   },
   {
-   "id": "x515-numbering-310",
+   "id": "x515-numbering-311",
    "line": 515,
    "category": "numbering",
    "text": "2",
@@ -4237,7 +4237,7 @@
    "note": ""
   },
   {
-   "id": "x516-ticker_code-311",
+   "id": "x516-ticker_code-312",
    "line": 516,
    "category": "ticker_code",
    "text": "005930.KS",
