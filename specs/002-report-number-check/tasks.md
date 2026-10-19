@@ -104,7 +104,8 @@
   - *(결과 2026-10-14 18:3x KST)* 1: 오프라인 테스트 209 통과(검증 세트 1 건너뜀). 2: 검증 세트 종료 코드 1, 0.38초, 홈페이지 참고문헌 17, Section 4 누락 204(001 이전 스냅샷)·기준본 없음. 3: --section 블록(문제 276행) 붙임 → 1, 사유 기입 → 0. 4: 새 보고서 section4 저장, 변경 0·스냅샷 누락 0·경고 누락 0, 남은 문제는 [AI_TODO] 42뿐(틀 안내문 속 '0%'가 잡히던 문제를 고침), Section 4 현재가 수정 → 바뀐 줄과 원래 값 보고. 5: --fetch-sources 홈페이지 17건 요청 없이 unverifiable
 - [x] T037 판정 불변 확인(헌법 V): 같은 시각에 `main` 코드(별도 worktree)와 이 브랜치 코드로 `000660.KS,005930.KS,MU,TSM` Section 4를 만들어 판정(🟢🟡🔴)·종합 판단이 같은지 비교. T002 기준과도 비교하고, 다르면 원인을 PR에 적는다
   - *(결과 2026-10-14 18:31 KST)* main(0bd45a7, 별도 worktree)과 이 브랜치를 22초 간격으로 실행: 판정 기호가 있는 19행 동일, 다른 행은 다음 금융 장중 추정 2행(시세 변화)뿐. T002 기준과도 판정 19행 동일 (종합: 000660.KS 🟡, 005930.KS 🔴, MU 🟡, TSM 🟢)
-- [ ] T038 CI 통과(문법 검사, 테스트, 위키 근거 대조) 확인. `pytest -rs` 출력에서 `test_validation_set`이 건너뛰어지지 않고 통과했는지 확인한다(건너뛰면 SC-001 미검증이므로 PR을 열지 않는다), `checklists/requirements.md`와 spec Status 갱신, PR 생성
+- [x] T038 CI 통과(문법 검사, 테스트, 위키 근거 대조) 확인. `pytest -rs` 출력에서 `test_validation_set`이 건너뛰어지지 않고 통과했는지 확인한다(건너뛰면 SC-001 미검증이므로 PR을 열지 않는다), `checklists/requirements.md`와 spec Status 갱신, PR 생성
+  - *(결과 2026-10-19)* PR #7 CI(b00ef61) 성공: 문법 검사 통과, 테스트 210 통과·건너뜀 0(network 3 제외), 위키 근거 대조 0 fidelity suspect·0 evidence error·0 unreferenced raw. 2026-10-19 09:20 UTC 병합(a82a5b7)
 
 ---
 
