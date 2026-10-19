@@ -159,8 +159,10 @@ tests/
 ├── test_snapshot.py                    # 변경: 생성 경로가 원자료 기반으로 바뀐 테스트 갱신, repo_commit
 ├── test_data_checks.py                 # 변경: 이동한 요청 함수 import
 ├── fixtures/003/                       # 신규: 실제 수집 형식 2 스냅샷(장중), README(출처·수집 시각)
+├── requirements-pinned.txt             # 신규: 시험 스냅샷과 같은 pandas·numpy 고정 버전(CI·로컬 테스트 공용)
 └── tools/replay_main.py                # 신규: 분리 전 코드 재생 비교(로컬 수동, 테스트 수집 대상 아님)
 docs/decisions/0006-pipeline-split.md   # 신규
+.github/workflows/ci.yml                # 변경: 테스트 단계에 --with-requirements tests/requirements-pinned.txt
 ```
 
 **Structure Decision**: 기존 스킬 구조를 유지한다. 새 모듈은 모두 `financial-analyst/scripts/`에 두어 스킬 폴더 안에서 자기완결적으로 동작한다(헌법 기술 제약). 경계를 모듈로 강제하는 곳은 외부 접속 한 곳(`collect.py`)뿐이다. 정제와 계산·출력은 같은 파일 안에서 실행 순서와 값 비교로 구분한다.
@@ -197,6 +199,6 @@ docs/decisions/0006-pipeline-split.md   # 신규
 | 경고 순서·문장이 분리 전과 달라짐 | 수집은 경고를 내지 않고 실패만 기록한다. 경고 위치는 지금 코드 자리를 유지한다. 재생 비교로 Section 8까지 글자 비교한다 |
 | yfinance 내부 대체 경로(`_quote._info`)와 원자료 저장의 불일치 | `info` 항목에 대체 사유 `note`를 남기고, 정제가 같은 경고를 낸다. 재생 도구도 같은 경로를 재생한다 |
 | 시험 스냅샷의 실제 데이터가 CI 저장소를 키움(약 2MB) | 한 벌만 커밋하고(장중), 마감 후 시나리오는 로컬 확인. 필요하면 들여쓰기 없는 JSON으로 저장 |
-| 라이브러리 버전 차이로 미세한 계산 차이 | 버전을 기록하고 경고한다. 차이는 values 비교로 드러난다(R16). CI는 고정된 시험 스냅샷으로 같은 버전 범위에서 실행 |
+| 라이브러리 버전 차이로 미세한 계산 차이 (CI가 받는 pandas·numpy가 시험 스냅샷과 달라져 무관한 PR이 실패) | 버전을 기록하고 경고한다(R16). `tests/requirements-pinned.txt`에 시험 스냅샷을 만든 pandas·numpy 정확한 버전을 고정하고, CI와 로컬 테스트 명령이 함께 쓴다. 고정 버전이 시험 스냅샷의 `meta.versions`와 같은지 테스트로 확인하므로, 버전을 올리려면 시험 스냅샷을 다시 만들어야 한다(조용한 건너뜀 없음, 헌법 III·V) |
 | 이전 형식 스냅샷을 쓰는 002 점검이 깨짐 | `values`·`series`·`section4` 형식을 유지하고, 002 검증 세트 테스트를 그대로 실행한다(SC-008) |
 | 리팩터링 중 판정 회귀 | 단계 A의 기준 Section 4와 재생 비교. 판정 기호 행 100% 같음을 확인한 뒤 완료로 표시한다 |

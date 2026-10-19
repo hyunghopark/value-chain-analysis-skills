@@ -12,7 +12,7 @@ S=skills/financial-analyst/scripts
 ## 1. 오프라인 테스트 (CI와 같음)
 
 ```bash
-uv run --no-project --with-requirements skills/financial-analyst/requirements.txt --with pytest pytest tests -q -m "not network" -rs
+uv run --no-project --with-requirements skills/financial-analyst/requirements.txt --with-requirements tests/requirements-pinned.txt --with pytest pytest tests -q -m "not network" -rs
 ```
 
 기대 결과:
@@ -72,7 +72,6 @@ diff /tmp/q003/a.md /tmp/q003/a_w.md
 - `diff`로 보면 다른 곳이 다음뿐이다.
   - 재계산 머리 2줄
   - 7번 시나리오 표의 확률 설명과 확률가중 기대값 행
-  - 요약 줄 중 기대값에 의존하는 부분
 - 두 번째 실행은 `output_exists`, 종료 코드 2다.
 - 원본 `a_data.json`의 수정 시각과 SHA-256이 그대로다.
 

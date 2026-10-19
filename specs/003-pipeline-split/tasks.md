@@ -82,7 +82,7 @@
 
 ### 테스트 먼저
 
-- [ ] T008 [US1] `TRB` 코드 검사 테스트(SC-002, research R11). `GFS`·`RAW`·`RB`·`FA/scripts/data_checks.py`·`FA/scripts/snapshot.py`를 AST로 읽어 다음이 없는지 확인한다. `COL`과 각 파일의 `if __name__ == "__main__":` 블록은 예외다.
+- [ ] T008 [US1] `TRB` 코드 검사 테스트(SC-002, FR-001 확인 기준 (a), research R11). `GFS`·`RAW`·`RB`·`FA/scripts/data_checks.py`·`FA/scripts/snapshot.py`를 AST로 읽어 다음이 없는지 확인한다. `COL`과 각 파일의 `if __name__ == "__main__":` 블록은 예외다.
   - 네트워크 라이브러리 import: `requests`, `yfinance`, `bs4`, `pykrx`, `urllib`, `socket`. 함수 안의 지역 import도 잡는다.
   - 시각 호출: `datetime.now`, `datetime.today`, `date.today`, `time.time`
   - `snapshot.attach_section4`의 `datetime.now`는 Section 4 글자에 들어가지 않으므로 허용 목록에 이유와 함께 둔다. 이 테스트는 지금 실패해야 한다
@@ -107,7 +107,7 @@
   - `collect_indices`는 `GFS`의 `default_benchmarks`·`market_index_for`로 지수 목록을 정하고 다음을 받는다.
     - `history`: `period='1y'`
     - `daum_index_days`: `^KS11`·`^KQ11`만
-  - `collect_all(args)`는 종목 순서대로 모두 부르고 `meta`를 만든다(data-model §1). `format_version: 2`, `collected_at`(수집 완료 시각, 초), `generated_at`(같은 시각의 `%Y-%m-%d %H:%M KST`), `args`, `versions`, `repo_commit`이 들어간다. 수집 함수는 `warn`을 부르지 않는다(R6)
+  - `collect_all(args)`는 종목 순서대로 모두 부르고 `meta`를 만든다(data-model §1). `format_version: 2`, `collected_at`(수집 완료 시각, 초), `generated_at`(같은 시각의 `%Y-%m-%d %H:%M KST`), `args`, `versions`, `repo_commit`이 들어간다. T003에서 고친 `collect_meta`를 `GFS`에서 `COL`로 옮기고(`datetime.now`·`git` 호출이 수집에만 남도록, T008), `tests/test_snapshot.py`의 `from get_financial_stats import collect_meta`를 `collect`로 고친다. 수집 함수는 `warn`을 부르지 않는다(R6)
 
 ### 정제·계산·출력 (`GFS`)
 
@@ -134,11 +134,13 @@
   - 장중에 `get_financial_stats.py --tickers 000660.KS,005930.KS,MU,TSM --snapshot`으로 받는다. 표준 출력에 `snapshot.section4_body`를 적용하고 `attach_section4`로 기준본을 덧붙여 `FX/snapshot_data.json`을 만든다.
   - `FX/README.md`에 적을 내용: 수집 시각, 코드 커밋, 라이브러리 버전, 파일 크기, "테스트 자료 — 기업별 결론을 위키에 넣지 않음(헌법 VI)".
   - 크기가 SC-007(10MB 이하)을 넘으면 멈추고 보고한다
+  - 버전 고정(plan 위험 표): `tests/requirements-pinned.txt`에 `FX` `meta.versions`의 pandas·numpy를 `==`로 적는다. `.github/workflows/ci.yml` 테스트 단계와 `CLAUDE.md`의 테스트 명령 두 줄에 `--with-requirements tests/requirements-pinned.txt`를 추가한다. `TRB`에 테스트를 둔다: 고정 파일의 버전이 `FX`의 `meta.versions`와 같다(다르면 "버전을 올렸다면 시험 스냅샷을 다시 만드세요" 메시지로 실패)
 
 ### 재현 도구 (`RB`)
 
 - [ ] T016 [US1] `RB` 확인 모드(contracts §2, data-model §5, research R8·R9).
-  - 인자: `SNAPSHOT`, `--json`, `--print`, `--verbose`
+  - 인자: `SNAPSHOT`, `--json`, `--print`, `--verbose`. Windows 콘솔 UTF-8 출력은 `GFS`와 같은 처리(`stream.reconfigure`)
+  - `rebuilt_at`(실행 기록용 현재 시각)은 `if __name__ == "__main__":` 진입부에서 구해 넘긴다. 비교 함수는 시각을 읽지 않는다(T008)
   - 읽기 오류는 종료 코드 2: `unreadable`, `legacy_format`(안내 문구는 contracts 그대로), `missing_input`(경로 포함), `invalid_input`
   - `build_section4`를 `meta.args`의 옵션으로 실행하고 세 가지를 비교한다.
     - Section 4: 기준본이 있을 때 `section4_body` 결과와 줄 단위
@@ -155,6 +157,8 @@
   - 실행 시간이 10초 미만이다
   - 실행 전후 스냅샷의 SHA-256이 같다
   - 장중 수집본이면 수급 표에 '잠정' 표시가 그대로 있다
+  - 수집 실패 재현(US1 시나리오 5, FR-007 뒷부분): `FX` 복사본에서 `inputs.000660.KS.naver_trend`를 `{"status": "error", "error": "timeout"}`으로 바꾸고 `build_section4`를 두 번(생성 경로 왕복, 재현 경로) 실행하면 두 결과가 같고, 경고에 `"네이버 수급 API 오류 (timeout)"`이 들어 있으며 1-1 수급 표에서 해당 종목이 빠진다
+  - 버전 경고(FR-013): `FX` 복사본의 `meta.versions.pandas`를 다른 값으로 바꾸면 `version_warnings`에 그 차이가 나오고, 종료 코드는 비교 결과(0)를 그대로 따른다
 
 ### 분리 전후 같음 (FR-014)
 
@@ -204,7 +208,7 @@
     - 재계산 머리 2줄
     - 7번 시나리오 확률 설명 줄
     - 확률가중 기대값 행
-    - 기대값이 들어간 요약 줄
+  - 같은 경우 `values` 차이 경로가 다음 안에만 있다: `rules.scenario.weight_*`, `*.scenario.expected_price_*`, `*.scenario.return_expected_*`
   - `--cyclical`에 스냅샷에 없는 종목, 또는 `--tickers`·`--benchmarks` 같은 허용하지 않는 옵션 → 종료 코드 2와 `option_needs_data` / `option_rejected`
   - 이미 있는 `--out` → `output_exists`
   - `--out` 없이 옵션만 주면 → 인자 오류(2)

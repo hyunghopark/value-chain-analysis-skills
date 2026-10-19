@@ -143,7 +143,7 @@
 |---|---|
 | `mode` | `verify`(저장값과 비교) / `recompute`(옵션을 바꿔 다시 계산, 비교 대신 바뀐 값 목록) |
 | `section4.compared` | 기준본이 있을 때만 `true`. 없으면 `false`이고 차이로 보지 않는다(값·경고 비교는 한다) |
-| `errors` | 다시 만들 수 없는 이유. 예: `{"code": "missing_input", "path": "inputs.MU.quarterly_balance_sheet"}`, `{"code": "legacy_format"}`, `{"code": "option_needs_data", "detail": "^N225"}` |
+| `errors` | 다시 만들 수 없는 이유. 예: `{"code": "missing_input", "path": "inputs.MU.quarterly_balance_sheet"}`, `{"code": "legacy_format"}`, `{"code": "option_needs_data", "detail": "--cyclical 000990.KS (스냅샷에 없는 종목)"}` |
 | `rebuilt_at` | 재현 도구 자신의 실행 기록용. 재현 결과(Section 4·values)에는 들어가지 않는다 |
 
 **오류 코드**: `legacy_format`, `missing_input`, `invalid_input`(형식이 맞지 않음), `unreadable`(파일 읽기 실패), `option_rejected`(허용하지 않는 옵션), `option_needs_data`, `output_exists`. 모두 종료 코드 2다.
