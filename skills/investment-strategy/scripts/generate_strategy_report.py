@@ -112,6 +112,18 @@ def main():
     if cleaned_financial.startswith(FINANCIAL_HEADER):
         cleaned_financial = cleaned_financial[len(FINANCIAL_HEADER):].strip()
 
+    # Keep Section 4 as written in the snapshot, so check_report_numbers.py can detect later edits (spec 002).
+    baseline_note = ""
+    if os.path.isfile(snapshot_filename):
+        sys.path.insert(0, os.path.dirname(financial_script))
+        try:
+            from snapshot import attach_section4
+            attach_section4(snapshot_filename, cleaned_financial)
+        except Exception as e:
+            baseline_note = f" (Section 4 기준본 저장 실패: {e})"
+    else:
+        baseline_note = " (스냅샷 파일이 없어 Section 4 기준본을 저장하지 못함)"
+
     # Parse tickers and build dynamic company analysis blocks
     tickers_list = [t.strip() for t in args.tickers.split(',') if t.strip()]
     company_blocks = []
@@ -132,7 +144,7 @@ def main():
     template = f"""# {args.industry} 투자 전략 보고서
 
 > **분석 기준 시각**: {formatted_time} (시세 상태는 Section 4 첫 줄 '데이터 기준' 참고 — 장중 실행이면 시세·수급은 잠정치)
-> **데이터 스냅샷**: `{snapshot_basename}`
+> **데이터 스냅샷**: `{snapshot_basename}`{baseline_note}
 > **한 줄 결론**: [AI_TODO: 🟢 매수 / 🟡 중립·관망 / 🔴 비중 축소·회피 중 하나. Section 4 › 5번 매트릭스 판정과 Section 6.1 시나리오 결과(하방 포함)를 그대로 반영하고, 핵심 논쟁(예: 피크아웃)을 한 줄로 요약. 판정과 다른 결론을 쓰려면 Section 6.2에 근거를 밝힐 것]
 
 ---
@@ -231,7 +243,7 @@ def main():
 
 ## 8. 참고 문헌 (References)
 
-[AI_TODO: 본문에서 인용한 출처를 [번호] 제목 — 발행일 — URL 형식으로 적으세요. 사이트 홈페이지만 가리키는 링크는 쓰지 않습니다.]
+[AI_TODO: 본문에서 인용한 출처를 [번호] 제목 — 발행일 — URL 형식으로 적으세요. 사이트 홈페이지만 가리키는 링크는 쓰지 않습니다. 숫자 점검(SKILL.md Phase 3 5~7단계)에서 남은 문제가 있으면 '## 9. 숫자 점검 결과' 섹션을 이 목록 뒤에 넣습니다.]
 
 ---
 

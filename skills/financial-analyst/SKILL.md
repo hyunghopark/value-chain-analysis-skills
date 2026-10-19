@@ -1,7 +1,7 @@
 ---
 name: financial-analyst
 description: A specialized skill for conducting high-precision financial analysis and stock valuation of companies. Use when the user asks about the financial health, stock price, valuation multiples, earnings surprises, or investment risks of specific companies.
-version: 3.2.0
+version: 3.3.0
 allowed-tools: run_command search_web read_url_content
 ---
 
@@ -109,6 +109,7 @@ Follow these steps to conduct a high-precision corporate financial analysis:
 ## Resources
 
 - **`templates/financial_report_template.md`**: The standard layout template for corporate financial analysis reports.
-- **`references/rules/`**: Source of truth for verdict thresholds (`verdict-matrix.md`), the cycle-position signal (`cycle-position.md`), data-source rules (`data-quality.md`), and data snapshot format (`data-snapshot.md`).
-- **`scripts/snapshot.py`**: Standard data snapshot recorder and serializer.
+- **`references/rules/`**: Source of truth for verdict thresholds (`verdict-matrix.md`), the cycle-position signal (`cycle-position.md`), data-source rules (`data-quality.md`), data snapshot format (`data-snapshot.md`), and report number checks (`report-number-check.md`).
+- **`scripts/snapshot.py`**: Standard data snapshot recorder and serializer. Every number shown in Section 4 is recorded, including the verdict thresholds under `rules.*`; `attach_section4` stores the Section 4 baseline after the report is assembled.
+- **`scripts/check_report_numbers.py`**: Checks a finished report against its paired snapshot — body numbers (script value / cited / unsupported), Section 4 edits and snapshot coverage, citations and references, leftover `[AI_TODO]`. `--section` prints the '숫자 점검 결과' block, `--json` writes the structured result, `--fetch-sources` (local only) compares cited numbers with the articles. Exit code 0 = no undocumented problems, 1 = problems, 2 = cannot run.
 - **`scripts/check_data_sources.py`**: Periodic cross-source health check (Yahoo vs KRX close via Daum vs Naver, Yahoo vs Nasdaq.com, statement freshness, WiseReport layout).

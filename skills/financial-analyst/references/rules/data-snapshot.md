@@ -25,7 +25,11 @@
 
 ## 3. JSON 구조
 
-스냅샷 파일은 최상위 4개 객체(`meta`, `values`, `series`, `warnings`)로 구성됩니다:
+스냅샷 파일은 최상위 4개 객체(`meta`, `values`, `series`, `warnings`)로 구성됩니다. 보고서 생성(`generate_strategy_report.py`)이 끝나면 5번째 객체 `section4`가 덧붙습니다(spec 002):
+
+- `section4.text`: 보고서에 넣은 Section 4 본문 그대로(`## 4.` 제목 줄 제외) — 이후 수정 여부를 확인하는 기준본
+- `section4.sha256`: `text`의 SHA-256, `section4.attached_at`: 덧붙인 시각(KST)
+- 덧붙이기에 실패하면 보고서 머리의 '데이터 스냅샷' 줄 옆에 사유를 표시합니다. 기준본이 없으면 `check_report_numbers.py`가 `no_baseline` 오류를 냅니다.
 
 ```json
 {
@@ -151,6 +155,21 @@ Section 4의 표 및 계산식을 100% 역추적할 수 있도록 일관된 계�
 - **시나리오 분석**: `{ticker}.scenario.{case}.{metric}` (예: `MU.scenario.bear.target_price_a`)
 - **사이클 및 P/B 밴드**: `{ticker}.cycle.{metric}`, `{ticker}.pb_band.{metric}`
 - **기술적 지표/시장 비교**: `{ticker}.technical.{metric}`, `{ticker}.market_context.{period}`
+
+**Section 4 표 표시값 (spec 002, FR-015)**: Section 4에 보이는 숫자는 모두 스냅샷에 있어야 합니다. 앞 단계에서 기록한 값과 표에 찍는 값이 같으면 그대로 두고, 이후 단계에서 바뀐 값이면 표시값을 기록하고 이전 값을 `original`에 남깁니다(`snap_display`). 비율은 소수로 저장합니다(52% → `0.52`). 경로 이름은 `check_report_numbers.py`의 경로 종류 규칙(`report-number-check.md` §4-2)과 맞춥니다.
+
+| 표 | 경로 |
+|---|---|
+| 2 핵심 지표 | `{ticker}.metrics.{forward_price_to_book, forward_book_value, dupont_leverage, forward_eps_growth}` 등 표의 모든 지표 |
+| 2-1 궤적 | `{ticker}.estimates.{fy0,fy1}.{selected_pe, selected_eps}`, `{ticker}.metrics.{implied_rollover_price, return_rollover}` |
+| 2-2 경기순환·밴드 | `{ticker}.cycle.max_income_drop`, `{ticker}.pb_band.{position, points_count, return_floor}` |
+| 2-3 피어 | `peers.avg.{forward_pe, ev_to_ebitda, profit_margin, roe}`, `{ticker}.peer.forward_pe_vs_avg` |
+| 3 목표가 | `{ticker}.estimates.target.{mean, low, high, analysts_count, upside_mean, upside_naver}` |
+| 3-1 추정치 | `{ticker}.estimates.{fy0,fy1}.change_30d`, `{ticker}.estimates.total.{up_30d, down_30d}` (FY0+FY1) |
+| 3-2 서프라이즈 | `{ticker}.eps_surprise.{YYYY-MM}.{estimate_eps, actual_eps, surprise}` |
+| 6 회계 감사 | `{ticker}.audit.{max_unusual, removed_income}`, `{ticker}.audit.{reported,normalized}.{roe, eps}` |
+| 7 시나리오 | `{ticker}.scenario.{bear,base,bull}.return_{a,b}`, `{ticker}.scenario.return_expected_{a,b}`, `{ticker}.scenario.{up_down_ratio, eps_range_width}`, `{ticker}.estimates.fy1.analysts_count` |
+| 판정 기준값·실행 설정 | `rules.{forward_pe,peg,ev_to_ebitda}.{green_below,yellow_below}`, `rules.{revenue_growth,roe}.{green_above_pct,yellow_above_pct}`, `rules.debt_to_equity.{green_below_pct,yellow_below_pct}`, `rules.revision.{green_above_pct, red_below_pct, min_count, fy1_change_pct}`, `rules.cyclical.income_drop_pct`, `rules.audit.min_share_pct`, `rules.technical.{rsi_oversold_below, rsi_overbought_above}`, `rules.scenario.weight_{bull,base,bear}` — `source="rules"`, `note`에 규칙 원본 파일. 값은 코드 상수(`THRESHOLDS` 등)에서 기록하며, 판정 코드와 Section 4 설명 문구도 같은 상수를 씁니다 |
 
 ---
 

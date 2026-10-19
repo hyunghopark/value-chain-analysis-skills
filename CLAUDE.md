@@ -17,7 +17,7 @@
 | `.specify/` | Spec Kit: 헌법(`memory/constitution.md`), 템플릿, PowerShell 보조 스크립트. `feature.json`(현재 스펙 폴더)은 PC별이라 Git 제외. |
 | `.claude/skills/speckit-*` | Spec Kit 명령 스킬 (`/speckit-specify` 등). |
 | `docs/decisions/` | 왜 그렇게 정했는지(결정 기록). |
-| `tests/` | `data_checks.py`·`snapshot.py` 테스트. |
+| `tests/` | `data_checks.py`·`snapshot.py`·`check_report_numbers.py` 테스트. `fixtures/002/`는 숫자 점검 검증 세트(사람이 확정한 라벨). |
 | `.claude/skills/karpathy-llm-wiki/` | 위키 스킬 (고정 커밋 복사본, 이 저장소에서만 작동). |
 
 ## 규칙
@@ -34,7 +34,7 @@
 `.github/workflows/ci.yml`이 PR과 `main` 푸시마다 아래를 실행합니다. 하나라도 실패하면 병합하지 않습니다.
 
 1. 스크립트 문법 검사 (`py_compile`)
-2. 테스트 (`pytest tests`)
+2. 테스트 (`pytest tests -m "not network"` — 국내 사이트 접속 테스트는 로컬에서만)
 3. 위키 근거 대조 — 숫자 불일치·근거 오류가 1건이라도 있으면 실패, 연결 안 된 `raw/` 파일은 경고
 
 출처 정기 점검(`check_data_sources.py`)은 해외 서버에서 국내 사이트 접속이 불안정해 CI에 넣지 않고 로컬에서 실행합니다.
@@ -42,10 +42,14 @@
 ## 명령
 
 ```bash
-# 테스트
+# 테스트 (CI와 같음, 네트워크 없음)
+uv run --no-project --with-requirements skills/financial-analyst/requirements.txt --with pytest pytest tests -q -m "not network"
+# 실제 데이터 출처에 접속하는 테스트까지 전부 (로컬)
 uv run --no-project --with-requirements skills/financial-analyst/requirements.txt --with pytest pytest tests -q
 # 출처 정기 점검 (결과를 raw/data-checks/YYYY-MM-DD-cross-source-check.md로 저장한 뒤 위키에 ingest)
 uv run --no-project --with-requirements skills/financial-analyst/requirements.txt python skills/financial-analyst/scripts/check_data_sources.py --krx 005930,000660 --us MU
+# 보고서 숫자 점검 (보고서 옆의 *_data.json을 자동으로 찾음, --section: 점검 결과 블록, --fetch-sources: 기사 대조)
+uv run --no-project --with-requirements skills/financial-analyst/requirements.txt python skills/financial-analyst/scripts/check_report_numbers.py reports/보고서.md
 # 위키 근거 대조
 python .claude/skills/karpathy-llm-wiki/scripts/check_evidence.py .
 ```

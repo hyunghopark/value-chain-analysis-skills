@@ -126,6 +126,7 @@ def test_collect_meta():
         assert isinstance(meta["repo_commit"], str)
 
 
+@pytest.mark.network
 def test_snapshot_coverage():
     import get_financial_stats
     from get_financial_stats import generate_report, SNAP
@@ -274,6 +275,7 @@ def test_history_reconciliation_recorded():
     assert d5_rec["original"] is None
 
 
+@pytest.mark.network
 def test_warnings_and_meta_match_report_section8():
     from get_financial_stats import generate_report
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -368,3 +370,22 @@ def test_flow_table_totals_and_ratio_recorded(monkeypatch):
     assert ratio["value"] == pytest.approx(0.46)
     assert ratio["source"] == "naver"
     assert "46.00%" in table
+
+
+def test_attach_section4(tmp_path):
+    """002 T014/T015: the Section 4 baseline is stored in the snapshot after the report is assembled."""
+    import hashlib
+    from snapshot import attach_section4
+
+    path = tmp_path / "r_data.json"
+    path.write_text(json.dumps({"meta": {}, "values": {"a": {"value": 1}}, "series": {}, "warnings": []}), encoding="utf-8")
+    text = "### 1. 주요 주가\n\n| A | ₩237,500 |"
+    attach_section4(str(path), text)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["section4"]["text"] == text
+    assert data["section4"]["sha256"] == hashlib.sha256(text.encode("utf-8")).hexdigest()
+    assert data["section4"]["attached_at"].endswith("KST")
+    assert data["values"]["a"]["value"] == 1                       # the rest of the snapshot is untouched
+
+    with pytest.raises(Exception):
+        attach_section4(str(tmp_path / "missing_data.json"), text)

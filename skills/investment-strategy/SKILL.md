@@ -1,7 +1,7 @@
 ---
 name: investment-strategy
 description: Use when the user requests an investment analysis of an industry, combining value chain mapping (upstream/midstream/downstream), bottleneck identification, and stock valuation (4-horizon P/E, cyclical-aware decision matrix, consensus revisions, data-driven scenario stress test, and a verdict-conditional trading plan).
-version: 2.1.0
+version: 2.2.0
 allowed-skills: value-chain-analyzer financial-analyst
 ---
 
@@ -89,6 +89,23 @@ To prevent omissions (e.g., missing financial tables), you MUST use the master s
    - Ticker-specific analysis blocks under Section 5, the verification checklist (1.3), and the Bear-thesis section (6.2).
 3. Use your file-editing tool to locate the `[AI_TODO]` placeholders within the generated file.
 4. Replace these placeholders with your research analysis. Do NOT manually type out or edit the numbers in Section 4; the script handles that.
+5. **숫자 점검을 실행합니다.** 모든 `[AI_TODO]`를 채운 뒤, 본문 숫자가 스냅샷이나 인용 출처로 확인되는지 점검합니다(규칙: `financial-analyst/references/rules/report-number-check.md`).
+   - **Claude Code**:
+     ```bash
+     uv run --no-project --with-requirements "${CLAUDE_SKILL_DIR}/../financial-analyst/requirements.txt" python "${CLAUDE_SKILL_DIR}/../financial-analyst/scripts/check_report_numbers.py" "reports/[보고서].md"
+     ```
+   - **Antigravity**:
+     ```bash
+     venv/bin/python3 .agents/skills/financial-analyst/scripts/check_report_numbers.py "reports/[보고서].md"
+     ```
+   - 종료 코드 `0`: 기록되지 않은 문제 없음 · `1`: 고칠 문제 있음 · `2`: 실행 불가(경로 확인).
+6. **문제를 고치고 다시 점검합니다.**
+   - **근거 없음**: Section 4·스냅샷 값을 표시된 그대로 옮겨 쓰거나(단위만 바꾸는 것은 허용), 출처 번호 `[n]`을 같은 문장·표 행에 붙이거나, 근거가 없으면 그 주장과 함께 지웁니다. 직접 계산한 숫자(합계·차이·변화율)는 쓰지 않습니다.
+   - **Section 4 수정됨**: 바뀐 줄을 원래대로 되돌립니다.
+   - **참고문헌 형식**: 홈페이지가 아닌 기사·문서 주소와 발행일(`YYYY-MM-DD`)로 고칩니다.
+   - 고친 뒤 5단계를 다시 실행합니다.
+7. **남은 문제를 기록합니다.** 더 고칠 수 없는 문제가 남으면 `--section`을 붙여 실행한 출력('## 9. 숫자 점검 결과' 블록)을 '## 8. 참고 문헌' 목록 뒤, 면책 문구 앞에 넣고, 표의 `[AI_TODO: 남긴 이유]`마다 사유를 적습니다. 종료 코드 `0`이 나올 때까지 5~7단계를 반복한 뒤 보고서를 마무리합니다. 개수가 달라졌다는 오류(`check_section_stale`)가 나오면 `--section`으로 다시 만들어 바꿔 넣습니다(적은 사유는 유지됨).
+8. **(선택, 로컬)** `--fetch-sources`를 붙이면 인용한 기사를 내려받아 숫자가 실제로 있는지 대조합니다. `not_found`·`unverifiable`도 6~7단계처럼 고치거나 기록합니다.
 
 ## Best Practices
 
@@ -97,7 +114,8 @@ To prevent omissions (e.g., missing financial tables), you MUST use the master s
 - **장기 구조 + 단기 시황을 함께 보되, 순서를 지킵니다:** 장기 밸류체인 구조(해자)와 단기 급변동을 균형 있게 다룹니다. 급락장에서는 "왜 빠졌는지"를 데이터로 먼저 판별하고, 매매 전략은 판정에 따라 제시합니다.
 - **Connect Supply Chain Strengths to Financial Multiples:** Explain *why* a company trades at a premium or discount. For cyclical companies, explain the multiple in the context of the earnings cycle (a low P/E at peak earnings is not, by itself, cheapness).
 - **Strict Risk Matrix Alignment:** 🔴 2개 이상이면 '신중 접근', 🔴가 1개라도 있으면 '강력 매수' 불가, 유효 신호가 4개 미만이면 '판단 보류'입니다.
-- **Enforce Referencing:** 웹에서 가져온 모든 수치(점유율, 실적, 목표가 등)에는 본문 인용 번호와 함께 출처 제목·발행일·URL을 붙입니다. 사이트 홈페이지만 가리키는 링크는 출처로 인정하지 않습니다.
+- **Enforce Referencing:** 웹에서 가져온 모든 수치(점유율, 실적, 목표가 등)에는 본문 인용 번호와 함께 출처 제목·발행일·URL을 붙입니다. 사이트 홈페이지만 가리키는 링크는 출처로 인정하지 않습니다. 인용 번호는 그 숫자와 **같은 문장 또는 같은 표 행**에 있어야 인정됩니다. Phase 3 5단계의 숫자 점검이 이를 확인합니다.
+- **점검할 수 있게 숫자 쓰기:** Section 4 값은 표에 보이는 자릿수 그대로 씁니다(예: "52.18%", "-39,334억 원" → "-3조 9,334억 원"처럼 단위만 바꾸는 것은 가능). 건수·작은 정수(예: "하향 25건", "62%")는 우연히 맞기 쉬워 직접 대조하지 않으므로 같은 문장에 `(Section 4 › 3-1)`처럼 표를 밝힙니다. "₩262,000 부근"처럼 근사로 쓴 값은 확인되지 않습니다. 숫자를 지워 점검을 통과시키지 말고, 근거가 없으면 그 주장도 함께 빼거나 출처를 찾습니다.
 - **Maintain Modular Outputs:** Complete the supply chain mapping first, then fetch the financial data, and finally synthesize the investment strategy.
 - **시나리오 스트레스 테스트 인용:** Section 6.1은 스크립트 7번 표를 그대로 인용합니다. 하방이 음수면 그대로 적고, 결론에 맞추려고 배수·확률·EPS를 바꾸지 않습니다. 확률은 `--weights`로만 바꾸며, 바꿨다면 이유를 적습니다.
 - **반대 논리 (Bear Thesis) 필수:** Section 6.2에 판단이 틀릴 수 있는 이유 3가지와 판단 무효화 조건을 출처와 함께 적습니다.
