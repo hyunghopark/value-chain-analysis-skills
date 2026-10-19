@@ -1,5 +1,15 @@
 {
- "reviewed": false,
+ "reviewed": true,
+ "review": {
+  "date": "2026-10-19",
+  "by": "사용자 승인 — Claude 1차 검토안(메모 54개)과 아래 판단 기준을 그대로 확정 (tasks T013)",
+  "decisions": [
+   "포트폴리오 비중·AI가 만든 시나리오 범위는 unsupported (보고서 점검 결과 섹션에 사유 기록)",
+   "판정 신호 개수('주의 신호 2개')는 번호로 excluded",
+   "작은 정수(건수 등)는 '(Section 4 › N)' 참조가 있어야 script — 참조 없는 Section 4 값은 script로 라벨하고 도구의 unsupported와 불일치로 셈",
+   "'36GB'(제품 용량)는 excluded, '100% 일치'(수사적 표현)는 unsupported"
+  ]
+ },
  "instructions": "labels[].expected: script(스크립트 출력에 있는 값) | script_gap(Section 4에는 있으나 이 스냅샷에 없음 — 001 보완 이전 스냅샷의 한계) | cited(같은 문장·표 행에 인용 번호, spec FR-005 기준) | unsupported(출처 없음: AI 계산·근사·판단값 등) | excluded(수량 아님). excluded[].expected: excluded | unsupported(수량인데 잘못 제외됨 — 잘못 통과로 셈). 초안 = 도구 결과 + 'Claude 제안' note. note가 있는 항목을 중심으로 모두 확인한 뒤 reviewed를 true로 바꾼다(T013).",
  "report": "report.md",
  "snapshot": "report_data.json",
@@ -11,7 +21,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "🔴 **신중 접근** — 사상 최대 분기 실적(3Q26 잠정 영업이익 107.4조 원)에도 불구하고, D램 가격 상승률 둔화 및 메모리 피크아웃 논쟁,",
-   "note": "Claude 제안: 같은 사실이 [7]에 있으나 이 문장(한 줄 결론)에는 인용이 없음 → unsupported"
+   "note": "확정(Claude 제안 승인): 같은 사실이 [7]에 있으나 이 문장(한 줄 결론)에는 인용이 없음 → unsupported"
   },
   {
    "id": "7a91--3.93조-1",
@@ -20,7 +30,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "자사주 매입 완료에 따른 수급 공백 속 대규모 외국인 순매도(5일 추정 -3.93조 원)와 30일 이익 추정치 하향(하향 25건 🔴)이 겹치며 사이클 정점",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "7a91-25건-1",
@@ -29,7 +39,7 @@
    "expected": "script",
    "tool": "unsupported",
    "context": "인 순매도(5일 추정 -3.93조 원)와 30일 이익 추정치 하향(하향 25건 🔴)이 겹치며 사이클 정점 경보(TTM OPM 52.2% 🔴)가 발동됨",
-   "note": "Claude 제안: Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
+   "note": "확정(Claude 제안 승인): Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
   },
   {
    "id": "7a91-52.2%-1",
@@ -47,7 +57,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "(TTM OPM 52.2% 🔴)가 발동됨. 배수 A 기준 시나리오 하방(-27.2%)과 역사적 P/B 최저 회귀 시 하방(-66.9%)을 고려해 밸류에이션",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "7a91--66.9%-1",
@@ -56,7 +66,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "기준 시나리오 하방(-27.2%)과 역사적 P/B 최저 회귀 시 하방(-66.9%)을 고려해 밸류에이션 밴드 하단 안착 및 추정치 반등 전까지 보수적 관",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "be81-50-1",
@@ -308,7 +318,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "동반 하락했습니다. 동기간 SK하이닉스 역시 외국인 순매도가 누적 약 -8조 6,838억 원(추정)에 달했습니다. 따라서 최근 삼성전자의 주가 급락은 '삼성전자",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "fcf2-195조-1",
@@ -533,7 +543,7 @@
    "expected": "excluded",
    "tool": "unsupported",
    "context": "해자**: 1-beta 나노 공정을 선제 적용하여 HBM3E 12-Hi 36GB 제품의 전력 효율(2.5W 절감) 확보. 미국 CHIPS Act 보조금",
-   "note": "Claude 제안: 제품 용량(HBM3E 12-Hi 36GB) — 수량 주장이 아님"
+   "note": "확정(Claude 제안 승인): 제품 용량(HBM3E 12-Hi 36GB) — 수량 주장이 아님"
   },
   {
    "id": "fd73-2.5W-1",
@@ -542,7 +552,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "공정을 선제 적용하여 HBM3E 12-Hi 36GB 제품의 전력 효율(2.5W 절감) 확보. 미국 CHIPS Act 보조금 수혜 및 미국 본토 데이터",
-   "note": "Claude 제안: 인용 없는 제품 주장"
+   "note": "확정(Claude 제안 승인): 인용 없는 제품 주장"
   },
   {
    "id": "39da-70%-1",
@@ -551,7 +561,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "- 삼성전자는 연간 순이익 변동성이 70%를 상회(2022→2023 -74%)하는 대표적 🔄 경기순환(Cyclic",
-   "note": "Claude 제안: 스크립트·인용 어디에도 없는 AI 표현"
+   "note": "확정(Claude 제안 승인): 스크립트·인용 어디에도 없는 AI 표현"
   },
   {
    "id": "39da--74%-1",
@@ -560,7 +570,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "- 삼성전자는 연간 순이익 변동성이 70%를 상회(2022→2023 -74%)하는 대표적 🔄 경기순환(Cyclical) 기업입니다. 순환업종 평가",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "39da-3.75배-1",
@@ -614,7 +624,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "2.44배로 2022년 이후 밴드(최저 0.81 ~ 최고 3.42)의 62% 백분위인 🟡(중앙값~최고 구간)에 위치합니다.",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "39da-52.18%-1",
@@ -641,7 +651,7 @@
    "expected": "script",
    "tool": "unsupported",
    "context": "- ③ **추정치 방향(30일)**: 최근 30일간 상향 7건 vs 하향 25건으로 하향 비율이 압도적(-30% 이하 기준 충족)이어",
-   "note": "Claude 제안: Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
+   "note": "확정(Claude 제안 승인): Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
   },
   {
    "id": "39da-25건-1",
@@ -650,7 +660,7 @@
    "expected": "script",
    "tool": "unsupported",
    "context": "③ **추정치 방향(30일)**: 최근 30일간 상향 7건 vs 하향 25건으로 하향 비율이 압도적(-30% 이하 기준 충족)이어서 🔴(하향 우세)",
-   "note": "Claude 제안: Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
+   "note": "확정(Claude 제안 승인): Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
   },
   {
    "id": "39da--30%-1",
@@ -659,7 +669,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "*: 최근 30일간 상향 7건 vs 하향 25건으로 하향 비율이 압도적(-30% 이하 기준 충족)이어서 🔴(하향 우세)입니다.",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "39da-3.87%-1",
@@ -686,7 +696,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "료에 따른 수급 방어막 부재 및 외국인 지속 순매도 (최근 5일간 누적 -3.93조 원 추정 순매도, 지분율 46.18%로 급락).",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "39da-46.18%-1",
@@ -695,7 +705,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "지속 순매도 (최근 5일간 누적 -3.93조 원 추정 순매도, 지분율 46.18%로 급락).",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "46ac-3.95배-1",
@@ -731,7 +741,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "순환업종 평가 적용. P/B는 3.95배로 밴드(0.82~7.15)의 49% 위치인 🟡(중앙값 부근)입니다. 사이클 위치는 TTM 영업이익률 76.",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "46ac-76.33%-1",
@@ -758,7 +768,7 @@
    "expected": "script",
    "tool": "unsupported",
    "context": "과거 최고 48.6% 초과 정점 경보)이나, 30일 추정치 방향은 상향 10건 / 하향 11건으로 🟡(중립)을 유지하고 있으며 부채비율은 8.04%로",
-   "note": "Claude 제안: Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
+   "note": "확정(Claude 제안 승인): Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
   },
   {
    "id": "46ac-11건-1",
@@ -767,7 +777,7 @@
    "expected": "script",
    "tool": "unsupported",
    "context": "6% 초과 정점 경보)이나, 30일 추정치 방향은 상향 10건 / 하향 11건으로 🟡(중립)을 유지하고 있으며 부채비율은 8.04%로 🟢입니다. 주의",
-   "note": "Claude 제안: Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
+   "note": "확정(Claude 제안 승인): Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
   },
   {
    "id": "46ac-8.04%-1",
@@ -785,7 +795,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "- 회계 감사(Section 4 › 6번 표): 2026-06 분기 중 ₩50.72T의 대규모 비경상 일회성 이익이 감지되었으며, TTM 정규화 순이익 기준",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "46ac-71.96%-1",
@@ -794,7 +804,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "감지되었으며, TTM 정규화 순이익 기준으로 재산출한 정규화 ROE는 71.96%로 명목(92.68%) 대비 하향되나 여전히 독보적인 수익성을 입증하고",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "46ac-92.68%-1",
@@ -821,7 +831,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "- 최근 5거래일 외국인 순매도 -8.68조 원(추정) 및 52주 고점 대비 -49.8% 급락에 따른 수급 및 심리",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "46ac--49.8%-1",
@@ -866,7 +876,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "평가 적용. P/B는 10.69배로 과거 밴드(1.24~10.89)의 98% 백분위로 상단에 근접한 🟡입니다. 사이클 위치는 TTM OPM 80.6",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "808b-80.68%-1",
@@ -884,7 +894,7 @@
    "expected": "script",
    "tool": "unsupported",
    "context": "TTM OPM 80.68%로 🔴(정점 경보)이나, 30일 추정치는 상향 47건 / 하향 3건으로 압도적 🟢(상향)이며 부채비율은 3.74%로 🟢입니다",
-   "note": "Claude 제안: Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
+   "note": "확정(Claude 제안 승인): Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
   },
   {
    "id": "808b-3건-1",
@@ -893,7 +903,7 @@
    "expected": "script",
    "tool": "unsupported",
    "context": "0.68%로 🔴(정점 경보)이나, 30일 추정치는 상향 47건 / 하향 3건으로 압도적 🟢(상향)이며 부채비율은 3.74%로 🟢입니다. 주의 신호",
-   "note": "Claude 제안: Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
+   "note": "확정(Claude 제안 승인): Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
   },
   {
    "id": "808b-3.74%-1",
@@ -911,7 +921,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "- P/B 밴드 백분위 98%로 밸류에이션 룸 제한. 높은 베타(2.23)와 매크로 IT 수요 둔화",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "808b-2.23-1",
@@ -938,7 +948,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "평가 7대 지표 적용: Forward P/E 21.00배 🟡, PEG 0.90 🟢, 매출 성장률 +36.00% 🟢, EV/EBITDA 22.61배 🔴",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "d5d3-+36.00%-1",
@@ -983,7 +993,7 @@
    "expected": "script",
    "tool": "unsupported",
    "context": "ROE 39.97% 🟢, D/E 16.50% 🟢, 30일 추정치 상향 4건/하향 0건 🟢.",
-   "note": "Claude 제안: Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
+   "note": "확정(Claude 제안 승인): Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
   },
   {
    "id": "d5d3-0건-1",
@@ -992,7 +1002,7 @@
    "expected": "script",
    "tool": "unsupported",
    "context": "9.97% 🟢, D/E 16.50% 🟢, 30일 추정치 상향 4건/하향 0건 🟢.",
-   "note": "Claude 제안: Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
+   "note": "확정(Claude 제안 승인): Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
   },
   {
    "id": "d5d3-22.6배-1",
@@ -1019,7 +1029,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "7년 공급 과잉 전환 우려가 확산될 경우, 현재 형성된 고수익성(OPM 52~80%)이 급격히 훼손되며 주가 20% 이상의 추가 디레이팅 발생 가능",
-   "note": "Claude 제안: AI가 만든 리스크 시나리오 범위 — unsupported(보고서에 사유 기록 대상)"
+   "note": "확정(Claude 제안 승인): AI가 만든 리스크 시나리오 범위 — unsupported(보고서에 사유 기록 대상)"
   },
   {
    "id": "ebee-80%-1",
@@ -1028,7 +1038,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "공급 과잉 전환 우려가 확산될 경우, 현재 형성된 고수익성(OPM 52~80%)이 급격히 훼손되며 주가 20% 이상의 추가 디레이팅 발생 가능. 모니",
-   "note": "Claude 제안: AI가 만든 리스크 시나리오 범위 — unsupported(보고서에 사유 기록 대상)"
+   "note": "확정(Claude 제안 승인): AI가 만든 리스크 시나리오 범위 — unsupported(보고서에 사유 기록 대상)"
   },
   {
    "id": "ebee-20%-1",
@@ -1037,7 +1047,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "우, 현재 형성된 고수익성(OPM 52~80%)이 급격히 훼손되며 주가 20% 이상의 추가 디레이팅 발생 가능. 모니터링: 월별 TrendForce",
-   "note": "Claude 제안: AI가 만든 리스크 시나리오 범위 — unsupported(보고서에 사유 기록 대상)"
+   "note": "확정(Claude 제안 승인): AI가 만든 리스크 시나리오 범위 — unsupported(보고서에 사유 기록 대상)"
   },
   {
    "id": "ebee-5-1",
@@ -1046,7 +1056,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "운데, 원화 약세 및 매크로 불안으로 외국인 순매도가 지속될 경우 주가 5~15% 내외의 추가 하방 변동성 노출. 모니터링: 일별 외국인·기관 순",
-   "note": "Claude 제안: AI가 만든 리스크 시나리오 범위 — unsupported(보고서에 사유 기록 대상)"
+   "note": "확정(Claude 제안 승인): AI가 만든 리스크 시나리오 범위 — unsupported(보고서에 사유 기록 대상)"
   },
   {
    "id": "ebee-15%-1",
@@ -1055,7 +1065,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": ", 원화 약세 및 매크로 불안으로 외국인 순매도가 지속될 경우 주가 5~15% 내외의 추가 하방 변동성 노출. 모니터링: 일별 외국인·기관 순매매 추",
-   "note": "Claude 제안: AI가 만든 리스크 시나리오 범위 — unsupported(보고서에 사유 기록 대상)"
+   "note": "확정(Claude 제안 승인): AI가 만든 리스크 시나리오 범위 — unsupported(보고서에 사유 기록 대상)"
   },
   {
    "id": "ebee-46%-1",
@@ -1064,7 +1074,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "성 노출. 모니터링: 일별 외국인·기관 순매매 추정치 및 외국인 지분율 46% 지지선 여부. |",
-   "note": "Claude 제안: AI가 만든 리스크 시나리오 범위 — unsupported(보고서에 사유 기록 대상)"
+   "note": "확정(Claude 제안 승인): AI가 만든 리스크 시나리오 범위 — unsupported(보고서에 사유 기록 대상)"
   },
   {
    "id": "5dba-3.55배-1",
@@ -1109,7 +1119,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "(₩478,906)는 Forward P/E가 6.63배로 대폭 리레이팅(+86.8%)된다는 낙관적 가정을 전제하고 있습니다. 그러나 현재 시장은 피크아웃",
-   "note": "Claude 제안: 배수 A→B 변화율을 AI가 직접 계산"
+   "note": "확정(Claude 제안 승인): 배수 A→B 변화율을 AI가 직접 계산"
   },
   {
    "id": "5dba-3.55배-2",
@@ -1145,7 +1155,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "₩48,732) 시나리오 적용 시 주가는 ₩172,811로 현재가 대비 -27.2%의 하방 위험**이 존재합니다.",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "5dba-₩72,180-1",
@@ -1172,7 +1182,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "Base(평균 EPS ₩72,180) 시나리오에서는 ₩255,962 (+7.8%), Bull(최고 EPS ₩94,075) 시나리오에서는 ₩333,604",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "5dba-₩94,075-1",
@@ -1199,7 +1209,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "Bull(최고 EPS ₩94,075) 시나리오에서는 ₩333,604 (+40.5%)이며, 확률가중 기대값은 ₩246,545 (+3.8%)로 현 주가 수준",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "5dba-₩246,545-1",
@@ -1217,7 +1227,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "333,604 (+40.5%)이며, 확률가중 기대값은 ₩246,545 (+3.8%)로 현 주가 수준과 큰 차이가 없습니다.",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "5dba-0.81배-1",
@@ -1226,7 +1236,7 @@
    "expected": "script",
    "tool": "unsupported",
    "context": "운턴 극단 구간(2022~2026년 밴드)에서 기록했던 **최저 P/B 0.81배로 회귀할 경우 이론적 주가는 ₩78,710 (-66.9%)**까지 열려",
-   "note": "Claude 제안: Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
+   "note": "확정(Claude 제안 승인): Section 4 값이지만 Section 4 표를 가리키지 않아 도구가 대조하지 않음(규칙 §4-5) — 도구 결과와 다름"
   },
   {
    "id": "5dba-₩78,710-1",
@@ -1244,7 +1254,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "**최저 P/B 0.81배로 회귀할 경우 이론적 주가는 ₩78,710 (-66.9%)**까지 열려 있습니다. 즉, 실적 둔화가 현실화될 경우 밸류에이션 하",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "e73f-6배-1",
@@ -1289,7 +1299,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "2. 최근 30일 이익 추정치 방향이 상향 우세(상향 비율 +30% 이상 🟢)로 반전.",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "e73f-₩262,312-1",
@@ -1307,7 +1317,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "쓴 경우의 근거**: 해당 없음 (스크립트 판정 🔴 **신중 접근**과 100% 일치).",
-   "note": "Claude 제안: 수사적 표현(\"100% 일치\") — excluded로 볼지 판단 필요"
+   "note": "확정: 수사적 표현이지만 출처 없는 수치 표현이므로 근거 없음(사유 기록 대상)"
   },
   {
    "id": "f39c--34.3%-1",
@@ -1334,7 +1344,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "- 기존 보유자의 경우 기술적 반등(볼린저 중심선 ₩262,000 부근) 출회 시 비중을 일부 축소하여 리스크를 관리할 것을 권고합니다.",
-   "note": "Claude 제안: SMA ₩262,312를 근사 (\"부근\")"
+   "note": "확정(Claude 제안 승인): SMA ₩262,312를 근사 (\"부근\")"
   },
   {
    "id": "f39c--2.7%-1",
@@ -1352,7 +1362,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "- 마이크론은 P/B 밴드 98% 도달에 따른 밸류에이션 부담을 감안해 추격 매수를 자제합니다.",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "1905-40%-1",
@@ -1361,7 +1371,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "| **TSMC (TSM)** | **40%** | 🟢 매수 고려 판정 기업. AI 가속기 파운드리 독점 및 CoW",
-   "note": "Claude 제안: 포트폴리오 비중은 AI 판단값 — unsupported(보고서에 사유 기록 대상)"
+   "note": "확정(Claude 제안 승인): 포트폴리오 비중은 AI 판단값 — unsupported(보고서에 사유 기록 대상)"
   },
   {
    "id": "1905-20%-1",
@@ -1370,7 +1380,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "| **SK하이닉스 (000660.KS)** | **20%** | 🟡 중립/관망 판정 기업. HBM3E 시장 과점 지위 보유. 실",
-   "note": "Claude 제안: 포트폴리오 비중은 AI 판단값 — unsupported(보고서에 사유 기록 대상)"
+   "note": "확정(Claude 제안 승인): 포트폴리오 비중은 AI 판단값 — unsupported(보고서에 사유 기록 대상)"
   },
   {
    "id": "1905-0%-1",
@@ -1379,7 +1389,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "| **삼성전자 (005930.KS)** | **0% (편입 보류)** | 🔴 신중 접근 판정 기업. 피크아웃 우려 및 수급",
-   "note": "Claude 제안: 포트폴리오 비중은 AI 판단값 — unsupported(보고서에 사유 기록 대상)"
+   "note": "확정(Claude 제안 승인): 포트폴리오 비중은 AI 판단값 — unsupported(보고서에 사유 기록 대상)"
   },
   {
    "id": "1905-0%-2",
@@ -1388,7 +1398,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "| **마이크론 (MU)** | **0% (편입 보류)** | 🟡 중립/관망 판정 기업. P/B 밴드 상단(98",
-   "note": "Claude 제안: 포트폴리오 비중은 AI 판단값 — unsupported(보고서에 사유 기록 대상)"
+   "note": "확정(Claude 제안 승인): 포트폴리오 비중은 AI 판단값 — unsupported(보고서에 사유 기록 대상)"
   },
   {
    "id": "1905-98%-1",
@@ -1397,7 +1407,7 @@
    "expected": "script_gap",
    "tool": "unsupported",
    "context": "0% (편입 보류)** | 🟡 중립/관망 판정 기업. P/B 밴드 상단(98%) 부담으로 편입 유보. |",
-   "note": "Claude 제안: Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
+   "note": "확정(Claude 제안 승인): Section 4에 있으나 이 스냅샷(001 보완 이전)에 없음"
   },
   {
    "id": "1905-40%-2",
@@ -1406,7 +1416,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "| **현금성 자산 (MMF / USD)** | **40%** | 반도체 업종 고베타(1.5~2.4) 및 글로벌 거시경제 하방 위",
-   "note": "Claude 제안: 포트폴리오 비중은 AI 판단값 — unsupported(보고서에 사유 기록 대상)"
+   "note": "확정(Claude 제안 승인): 포트폴리오 비중은 AI 판단값 — unsupported(보고서에 사유 기록 대상)"
   },
   {
    "id": "1905-1.5-1",
@@ -1415,7 +1425,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "자산 (MMF / USD)** | **40%** | 반도체 업종 고베타(1.5~2.4) 및 글로벌 거시경제 하방 위험 헤지, 저점 매수 실탄 확보.",
-   "note": "Claude 제안: AI가 베타 범위를 요약"
+   "note": "확정(Claude 제안 승인): AI가 베타 범위를 요약"
   },
   {
    "id": "1905-2.4-1",
@@ -1424,7 +1434,7 @@
    "expected": "unsupported",
    "tool": "unsupported",
    "context": "MMF / USD)** | **40%** | 반도체 업종 고베타(1.5~2.4) 및 글로벌 거시경제 하방 위험 헤지, 저점 매수 실탄 확보. |",
-   "note": "Claude 제안: AI가 베타 범위를 요약"
+   "note": "확정(Claude 제안 승인): AI가 베타 범위를 요약"
   }
  ],
  "excluded": [

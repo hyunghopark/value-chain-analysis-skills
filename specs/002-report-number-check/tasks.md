@@ -46,7 +46,8 @@
 - [x] T010 [US1] `CHK` `classify`: 분류 순서 "제외 → 스냅샷 일치(`script`) → 범위 내 인용(`cited`) → 나머지(`unsupported`)". 일치 규칙 R4-1~5. `NumberMention` 필드(`id`, `raw`, `value`, `unit`, `decimals`, `explicit_sign`, `section`, `line`, `context`, `ticker_context`, `scope_citations`, `classification`, `weak`, `matched_path`, `match_count`, `snapshot_status`)를 data-model §2-1대로 채운다. `series` 값도 후보에 넣는다. T008 통과
 - [x] T011 [US1] `CHK` 출력: `render_summary`(contracts/cli.md '표준 출력' 형식: 분류별 개수 표, 문제 목록, 약한 일치 목록), `to_json`(`CheckResult` 최상위 키 `report`, `snapshot`, `checked_at`, `counts`, `mentions`, `section4`, `references`, `ai_todo`, `issues`, `exit_code`), `unsupported_number` 문제가 있으면 종료 코드 1, `--verbose`. 짝 스냅샷이 없으면 `no_snapshot` 문제를 내고 스크립트 값 대조는 '대조 불가'로 표시(조용히 통과하지 않음). 읽기 전용 테스트(FR-014): 점검 전후 보고서·스냅샷 파일의 해시가 같고, 짝 스냅샷 외의 `*_data.json`·보고서 파일을 열지 않는다(`open`을 감시)
 - [x] T012 [US1] 검증 세트 라벨 초안: 점검 도구 결과로 `tests/fixtures/002/labels.json` 초안을 만든다(data-model §4 형식, 최상위에 `"reviewed": false`). `TRN`에 `test_validation_set` 추가 — `reviewed`가 false면 이유를 밝히고 skip, true면 SC-001(일치율 95% 이상, `unsupported`인데 다른 분류 0건), SC-002(근거 없음 ≤ 제외 대상을 뺀 본문 숫자의 25%), SC-003(제외 대상의 근거 없음 오탐 ≤ 근거 없음 목록의 5%), SC-006(10초 이내) 확인
-- [ ] T013 [US1] **사람 검토** (사용자): `labels.json`의 라벨을 전부 확인해 고치고 `"reviewed": true`로 바꾼다. 이후 `test_validation_set`이 통과할 때까지 T010 규칙을 조정한다(규칙을 바꾸면 규칙 원본도 같은 커밋에서 수정). 통과 전에는 이 작업과 US1을 완료로 표시하지 않는다
+- [x] T013 [US1] **사람 검토** (사용자): `labels.json`의 라벨을 전부 확인해 고치고 `"reviewed": true`로 바꾼다. 이후 `test_validation_set`이 통과할 때까지 T010 규칙을 조정한다(규칙을 바꾸면 규칙 원본도 같은 커밋에서 수정). 통과 전에는 이 작업과 US1을 완료로 표시하지 않는다
+  - *(결과 2026-10-19)* 사용자가 Claude 1차 검토안(메모 54개)과 판단 기준 4가지를 승인해 확정(`labels.json`의 `review`). `test_validation_set` 통과: 일치율 460/471=97.7%, 잘못 통과 0, 근거 없음 29/133=21.8%, 오탐 1/30=3.3%. 라벨에 `script_gap`(Section 4에는 있으나 001 이전 스냅샷에 없음)을 추가했다
 
 **Checkpoint**: 검증 세트 보고서의 근거 없는 숫자 목록이 위치·문맥과 함께 나온다(MVP).
 
