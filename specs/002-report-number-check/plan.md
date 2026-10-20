@@ -4,7 +4,7 @@
 
 **Input**: Feature specification from `specs/002-report-number-check/spec.md`
 
-**Status**: Implemented (2026-10-19)
+**Status**: Implemented (2026-10-19, PR #7 병합)
 
 ## Summary
 
