@@ -4,7 +4,7 @@
 
 **Input**: Feature specification from `specs/003-pipeline-split/spec.md`
 
-**Status**: Draft
+**Status**: Approved (2026-10-20)
 
 ## Summary
 

@@ -121,9 +121,23 @@ def test_collect_meta():
     assert "versions" in meta
     assert "yfinance" in meta["versions"]
     assert "pandas" in meta["versions"]
-    # In git repo, commit should be string
-    if meta["repo_commit"] is not None:
-        assert isinstance(meta["repo_commit"], str)
+    assert "python" in meta["versions"]
+    assert "numpy" in meta["versions"]
+    # The tests run inside the skills git repository, so the commit must be known (spec 003 R15).
+    assert isinstance(meta["repo_commit"], str) and len(meta["repo_commit"]) >= 7, meta.get("repo_commit_error")
+    assert meta["repo_commit_error"] is None
+
+
+def test_collect_meta_records_git_failure(monkeypatch):
+    import subprocess
+    from get_financial_stats import collect_meta
+
+    def boom(*args, **kwargs):
+        raise FileNotFoundError("git not found")
+    monkeypatch.setattr(subprocess, "run", boom)
+    meta = collect_meta({})
+    assert meta["repo_commit"] is None
+    assert "git not found" in meta["repo_commit_error"]
 
 
 @pytest.mark.network

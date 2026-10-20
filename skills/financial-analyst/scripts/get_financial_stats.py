@@ -8,6 +8,7 @@ it instead of losing it in stderr.
 import argparse
 import datetime
 import math
+import os
 import statistics
 import sys
 
@@ -2064,27 +2065,35 @@ def warnings_section():
 
 
 def collect_meta(args_dict):
+    import platform
+    import subprocess
+    import numpy as np
     now_kst = datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST")
     versions = {
+        'python': platform.python_version(),
         'yfinance': getattr(yf, '__version__', 'unknown'),
         'pandas': getattr(pd, '__version__', 'unknown'),
+        'numpy': getattr(np, '__version__', 'unknown'),
     }
-    repo_commit = None
+    # An unknown commit is recorded with its reason, never silently dropped (spec 003 R15).
+    repo_commit, repo_commit_error = None, None
     try:
-        import subprocess
         script_dir = os.path.dirname(os.path.abspath(__file__))
         res = subprocess.run(["git", "-C", script_dir, "rev-parse", "--short", "HEAD"],
                              capture_output=True, text=True, timeout=2)
         if res.returncode == 0 and res.stdout.strip():
             repo_commit = res.stdout.strip()
-    except Exception:
-        pass
+        else:
+            repo_commit_error = (res.stderr or '').strip() or f"git exit {res.returncode}"
+    except Exception as e:
+        repo_commit_error = f"{type(e).__name__}: {e}"
 
     return {
         "generated_at": now_kst,
         "args": args_dict or {},
         "versions": versions,
         "repo_commit": repo_commit,
+        "repo_commit_error": repo_commit_error,
     }
 
 
