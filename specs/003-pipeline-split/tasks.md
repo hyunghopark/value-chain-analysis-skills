@@ -39,7 +39,7 @@
 
 ## Phase 2: Foundational (모든 시나리오의 전제)
 
-- [ ] T004 `RAW` 표 형식 + `TRI` 테스트(research R3, data-model §2).
+- [x] T004 `RAW` 표 형식 + `TRI` 테스트(research R3, data-model §2).
   - `encode_frame(df)` / `decode_frame(obj)`를 만든다. 인덱스·열마다 `kind`(`datetime`·`index`), `tz`(이름, 예 `Asia/Seoul`, 고정 오프셋 금지), `unit`, `name`, `dtype`, 시간대를 뺀 현지 시각 글자를 저장한다. 결측은 `null`로 쓰고 `dtypes`로 되돌린다.
   - 테스트 표 5종을 실제 Yahoo 모양대로 테스트 코드 안에서 만든다.
     - 시간대 있는 `datetime64[s]` 인덱스(이름 `Date`, 8열, `Volume` int64)
@@ -48,7 +48,7 @@
     - 인덱스 이름이 `period`인 컨센서스 표(`str` 인덱스)
     - 빈 표
   - 각 표가 왕복 후 `DataFrame.equals`, 인덱스·열 자료형, 이름까지 같은지 확인한다
-- [ ] T005 `RAW` 원자료 접근 + `TRI` 테스트(data-model §2·§3·§5).
+- [x] T005 `RAW` 원자료 접근 + `TRI` 테스트(data-model §2·§3·§5).
   - 항목 검사 규칙:
     - `source` ∈ {`yahoo`, `naver`, `wisereport`, `daum`, `pykrx`}
     - `status` ∈ {`ok`, `empty`, `error`, `skipped`}
