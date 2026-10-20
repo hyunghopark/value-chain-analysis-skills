@@ -31,8 +31,9 @@
 ## Phase 1: Setup
 
 - [x] T001 spec·plan 검토와 승인(사용자, 2026-10-20 "003 구현 시작해줘"). 승인되면 `spec.md`·`plan.md`의 Status를 Approved(날짜)로 바꾼다
-- [ ] T002 회귀 기준 저장(plan 단계 A). 분리 전 코드(`main`, 별도 worktree)로 `get_financial_stats.py --tickers 000660.KS,005930.KS,MU,TSM`을 장중(15:40 이전) 한 번, 장 마감 후 한 번 실행한다. 결과를 `specs/003-pipeline-split/baseline-section4-intraday.md`, `baseline-section4-close.md`에 저장하고 실행 시각·커밋을 적는다. 판정 행 비교용(SC-004)
+- [x] T002 회귀 기준 저장(plan 단계 A). 분리 전 코드(`main`, 별도 worktree)로 `get_financial_stats.py --tickers 000660.KS,005930.KS,MU,TSM`을 장중(15:40 이전) 한 번, 장 마감 후 한 번 실행한다. 결과를 `specs/003-pipeline-split/baseline-section4-intraday.md`, `baseline-section4-close.md`에 저장하고 실행 시각·커밋을 적는다. 판정 행 비교용(SC-004)
   - *(진행 2026-10-20)* 장 마감 후: 18:49 KST, `main` a82a5b7, `--cyclical 000660.KS,005930.KS,MU` 포함 → `baseline-section4-close.md` (종합: 000660.KS·005930.KS·MU 🟡 중립/관망(주의 1), TSM 🟢 강력 매수 후보). 장중 기준은 다음 장중에 실행
+  - *(완료 2026-10-20)* 장중: KRX 정규장(15:30) 이후지만 넥스트레이드(NXT) 거래가 20:00까지 이어져 19:57에 실행 → `baseline-section4-intraday.md`. 같은 시각(19:57:14) 이 브랜치 코드와 Section 4 전체 같음(다른 줄 0, 판정 행 23줄). 코드의 "15:40 이전" 분기는 테스트로 확인. NXT 시간대 수급 표기 문제는 003 밖의 별도 작업으로 분리
 - [x] T003 [P] `repo_commit` 조용한 실패 수정(research R15). `GFS` 최상위에 `import os`를 추가한다. `collect_meta`가 `git` 실패 사유를 `repo_commit_error`에 기록하게 한다(`except Exception: pass` 제거). `meta.versions`에 `python`·`numpy`를 추가한다(R16). 테스트는 `tests/test_snapshot.py`에 둔다: git 저장소 안이면 `repo_commit`이 짧은 해시, 실패를 흉내 내면 `repo_commit` `None`과 `repo_commit_error` 글자
 
 ---
@@ -171,6 +172,7 @@
   - `--out`에 Section 4를 쓰고, `RB --print` 결과와 `diff`한다. 차이 줄 수와 각 원인을 이 작업 아래에 기록한다. 0줄이 목표이고, 남는 차이는 원인과 판정 영향 여부를 적는다
   - *(결과 2026-10-20)* `main` a82a5b7(별도 worktree)에 `tests/fixtures/003/snapshot_data.json`(받은 시각을 수집 완료 19:02:37로 통일)을 재생: 분리 전 305줄 · 분리 후 305줄 · **다른 줄 0**. 경고 17개의 문장·순서, 장중 잠정 행, 판정·종합 판단 모두 같음
 - [ ] T019 [US1] SC-001 로컬 확인. 장중 수집본과 장 마감 후 수집본을 각각 다른 날 네트워크를 끊고 `RB`로 다시 만들어 종료 코드 0인지 확인한다. 결과(수집·재현 시각, 종료 코드, 실행 시간, 스냅샷 크기)를 이 작업 아래에 기록한다
+  - *(진행 2026-10-20)* S1(NXT 거래 중 19:57 수집, 2.39MB) → 거래 종료 후 20:05 재현: 종료 코드 0, Section 4 305줄·values 646·경고 17 같음, '장중 잠정' 행 유지. S2(거래 종료 후 20:05 수집)와 시험 스냅샷(19:02)은 다음 날 재현 예정. 보관: `~/.cache/value-chain-analysis/verify003/`
 
 **Checkpoint**: 새 보고서의 Section 4를 언제든 네트워크 없이 같게 다시 만들고, 바뀐 계산값·빠진 원자료·이전 형식을 구분해 알린다. 분리 전 코드와의 재생 비교 결과가 기록되어 있다.
 
