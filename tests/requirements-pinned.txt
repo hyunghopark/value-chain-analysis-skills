@@ -1,0 +1,4 @@
+# pandas·numpy pinned to the versions that produced tests/fixtures/003/snapshot_data.json (spec 003).
+# Rebuild tests compare values exactly; bumping these needs a new fixture (test_pinned_versions_match_fixture).
+pandas==3.0.6
+numpy==2.5.4

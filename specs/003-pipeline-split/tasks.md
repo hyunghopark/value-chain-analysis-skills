@@ -132,15 +132,16 @@
   - `main`의 순서: `COL.collect_all`(함수 안 import) → `RAW.dumps`/`loads` 왕복 → `build_section4` → `--snapshot`이면 `meta`·`inputs`·`values`·`series`·`warnings`를 한 번에 저장. 저장 실패 시 경고하고 계속하는 동작은 그대로다.
   - *(결과 2026-10-20 19:02 KST)* 새 코드로 4개 종목 실제 수집(12.9초, 스냅샷 2.39MB) → 같은 스냅샷으로 `build_section4` 재실행: Section 4·values 646개·warnings 17개 모두 같음. 분리 전 코드(18:49) 기준과 판정 기호 행 23줄 같음(나머지 22줄은 13분 사이 데이터 변화: 시가총액, 장중 추정). 지수 목록은 `sorted()`로 순서를 고정(분리 전에는 집합 순서라 프로세스마다 경고 순서가 달라질 수 있었음)
   - `tests/test_snapshot.py`에서 `yf`·`requests`를 흉내 내던 테스트(`generate_report`, `check_krx_history`, `fetch_investor_trends_table`)를 합성 원자료 기반으로 바꾼다. 검사 내용(기록 경로·값·상태)은 유지한다. 이 작업 뒤 T008이 통과해야 한다
-- [ ] T015 [US1] 시험 스냅샷 `FX`(research R14, 로컬 실행).
+- [x] T015 [US1] 시험 스냅샷 `FX`(research R14, 로컬 실행).
   - 장중에 `get_financial_stats.py --tickers 000660.KS,005930.KS,MU,TSM --snapshot`으로 받는다. 표준 출력에 `snapshot.section4_body`를 적용하고 `attach_section4`로 기준본을 덧붙여 `FX/snapshot_data.json`을 만든다.
   - `FX/README.md`에 적을 내용: 수집 시각, 코드 커밋, 라이브러리 버전, 파일 크기, "테스트 자료 — 기업별 결론을 위키에 넣지 않음(헌법 VI)".
   - 크기가 SC-007(10MB 이하)을 넘으면 멈추고 보고한다
   - 버전 고정(plan 위험 표): `tests/requirements-pinned.txt`에 `FX` `meta.versions`의 pandas·numpy를 `==`로 적는다. `.github/workflows/ci.yml` 테스트 단계와 `CLAUDE.md`의 테스트 명령 두 줄에 `--with-requirements tests/requirements-pinned.txt`를 추가한다. `TRB`에 테스트를 둔다: 고정 파일의 버전이 `FX`의 `meta.versions`와 같다(다르면 "버전을 올렸다면 시험 스냅샷을 다시 만드세요" 메시지로 실패)
+  - *(결과 2026-10-20)* 장 마감 후 19:02 수집본으로 만듦(계획의 "장중"과 다름): 네이버 수급에 당일 행이 없어 다음 금융 장중 조회가 실제로 들어 있어 '장중 잠정' 경로를 시험할 수 있다. 진짜 장중 수집본 확인은 T019에서. 1.15MB(들여쓰기 없는 JSON, 원본 2.39MB), 고정 버전 pandas 3.0.6·numpy 2.5.4
 
 ### 재현 도구 (`RB`)
 
-- [ ] T016 [US1] `RB` 확인 모드(contracts §2, data-model §5, research R8·R9).
+- [x] T016 [US1] `RB` 확인 모드(contracts §2, data-model §5, research R8·R9).
   - 인자: `SNAPSHOT`, `--json`, `--print`, `--verbose`. Windows 콘솔 UTF-8 출력은 `GFS`와 같은 처리(`stream.reconfigure`)
   - `rebuilt_at`(실행 기록용 현재 시각)은 `if __name__ == "__main__":` 진입부에서 구해 넘긴다. 비교 함수는 시각을 읽지 않는다(T008)
   - 읽기 오류는 종료 코드 2: `unreadable`, `legacy_format`(안내 문구는 contracts 그대로), `missing_input`(경로 포함), `invalid_input`
@@ -150,7 +151,7 @@
     - `warnings`: 순서 포함
   - `meta.versions`와 지금 버전이 다르면 `version_warnings`에 넣는다(비교는 계속한다).
   - 요약 출력 형식은 contracts §2 그대로다. 종료 코드는 0(모두 같음), 1(차이), 2(위 오류). 스냅샷 파일은 읽기만 한다
-- [ ] T017 [US1] `TRB` 재현 테스트(SC-001·002·003·006, FR-008·010). `FX`로 다음을 확인한다.
+- [x] T017 [US1] `TRB` 재현 테스트(SC-001·002·003·006, FR-008·010). `FX`로 다음을 확인한다.
   - `RB`가 종료 코드 0을 내고, Section 4·values·warnings가 같다
   - 소켓 연결(`socket.socket.connect`)과 `GFS`의 `datetime` 시각 함수를 예외로 막아도 성공한다
   - `values`의 숫자 하나를 바꾸면 종료 코드 1이고, 출력에 경로·저장값·재계산값이 있다

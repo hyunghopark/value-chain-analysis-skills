@@ -21,7 +21,7 @@ jobs:
         run: uv run --no-project --python 3.12 python -m py_compile skills/*/scripts/*.py .claude/skills/karpathy-llm-wiki/scripts/check_evidence.py
 
       - name: 테스트
-        run: uv run --no-project --python 3.12 --with-requirements skills/financial-analyst/requirements.txt --with pytest pytest tests -q -m "not network"
+        run: uv run --no-project --python 3.12 --with-requirements skills/financial-analyst/requirements.txt --with-requirements tests/requirements-pinned.txt --with pytest pytest tests -q -m "not network"
 
       # check_evidence.py always exits 0 ("the report is the interface"), so gate on its summary line.
       - name: 위키 근거 대조

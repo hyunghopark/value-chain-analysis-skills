@@ -43,9 +43,9 @@
 
 ```bash
 # 테스트 (CI와 같음, 네트워크 없음)
-uv run --no-project --with-requirements skills/financial-analyst/requirements.txt --with pytest pytest tests -q -m "not network"
+uv run --no-project --with-requirements skills/financial-analyst/requirements.txt --with-requirements tests/requirements-pinned.txt --with pytest pytest tests -q -m "not network"
 # 실제 데이터 출처에 접속하는 테스트까지 전부 (로컬)
-uv run --no-project --with-requirements skills/financial-analyst/requirements.txt --with pytest pytest tests -q
+uv run --no-project --with-requirements skills/financial-analyst/requirements.txt --with-requirements tests/requirements-pinned.txt --with pytest pytest tests -q
 # 출처 정기 점검 (결과를 raw/data-checks/YYYY-MM-DD-cross-source-check.md로 저장한 뒤 위키에 ingest)
 uv run --no-project --with-requirements skills/financial-analyst/requirements.txt python skills/financial-analyst/scripts/check_data_sources.py --krx 005930,000660 --us MU
 # 보고서 숫자 점검 (보고서 옆의 *_data.json을 자동으로 찾음, --section: 점검 결과 블록, --fetch-sources: 기사 대조)
