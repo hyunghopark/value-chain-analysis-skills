@@ -17,7 +17,10 @@ Antigravity 에이전트를 위한 산업 밸류체인 분석, 정밀 기업 재
     │   ├── scripts/
     │   │   ├── get_financial_stats.py
     │   │   ├── data_checks.py       # 출처 교차 점검
+    │   │   ├── collect.py           # 외부 출처 접속(유일) — 원자료와 받은 시각 수집
+    │   │   ├── raw_inputs.py        # 스냅샷 원자료 형식·접근
     │   │   ├── snapshot.py          # 데이터 스냅샷 기록·저장
+    │   │   ├── rebuild_section4.py  # 스냅샷만으로 Section 4 재현·비교·재계산
     │   │   ├── check_report_numbers.py # 보고서 숫자 점검
     │   │   └── check_data_sources.py # 정기 점검 도구
     │   └── templates/
@@ -45,7 +48,7 @@ specs/                    # 목표별 spec·plan·tasks (Spec Kit)
 wiki/                     # 데이터 출처 백과·사건 기록(KI-xxx) — karpathy-llm-wiki 패턴
 raw/                      # 위키 근거 자료 (수정 금지)
 docs/decisions/           # 결정 기록
-tests/                    # data_checks·snapshot·숫자 점검 테스트 (fixtures/002: 검증 세트)
+tests/                    # 테스트 (fixtures/002: 숫자 점검 검증 세트, fixtures/003: 재현 시험 스냅샷, tools/: 재생 비교)
 .claude/skills/karpathy-llm-wiki/  # 위키 스킬 (고정 커밋 복사본, MIT)
 ```
 
@@ -120,7 +123,7 @@ Python 패키지는 [uv](https://docs.astral.sh/uv/)가 있으면 SKILL.md의 `u
   - 병목(Bottleneck) 및 핵심 밸류체인 노드 도출
   - Mermaid 다이어그램 자동 생성 및 시각화 (역할 태그, 이중 역할 `[병목협력·경쟁]` 지원)
 
-### 2. `financial-analyst` (v3.3.0)
+### 2. `financial-analyst` (v3.4.0)
 - **개요**: 상장 기업의 정량 재무 지표 및 밸류에이션(Valuation) 정밀 평가
 - **핵심 기능**:
   - PER, PBR, EV/EBITDA, ROE, 부채비율 등 핵심 지표와 4-Horizon PER·EPS(TTM·FY0·FY1·NTM)
@@ -131,7 +134,8 @@ Python 패키지는 [uv](https://docs.astral.sh/uv/)가 있으면 SKILL.md의 `u
   - **[수급·시장 비교]**: 최근 5거래일 투자자별 순매매 추정(장중 행은 '잠정' 표시), 지수·해외 피어 동반 등락
   - **[데이터 품질 경고]**: 출처 간 5% 이상 차이, ADR 통화 보정, 가격 이력 누락 등을 보고서에 자동 표기. 경고마다 사건 번호 `[KI-xxx]`
   - **[출처 교차 점검]**: 한국 종목·지수 Yahoo 가격 이력을 거래소 종가(다음 금융)로 보완·교정, 수급 데이터 가격 기준 차이 경고, WiseReport 표 구조 검증, 재무제표 반영 지연·거래량 이상치 감지
-  - **[데이터 스냅샷]**: `--snapshot` 경로 지정 시 Section 4의 모든 수치·판정 기준값을 출처·기준·시점·잠정/교정 이력(`status="corrected"`, `ki`, `original`)과 함께 JSON 파일로 저장 (2MB 이하)
+  - **[데이터 스냅샷]**: `--snapshot` 경로 지정 시 원자료(출처 응답 전체와 받은 시각)와 Section 4의 모든 수치·판정 기준값을 출처·기준·시점·잠정/교정 이력(`status="corrected"`, `ki`, `original`)과 함께 JSON 파일로 저장 (4개 종목 약 2MB, 10MB 이하)
+  - **[재현]**: `rebuild_section4.py`가 스냅샷만으로 네트워크 없이 같은 Section 4를 다시 만들어 저장된 값과 비교하고, 확률·순환업종만 바꿔 재계산(별도 파일)
   - **[보고서 숫자 점검]**: `check_report_numbers.py`가 완성된 보고서의 본문 숫자를 스냅샷 값·인용 출처와 대조(근거 없음 목록), Section 4 수정과 스냅샷 누락 감지, 인용 번호·참고문헌 형식(홈페이지 주소, 발행일), 남은 `[AI_TODO]`를 점검. `--fetch-sources`로 인용 기사 대조(로컬)
 
 ### 3. `investment-strategy` (v2.2.0)
@@ -155,6 +159,14 @@ Python 패키지는 [uv](https://docs.astral.sh/uv/)가 있으면 SKILL.md의 `u
 - **정기 점검**: `check_data_sources.py` 결과를 `raw/data-checks/`에 저장하고 위키에 반영합니다. 명령은 `CLAUDE.md`에 있습니다.
 
 ## 📝 변경 이력
+
+### 2026-10-20 — 003 수집·정제·계산·출력 분리 (financial-analyst v3.4.0)
+- **수집 분리**: 외부 접속과 현재 시각 읽기는 `collect.py`에서만. 출처 응답 전체를 받은 시각과 함께 스냅샷 `inputs`(형식 2)에 저장하고, 실패는 기록만 한다.
+- **원자료로만 Section 4**: 정제(덮어쓰기·KI 교정·출처 대조·경고)·계산·출력은 원자료와 받은 시각만 읽는다. 보고서를 만들 때도 원자료를 JSON으로 왕복한 뒤 같은 길로 만든다. 코드 검사 테스트가 이 경계를 지킨다.
+- **재현 도구** `rebuild_section4.py`: 스냅샷 하나로 Section 4를 다시 만들어 기준본·값·경고와 비교(0/1/2), 글자만 바뀐 변경 구분, 확률·순환업종 재계산(별도 파일, 원본 그대로).
+- **분리 전후 같음**: 분리 전 코드에 같은 원자료를 재생해 Section 4 305줄이 모두 같음을 확인(`tests/tools/replay_main.py`).
+- **고침**: 스냅샷 `repo_commit`이 `import os` 누락으로 늘 비던 문제(이유를 `repo_commit_error`에 기록). 지수 대조 순서를 고정해 경고 순서가 실행마다 같다.
+- **테스트**: 실제 4종목 시험 스냅샷(`tests/fixtures/003`), pandas·numpy를 그 버전에 고정(`tests/requirements-pinned.txt`).
 
 ### 2026-10-14 — 002 보고서 숫자 자동 대조 (financial-analyst v3.3.0 / investment-strategy v2.2.0)
 - **숫자 점검 도구** `check_report_numbers.py`: 본문 숫자를 스냅샷 값 일치 / 인용 출처 있음 / 근거 없음으로 분류. 표시 자릿수·단위(조·억·%·배)·부호를 고려하고, 우연한 일치를 막기 위해 경로 종류·정보량·근사 표현 규칙을 둔다(규칙 원본 `references/rules/report-number-check.md`, 결정 0005).

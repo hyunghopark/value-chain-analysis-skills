@@ -1,7 +1,7 @@
 ---
 name: financial-analyst
 description: A specialized skill for conducting high-precision financial analysis and stock valuation of companies. Use when the user asks about the financial health, stock price, valuation multiples, earnings surprises, or investment risks of specific companies.
-version: 3.3.0
+version: 3.4.0
 allowed-tools: run_command search_web read_url_content
 ---
 
@@ -38,7 +38,7 @@ Follow these steps to conduct a high-precision corporate financial analysis:
      ```bash
      venv/bin/python3 .agents/skills/financial-analyst/scripts/get_financial_stats.py --tickers "NVDA,TSM,000660.KS" [--cyclical "000660.KS"] [--not-cyclical "..."] [--benchmarks "^KS11,^SOX"] [--weights "0.2,0.5,0.3"] [--snapshot "path/to/snapshot_data.json"]
      ```
-   - Pass `--snapshot <filepath>` to automatically record all raw inputs, normalized metrics, corrections, and warnings into a structured snapshot JSON file (accompanying the markdown report).
+   - Pass `--snapshot <filepath>` to save a structured snapshot JSON file next to the report: every raw source response with the time it was received (`inputs`), and every number Section 4 shows with its source, basis, time and corrections (`values`). Section 4 is built from those raw inputs only, so `rebuild_section4.py` can rebuild the same Section 4 from the file later without network access.
 2. The script pulls market data from the Yahoo Finance API and blends Naver Finance / WiseReport consensus for Korean stocks. For Korean stocks it also reconciles Yahoo's price history with the KRX close from Daum Finance (fills missing days, replaces wrong closes in the last 100 trading days). Yahoo quotes are delayed 15–20 minutes; the first line of the output states the generation time (KST) and the market state of each ticker.
 3. Review the generated tables:
    - **1. 주요 주가 및 시가총액 현황**: Price, 52-week range, market cap (KRX stocks show Naver's common-share market cap).
@@ -112,4 +112,7 @@ Follow these steps to conduct a high-precision corporate financial analysis:
 - **`references/rules/`**: Source of truth for verdict thresholds (`verdict-matrix.md`), the cycle-position signal (`cycle-position.md`), data-source rules (`data-quality.md`), data snapshot format (`data-snapshot.md`), and report number checks (`report-number-check.md`).
 - **`scripts/snapshot.py`**: Standard data snapshot recorder and serializer. Every number shown in Section 4 is recorded, including the verdict thresholds under `rules.*`; `attach_section4` stores the Section 4 baseline after the report is assembled.
 - **`scripts/check_report_numbers.py`**: Checks a finished report against its paired snapshot — body numbers (script value / cited / unsupported), Section 4 edits and snapshot coverage, citations and references, leftover `[AI_TODO]`. `--section` prints the '숫자 점검 결과' block, `--json` writes the structured result, `--fetch-sources` (local only) compares cited numbers with the articles. Exit code 0 = no undocumented problems, 1 = problems, 2 = cannot run.
+- **`scripts/collect.py`**: The only code that reaches external sources (Yahoo, Naver, WiseReport, Daum, PyKrx) or reads the clock. Stores each response with its receive time as a raw input; failures are recorded, not raised.
+- **`scripts/raw_inputs.py`**: Raw input format of a format-2 snapshot (tables keep dtype, timezone name, datetime unit and index names) and read access; a missing item names its path.
+- **`scripts/rebuild_section4.py`**: Rebuilds Section 4 from a snapshot alone and compares it with the stored baseline, values and warnings (exit 0 same / 1 differs / 2 cannot rebuild). `--weights`/`--cyclical`/`--not-cyclical` with `--out` recompute under other assumptions into a new file marked as not a report. Rules: `data-snapshot.md` §9.
 - **`scripts/check_data_sources.py`**: Periodic cross-source health check (Yahoo vs KRX close via Daum vs Naver, Yahoo vs Nasdaq.com, statement freshness, WiseReport layout).

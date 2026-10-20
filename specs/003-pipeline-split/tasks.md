@@ -230,8 +230,8 @@
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T025 [P] 규칙 원본 `FA/references/rules/data-snapshot.md`에 재현 절을 마무리한다: `RB` 사용법, 종료 코드 0/1/2와 오류 코드 7종(data-model §5), 옵션 재계산 범위, 코드 검사 테스트가 금지하는 것(R11)
-- [ ] T026 [P] 스킬·저장소 문서.
+- [x] T025 [P] 규칙 원본 `FA/references/rules/data-snapshot.md`에 재현 절을 마무리한다: `RB` 사용법, 종료 코드 0/1/2와 오류 코드 7종(data-model §5), 옵션 재계산 범위, 코드 검사 테스트가 금지하는 것(R11)
+- [x] T026 [P] 스킬·저장소 문서.
   - `FA/SKILL.md`:
     - Resources에 `rebuild_section4.py`·`collect.py`·`raw_inputs.py`를 추가한다
     - `--snapshot` 설명을 고친다: 원자료와 받은 시각, 재현 가능
@@ -241,7 +241,7 @@
   - `CLAUDE.md`:
     - 명령에 재현 확인 추가
     - `tests/` 설명에 `fixtures/003`·`tools/replay_main.py` 추가
-- [ ] T027 [P] 결정 기록 `docs/decisions/0006-pipeline-split.md`. 다룰 내용:
+- [x] T027 [P] 결정 기록 `docs/decisions/0006-pipeline-split.md`. 다룰 내용:
   - 원자료를 저장하고 정제를 다시 실행하는 이유(R5)
   - 원자료별 받은 시각(R4)
   - 표 형식에 자료형·시간대·정밀도를 넣은 이유(R3)

@@ -264,3 +264,31 @@ python skills/financial-analyst/scripts/rebuild_section4.py X_data.json --json a
 
 `rebuild_section4.py`는 Section 4 차이가 계산값 변화 때문인지(`cause: values`) 글자만 바뀐 것인지(`cause: text_only`) 구분합니다. 바꾸기 전 코드에 재현 도구가 없으면(003 이전) `tests/tools/replay_main.py`로 같은 원자료를 재생해 비교합니다.
 
+### 9-7. 재현 도구 `rebuild_section4.py`
+
+```bash
+uv run --no-project --with-requirements skills/financial-analyst/requirements.txt python skills/financial-analyst/scripts/rebuild_section4.py reports/X_data.json [--json r.json] [--print] [--verbose]
+```
+
+- **확인 모드**(기본): 스냅샷 하나로 Section 4를 다시 만들어 기준본(`section4.text`, 줄 단위)·`values`(경로별로 정확히 같은지)·`warnings`(순서 포함)와 비교합니다. Section 4만 다르고 값·경고가 같으면 '계산 결과 같음, 글자만 다름'(`cause: text_only`)으로 구분합니다. 기록된 라이브러리 버전과 지금 버전이 다르면 경고만 하고 비교는 계속합니다.
+- **재계산 모드**: `--weights`, `--cyclical`, `--not-cyclical`만 바꿀 수 있고 `--out`(새 파일)이 필요합니다. 결과 파일 머리에 '재계산 결과 — 보고서가 아닙니다', 원본 경로·SHA-256, 바꾼 옵션을 적습니다. 스냅샷에 없는 종목·지수가 필요한 옵션은 거부하고 다시 수집하지 않습니다.
+- 지정한 스냅샷 하나만 읽고, 스냅샷은 고치지 않습니다(헌법 VI).
+
+| 종료 코드 | 뜻 |
+|---|---|
+| 0 | 모두 같음 (재계산 모드: 저장 완료) |
+| 1 | Section 4·값·경고 중 하나 이상 다름 |
+| 2 | 다시 만들 수 없음 — 오류 코드 아래 |
+
+| 오류 코드 | 뜻 |
+|---|---|
+| `legacy_format` | 형식 1 스냅샷(원자료 없음). 숫자 점검(002)은 그대로 쓸 수 있음 |
+| `missing_input` | 필요한 원자료 항목이 없음(경로 표시) |
+| `invalid_input` | 원자료 형식이 맞지 않음, 또는 그 스냅샷으로 Section 4를 만들 수 없음 |
+| `unreadable` | 파일을 읽을 수 없음 |
+| `option_rejected` | 허용하지 않는 옵션(재계산은 확률·순환업종만) 또는 잘못된 확률 |
+| `option_needs_data` | 스냅샷에 없는 종목이 필요한 옵션 |
+| `output_exists` | `--out` 파일이 이미 있음(덮어쓰지 않음) |
+
+**코드 검사**: 정제·계산·출력 코드(`get_financial_stats.py`, `raw_inputs.py`, `data_checks.py`, `snapshot.py`, `rebuild_section4.py`)는 네트워크 라이브러리(`requests`, `yfinance`, `bs4`, `pykrx`, `urllib`, `socket`, `http`)를 import하지 않고 현재 시각(`datetime.now`, `datetime.today`, `date.today`, `time.time`)을 읽지 않습니다. 예외는 각 파일의 실행 진입부(`if __name__ == "__main__":`)와 `snapshot.attach_section4`(기준본을 덧붙인 시각 — Section 4 글자에 들어가지 않음)뿐입니다. `tests/test_rebuild.py`가 확인합니다.
+
