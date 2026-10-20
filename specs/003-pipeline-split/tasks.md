@@ -208,7 +208,7 @@
 
 **Independent Test**: `FX`에 `--weights 0.1,0.5,0.4 --out <새 파일>`을 실행한다. 결과 파일 머리와 시나리오 부분만 원래 Section 4와 다르고, 원본 SHA-256이 같으며, 같은 `--out`으로 다시 실행하면 거부된다.
 
-- [ ] T023 [US3] `TRB` 옵션 재계산 테스트(US3 시나리오 1~3, Clarifications Q1).
+- [x] T023 [US3] `TRB` 옵션 재계산 테스트(US3 시나리오 1~3, Clarifications Q1).
   - `--weights` 변경: 원래 Section 4와 다른 줄이 다음뿐이다.
     - 재계산 머리 2줄
     - 7번 시나리오 확률 설명 줄
@@ -218,7 +218,7 @@
   - 이미 있는 `--out` → `output_exists`
   - `--out` 없이 옵션만 주면 → 인자 오류(2)
   - 모든 경우에 원본 스냅샷 SHA-256이 그대로다
-- [ ] T024 [US3] `RB` 재계산 모드(contracts §2).
+- [x] T024 [US3] `RB` 재계산 모드(contracts §2).
   - `--weights`·`--cyclical`·`--not-cyclical`은 `--out`이 있을 때만 받는다. `--weights`는 `GFS.parse_weights` 규칙으로 검사한다.
   - `meta.args`에 옵션을 덮어써 `build_section4`를 실행한다.
   - `--out`에는 contracts의 "재계산 결과 파일 머리" 2줄(원본 경로, SHA-256 앞 8자리, 수집 시각, 바꾼 옵션 `이전 → 이후`, "데이터는 다시 받지 않았습니다")과 Section 4를 쓴다.

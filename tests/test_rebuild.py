@@ -294,3 +294,55 @@ def test_text_only_change_is_told_apart(monkeypatch):
     assert result["values"]["same"] and result["warnings"]["same"]
     assert result["section4"]["cause"] == "text_only"
     assert "글자만 다름" in _rb().render_summary(result)
+
+
+# --- US3: recompute with other assumptions, without collecting (Clarifications Q1) ---
+
+def test_recompute_weights_changes_only_the_scenario(tmp_path):
+    rb = _rb()
+    before = _sha(FX)
+    out = tmp_path / "w.md"
+    out_json = tmp_path / "w.json"
+    assert rb.main([FX, "--weights", "0.1,0.5,0.4", "--out", str(out), "--json", str(out_json)]) == 0
+    text = out.read_text(encoding="utf-8")
+    head, rest = text.split("\n", 2)[:2], text.split("\n", 2)[2]
+    assert head[0].startswith("> 🔁 **재계산 결과 — 보고서가 아닙니다.**") and "sha256 " + before[:8] in head[0]
+    assert "weights 0.2,0.5,0.3 → 0.1,0.5,0.4" in head[1] and "데이터는 다시 받지 않았습니다" in head[1]
+    baseline = _load_fx()["section4"]["text"]
+    diff = rb.compare_lines(baseline, rest.strip())
+    assert diff
+    for d in diff:
+        for line in (d["baseline"], d["rebuilt"]):
+            assert line is None or "**확률 가중**" in line or line.startswith("|  | **확률가중 기대값**"), line
+    r = json.loads(out_json.read_text(encoding="utf-8"))
+    assert r["mode"] == "recompute" and r["options_changed"] == {"weights": ["0.2,0.5,0.3", "0.1,0.5,0.4"]}
+    paths = [c["path"] for c in r["values"]["changed"]]
+    assert paths and all(p.startswith("rules.scenario.weight_") or ".scenario.expected_price_" in p
+                         or ".scenario.return_expected_" in p for p in paths), paths
+    assert _sha(FX) == before
+
+
+def test_recompute_cyclical_unknown_ticker_needs_data(tmp_path):
+    rb = _rb()
+    out_json = tmp_path / "c.json"
+    assert rb.main([FX, "--cyclical", "000990.KS", "--out", str(tmp_path / "c.md"), "--json", str(out_json)]) == 2
+    err = json.loads(out_json.read_text(encoding="utf-8"))["errors"][0]
+    assert err["code"] == "option_needs_data" and "000990.KS" in err["detail"]
+    assert not (tmp_path / "c.md").exists()
+
+
+def test_recompute_rejects_other_options_and_existing_output(tmp_path):
+    rb = _rb()
+    before = _sha(FX)
+    out_json = tmp_path / "r.json"
+    assert rb.main([FX, "--tickers", "MU", "--out", str(tmp_path / "t.md"), "--json", str(out_json)]) == 2
+    assert json.loads(out_json.read_text(encoding="utf-8"))["errors"][0]["code"] == "option_rejected"
+    existing = tmp_path / "exists.md"
+    existing.write_text("keep", encoding="utf-8")
+    assert rb.main([FX, "--weights", "0.1,0.5,0.4", "--out", str(existing), "--json", str(out_json)]) == 2
+    assert json.loads(out_json.read_text(encoding="utf-8"))["errors"][0]["code"] == "output_exists"
+    assert existing.read_text(encoding="utf-8") == "keep"
+    with pytest.raises(SystemExit) as e:
+        rb.main([FX, "--weights", "0.1,0.5,0.4"])          # recompute needs --out
+    assert e.value.code == 2
+    assert _sha(FX) == before
