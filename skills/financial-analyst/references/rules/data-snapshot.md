@@ -1,7 +1,7 @@
 # 데이터 스냅샷 및 출처 정보 규칙 (원본)
 
-코드: `scripts/snapshot.py`, `scripts/get_financial_stats.py`, `generate_strategy_report.py`  
-관련 스펙: `specs/001-data-snapshot/` (SC-004)  
+코드: `scripts/snapshot.py`, `scripts/raw_inputs.py`, `scripts/collect.py`, `scripts/get_financial_stats.py`, `scripts/rebuild_section4.py`, `generate_strategy_report.py`  
+관련 스펙: `specs/001-data-snapshot/` (SC-004), `specs/003-pipeline-split/` (원자료·재현)  
 최상위 헌법 원칙: II(출처 추적), III(조용한 오류 금지), IV(단일 원본), VI(Clean-Slate)
 
 ---
@@ -25,7 +25,7 @@
 
 ## 3. JSON 구조
 
-스냅샷 파일은 최상위 4개 객체(`meta`, `values`, `series`, `warnings`)로 구성됩니다. 보고서 생성(`generate_strategy_report.py`)이 끝나면 5번째 객체 `section4`가 덧붙습니다(spec 002):
+스냅샷 파일은 최상위 4개 객체(`meta`, `values`, `series`, `warnings`)로 구성됩니다. 형식 2(spec 003)는 여기에 원자료 `inputs`가 더해지며, 자세한 규칙은 §9에 있습니다. 보고서 생성(`generate_strategy_report.py`)이 끝나면 5번째 객체 `section4`가 덧붙습니다(spec 002):
 
 - `section4.text`: 보고서에 넣은 Section 4 본문 그대로(`## 4.` 제목 줄 제외) — 이후 수정 여부를 확인하는 기준본
 - `section4.sha256`: `text`의 SHA-256, `section4.attached_at`: 덧붙인 시각(KST)
@@ -176,7 +176,8 @@ Section 4의 표 및 계산식을 100% 역추적할 수 있도록 일관된 계�
 ## 7. 가격 이력 (`series`) 제한 규격
 
 - **260거래일 제한**: 종목 및 지수의 일별 가격 이력은 최근 260거래일(약 1년)의 종가(`close`) 및 거래량(`volume`)만 포함합니다.
-- **용량 제한**: 4개 종목 기준 스냅샷 파일의 전체 용량은 **2MB 이하**여야 합니다.
+- **용량 제한**: 4개 종목 기준 스냅샷 파일의 전체 용량은 형식 1 **2MB 이하**, 원자료를 포함하는 형식 2 **10MB 이하**입니다(spec 003 SC-007, 측정 약 2MB — 결정 0006).
+- `series`는 사람이 보는 요약입니다. 계산은 `inputs`의 전체 가격 이력(5년)을 읽습니다(§9).
 
 ---
 
@@ -184,3 +185,70 @@ Section 4의 표 및 계산식을 100% 역추적할 수 있도록 일관된 계�
 
 - **과거 스냅샷 참조 금지**: 새로운 분석 세션은 이전에 생성된 스냅샷 파일이나 과거 결론을 입력값으로 사용하지 않습니다. 모든 분석은 독립적으로 최신 데이터를 조회하여 수행합니다.
 - 스냅샷은 사후 감사, 회귀 검증, 인간 검토자의 출처 확인 목적으로만 열람됩니다.
+
+---
+
+## 9. 원자료(`inputs`)와 형식 2 (spec 003)
+
+같은 스냅샷이면 같은 Section 4가 나오도록, 정제·계산·출력이 읽는 **원자료 전부**를 받은 시각과 함께 저장합니다. 외부 접속과 현재 시각 읽기는 `collect.py`에서만 합니다.
+
+### 9-1. 최상위 키
+
+| 키 | 뜻 |
+|---|---|
+| `meta.format_version` | `2`. 없으면 형식 1(001·002) — 원자료가 없어 Section 4를 다시 만들 수 없습니다 |
+| `meta.collected_at` | 수집 완료 시각(ISO 8601, 초, `+09:00`). Section 4 데이터 기준 블록의 '생성' 시각 |
+| `meta.generated_at` | `collected_at`과 같은 시각의 `YYYY-MM-DD HH:MM KST` 글자. **형식 2부터 뜻이 '수집 완료 시각'** (형식 1은 저장 직전 시각) |
+| `meta.versions` | `python`, `yfinance`, `pandas`, `numpy` |
+| `meta.repo_commit` / `meta.repo_commit_error` | 코드 버전 / 알 수 없을 때 이유(빈 값을 조용히 남기지 않음) |
+| `inputs.<심볼>.<항목>` | 원자료 항목(§9-2). 지수는 `^KS11`처럼 지수 기호가 심볼 |
+| `values`, `series`, `warnings`, `section4` | 형식 1과 같은 형식·뜻. 형식 2에서는 원자료로부터 다시 만들 수 있습니다 |
+
+### 9-2. 원자료 항목
+
+```json
+{"source": "yahoo", "fetched_at": "2026-10-20T14:04:58+09:00", "status": "ok", "kind": "frame", "data": {}, "error": null, "note": null}
+```
+
+| 필드 | 값 |
+|---|---|
+| `source` | `yahoo`, `naver`, `wisereport`, `daum`, `pykrx` |
+| `fetched_at` | 받은 직후 시각(ISO 8601, 초, `+09:00`) |
+| `status` | `ok` 받음 · `empty` 받았지만 비어 있음 · `error` 예외(메시지는 `error`, 경고 문장에 그대로 들어감) · `skipped` 수집 조건이 맞지 않아 요청하지 않음 |
+| `kind` | `json`(응답 그대로) · `frame`(표) · `table`(WiseReport 표 머리 `headers`와 셀 `rows`). `ok`일 때만 `data`가 있습니다 |
+| `note` | 보조 설명(예: Yahoo `info`를 대체 경로로 받은 사유) |
+
+**표(`frame`) 형식**: `{"index": …, "columns": …, "dtypes": […], "data": [[…]]}`. 인덱스·열마다 `kind`(`datetime`/`index`), `tz`(시간대 **이름**, 예 `Asia/Seoul` — 고정 오프셋 금지), `unit`(날짜 정밀도), `name`, `dtype`, 값을 저장합니다. 날짜는 시간대를 뺀 현지 시각 글자, 결측은 `null`, 무한대는 `"Infinity"`/`"-Infinity"`입니다. 다시 읽은 표는 원래 표와 값·자료형·인덱스 이름까지 같아야 합니다(`raw_inputs.py`, 테스트 `test_raw_inputs.py`).
+
+### 9-3. 원자료 목록
+
+| 항목 | 대상 | kind | 출처 |
+|---|---|---|---|
+| `info` | 모든 종목 | json | yahoo |
+| `history` | 종목 5년 / 지수 1년, 모든 열 | frame | yahoo |
+| `income_stmt`, `quarterly_income_stmt`, `balance_sheet`, `quarterly_balance_sheet` | 모든 종목 | frame | yahoo |
+| `earnings_estimate`, `eps_trend`, `eps_revisions`, `earnings_history` | 모든 종목 | frame | yahoo |
+| `naver_integration`, `naver_trend` | 한국 종목 | json | naver |
+| `wisereport_eps` | 한국 종목 | table | wisereport |
+| `daum_days` | 한국 종목(응답 `data` 행) | json | daum |
+| `daum_quote`, `daum_investor_days` | 한국 종목, 당일 네이버 수급 행이 없는 평일만(아니면 `skipped`) | json | daum |
+| `pykrx_fundamental` | 한국 종목, `KRX_ID`·`KRX_PW`가 있을 때만(아니면 `skipped`) | json | pykrx |
+| `daum_index_days` | `^KS11`, `^KQ11` | json | daum |
+
+수집할 지수는 계산과 같은 함수(`default_benchmarks`, `market_index_for`)로 정합니다. 필요한 항목이 아예 없으면 형식 오류(`missing_input`)이고, `error`·`empty`·`skipped`로 기록된 항목은 생성 때와 같은 경고·빈 표를 냅니다.
+
+### 9-4. 시각 규칙
+
+시각이 필요한 정제·계산은 현재 시각이 아니라 **그 원자료의 받은 시각**을 씁니다.
+
+| 계산 | 쓰는 시각 |
+|---|---|
+| 수급 표의 '오늘' 판단, 장 마감(15:40) 전후, 평일 여부 | `naver_trend.fetched_at` |
+| 지난·다음 실적 발표일 | `info.fetched_at` |
+| NTM EPS 가중(올해·내년 비율) | 국내 `wisereport_eps.fetched_at`, 해외 `info.fetched_at` |
+| Section 4 데이터 기준 블록의 생성 시각 | `meta.collected_at` |
+
+### 9-5. 정제는 다시 실행한다
+
+스냅샷에는 원자료를 저장하고, 덮어쓰기·KI 교정·출처 간 대조·경고는 Section 4를 만들 때마다 원자료에서 같은 규칙으로 다시 실행합니다. 교정 기록(`original`·`ki`)은 지금처럼 `values`에 남고, 다시 만들 때 저장된 기록과 같아야 합니다. 생성할 때도 원자료를 JSON 글자로 바꿨다 다시 읽은 뒤 Section 4를 만들어, 생성과 재현이 같은 길을 씁니다.
+

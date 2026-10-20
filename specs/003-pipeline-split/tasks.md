@@ -65,7 +65,7 @@
   - `to_dict`/`dump`가 `meta.format_version: 2`와 `inputs`를 함께 쓴다. `values`·`series`·`warnings`·`section4` 형식은 바꾸지 않는다.
   - Section 4 머리 줄 떼기 함수 `section4_body(stdout_text)`를 여기로 옮긴다(지금은 `generate_strategy_report.py`의 `FINANCIAL_HEADER` 처리). `generate_strategy_report.py`는 이 함수를 쓰고, 동작은 그대로다.
   - 테스트는 `tests/test_snapshot.py`에 둔다
-- [ ] T007 [P] 규칙 원본 `FA/references/rules/data-snapshot.md`에 형식 2 절을 추가한다.
+- [x] T007 [P] 규칙 원본 `FA/references/rules/data-snapshot.md`에 형식 2 절을 추가한다.
   - data-model §1의 최상위 키 표, §2의 원자료 항목 필드 표와 표 형식, §3의 원자료 목록 표
   - 받은 시각 규칙: research R4의 표
   - 이전 형식 판별(R10)
