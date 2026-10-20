@@ -165,10 +165,11 @@
 
 ### 분리 전후 같음 (FR-014)
 
-- [ ] T018 [US1] 재생 비교 도구 `tests/tools/replay_main.py`(research R12, quickstart 6).
+- [x] T018 [US1] 재생 비교 도구 `tests/tools/replay_main.py`(research R12, quickstart 6).
   - 인자: `--main <worktree>`, `--snapshot`, `--out`
   - 분리 전 코드의 `get_financial_stats.generate_report`를 같은 프로세스에서 실행한다. 이때 `yf.Ticker`는 스냅샷 `inputs`를 돌려주는 가짜로 바꾼다(`info`, `history`(기간 인자 무시), 재무제표·컨센서스 속성, `_quote._info`). `requests.get`은 URL 패턴별로 해당 항목 JSON 또는 WiseReport HTML을 재구성해 돌려준다. `datetime`은 원자료의 받은 시각으로 고정한다(재생용 스냅샷은 받은 시각을 하나로 맞춘다).
   - `--out`에 Section 4를 쓰고, `RB --print` 결과와 `diff`한다. 차이 줄 수와 각 원인을 이 작업 아래에 기록한다. 0줄이 목표이고, 남는 차이는 원인과 판정 영향 여부를 적는다
+  - *(결과 2026-10-20)* `main` a82a5b7(별도 worktree)에 `tests/fixtures/003/snapshot_data.json`(받은 시각을 수집 완료 19:02:37로 통일)을 재생: 분리 전 305줄 · 분리 후 305줄 · **다른 줄 0**. 경고 17개의 문장·순서, 장중 잠정 행, 판정·종합 판단 모두 같음
 - [ ] T019 [US1] SC-001 로컬 확인. 장중 수집본과 장 마감 후 수집본을 각각 다른 날 네트워크를 끊고 `RB`로 다시 만들어 종료 코드 0인지 확인한다. 결과(수집·재현 시각, 종료 코드, 실행 시간, 스냅샷 크기)를 이 작업 아래에 기록한다
 
 **Checkpoint**: 새 보고서의 Section 4를 언제든 네트워크 없이 같게 다시 만들고, 바뀐 계산값·빠진 원자료·이전 형식을 구분해 알린다. 분리 전 코드와의 재생 비교 결과가 기록되어 있다.
