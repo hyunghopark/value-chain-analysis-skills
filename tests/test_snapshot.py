@@ -18,6 +18,18 @@ if SCRIPTS_DIR not in sys.path:
 from snapshot import Snapshot, BASES, STATUSES
 
 
+def _item(data, source, fetched_at="2026-10-14T10:00:00+09:00"):
+    return {"source": source, "fetched_at": fetched_at, "status": "ok", "kind": "json", "data": data,
+            "error": None, "note": None}
+
+
+def _use_raw(monkeypatch, inputs):
+    """Point the pipeline at synthetic raw inputs (spec 003: it reads nothing else)."""
+    import get_financial_stats as gfs
+    import raw_inputs as ri
+    monkeypatch.setitem(gfs.RUN, "raw", ri.RawInputs(inputs))
+
+
 def test_vocab_whitelist():
     snap = Snapshot()
     # Valid bases
@@ -113,7 +125,7 @@ def test_dump_and_io_error():
 
 
 def test_collect_meta():
-    from get_financial_stats import collect_meta
+    from collect import collect_meta
     meta = collect_meta({"tickers": "005930.KS", "cyclical": ""})
     assert "generated_at" in meta
     assert "args" in meta
@@ -130,7 +142,7 @@ def test_collect_meta():
 
 def test_collect_meta_records_git_failure(monkeypatch):
     import subprocess
-    from get_financial_stats import collect_meta
+    from collect import collect_meta
 
     def boom(*args, **kwargs):
         raise FileNotFoundError("git not found")
@@ -240,7 +252,7 @@ def test_adr_correction_recorded():
     assert abs(ps_rec["value"] - 13.5) < 0.01
 
 
-def test_history_reconciliation_recorded():
+def test_history_reconciliation_recorded(monkeypatch):
     import pandas as pd
     from get_financial_stats import check_krx_history, HISTORY, SNAP
 
@@ -259,16 +271,13 @@ def test_history_reconciliation_recorded():
 
     sym = "009999.KS"
     HISTORY[sym] = yahoo_hist
-    info = {'_krx_daily': ref_df}
+    info = {}
 
-    import data_checks
-    # Patch data_checks.fetch_daum_days to return ref_df
-    orig_fetch = data_checks.fetch_daum_days
-    data_checks.fetch_daum_days = lambda code: ref_df
-    try:
-        check_krx_history(sym, info)
-    finally:
-        data_checks.fetch_daum_days = orig_fetch
+    # The Daum rows come from the run's raw inputs (spec 003), as stored by collect.py
+    rows = [{"date": f"{d:%Y-%m-%d} 00:00:00", "tradePrice": c, "accTradeVolume": v}
+            for d, c, v in zip(ref_df.index, ref_df['Close'], ref_df['Volume'])]
+    _use_raw(monkeypatch, {sym: {"daum_days": _item(rows, "daum")}})
+    check_krx_history(sym, info)
 
     # Day 2 should be replaced (KI-006)
     d2_str = f"{dates[1]:%Y-%m-%d}"
@@ -338,7 +347,6 @@ def test_warnings_and_meta_match_report_section8():
 
 def test_flow_table_totals_and_ratio_recorded(monkeypatch):
     """수급 표의 '최근 5일 누적(추정)' 행과 외국인 지분율 칸도 스냅샷에 있어야 한다 (SC-002)."""
-    import requests
     from get_financial_stats import fetch_investor_trends_table, SNAP
 
     days = ["20261007", "20261008", "20261009", "20261012", "20261013"]
@@ -349,20 +357,14 @@ def test_flow_table_totals_and_ratio_recorded(monkeypatch):
         for i, d in enumerate(reversed(days))
     ]
 
-    class FakeResponse:
-        def __init__(self, payload):
-            self.payload = payload
-
-        def json(self):
-            return self.payload
-
-    def fake_get(url, **kwargs):
-        if "m.stock.naver.com" in url:
-            return FakeResponse(naver_rows)
-        return FakeResponse({"date": "20000101"})  # 다음 금융: 당일 거래 아님 → 장중 추정 행 없음
-
-    monkeypatch.setattr(requests, "get", fake_get)
     sym = "009998.KS"
+    # Received on a weekday without its own Naver row, so the Daum quote is read: not today's trade → no intraday row
+    _use_raw(monkeypatch, {sym: {
+        "naver_trend": _item(naver_rows, "naver", "2026-10-14T10:00:00+09:00"),
+        "daum_quote": _item({"date": "20000101"}, "daum", "2026-10-14T10:00:01+09:00"),
+        "daum_investor_days": {"source": "daum", "fetched_at": "2026-10-14T10:00:01+09:00", "status": "skipped",
+                               "kind": None, "data": None, "error": None, "note": None},
+    }})
     table = fetch_investor_trends_table("009998", "테스트", {"symbol": sym})
 
     # 표에 보인 누적 금액(억 원)과 스냅샷 값이 같아야 한다

@@ -22,7 +22,10 @@ _FETCHED_AT = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+09:00$')
 _FRAME_KEYS = {'index', 'columns', 'dtypes', 'data'}
 
 
-class RawInputError(Exception):
+class RawInputError(BaseException):
+    """A snapshot that cannot be rebuilt from. Derived from BaseException on purpose: the pipeline has many
+    `except Exception` blocks that turn source failures into warnings, and a broken snapshot must stop the
+    rebuild instead of becoming a data-quality warning (constitution III)."""
     code = 'invalid_input'
 
     def __init__(self, msg, path=None):
@@ -218,7 +221,8 @@ def check_format(snapshot):
 
 
 def dumps(meta, inputs):
-    return json.dumps({'meta': meta, 'inputs': inputs}, ensure_ascii=False, allow_nan=False)
+    # json items keep Yahoo's NaN as is (like Snapshot.dump); frames never contain NaN tokens (see _plain)
+    return json.dumps({'meta': meta, 'inputs': inputs}, ensure_ascii=False)
 
 
 def loads(text):

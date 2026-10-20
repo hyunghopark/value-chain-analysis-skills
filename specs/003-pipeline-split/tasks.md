@@ -83,19 +83,19 @@
 
 ### 테스트 먼저
 
-- [ ] T008 [US1] `TRB` 코드 검사 테스트(SC-002, FR-001 확인 기준 (a), research R11). `GFS`·`RAW`·`RB`·`FA/scripts/data_checks.py`·`FA/scripts/snapshot.py`를 AST로 읽어 다음이 없는지 확인한다. `COL`과 각 파일의 `if __name__ == "__main__":` 블록은 예외다.
+- [x] T008 [US1] `TRB` 코드 검사 테스트(SC-002, FR-001 확인 기준 (a), research R11). `GFS`·`RAW`·`RB`·`FA/scripts/data_checks.py`·`FA/scripts/snapshot.py`를 AST로 읽어 다음이 없는지 확인한다. `COL`과 각 파일의 `if __name__ == "__main__":` 블록은 예외다.
   - 네트워크 라이브러리 import: `requests`, `yfinance`, `bs4`, `pykrx`, `urllib`, `socket`. 함수 안의 지역 import도 잡는다.
   - 시각 호출: `datetime.now`, `datetime.today`, `date.today`, `time.time`
   - `snapshot.attach_section4`의 `datetime.now`는 Section 4 글자에 들어가지 않으므로 허용 목록에 이유와 함께 둔다. 이 테스트는 지금 실패해야 한다
 
 ### 수집 (`COL`)
 
-- [ ] T009 [US1] `COL` Yahoo 수집(research R1·R2·R4, data-model §2·§3).
+- [x] T009 [US1] `COL` Yahoo 수집(research R1·R2·R4, data-model §2·§3).
   - `collect_ticker(sym)`은 `info`를 받는다. `t.info`가 실패해 `t._quote._info`로 대신 받으면 `status: ok`, `note`에 예외 글자를 남긴다. `info`가 없거나 `'symbol'`이 없으면 `status: error`다.
   - 그 밖의 항목: `history`(`period='5y'`, `auto_adjust=False`, 전체 열), `income_stmt`, `quarterly_income_stmt`, `balance_sheet`, `quarterly_balance_sheet`, `earnings_estimate`, `eps_trend`, `eps_revisions`, `earnings_history`.
   - 각 항목에 `source: yahoo`와 받은 직후의 `fetched_at`(KST, 초)을 단다. 예외는 `status: error`와 `error=str(e)`, 빈 표는 `status: empty`다.
   - `TCO`에 `network` 표시 테스트(로컬 전용) 1개를 둔다: MU 수집 결과의 항목 이름·상태·kind
-- [ ] T010 [US1] `COL` 국내 수집과 요청 함수 이동.
+- [x] T010 [US1] `COL` 국내 수집과 요청 함수 이동.
   - `collect_kr(sym)`이 받는 항목:
     - `naver_integration`: 응답 JSON 전체
     - `wisereport_eps`: `kind: table`, `{"headers": [...], "rows": [[...]]}`. HTML은 저장하지 않는다
@@ -103,7 +103,7 @@
     - `pykrx_fundamental`: `KRX_ID`·`KRX_PW`가 있을 때만 받는다. 해당 종목 행과 기준일을 저장하고, 없으면 `skipped`다
   - `FA/scripts/data_checks.py`의 `fetch_daum_days`, `fetch_daum_index_days`, `fetch_naver_fchart`, `fetch_nasdaq_history`를 `COL`로 옮긴다. 해석 함수 `daum_frame` 등은 `data_checks.py`에 남긴다.
   - `FA/scripts/check_data_sources.py`와 `tests/test_data_checks.py`의 import를 고친다. `TCO`에 `network` 테스트 1개(000660)를 둔다
-- [ ] T011 [US1] `COL` 수급·지수·전체 수집.
+- [x] T011 [US1] `COL` 수급·지수·전체 수집.
   - `collect_flows(sym)`은 `naver_trend`를 받는다. 그 `fetched_at` 기준으로 오늘 행이 없는 평일이면 `daum_quote`와 `daum_investor_days`도 받는다. 지금 `fetch_investor_trends_table`의 조건과 같다. 받지 않으면 두 항목은 `status: skipped`다.
   - `collect_indices`는 `GFS`의 `default_benchmarks`·`market_index_for`로 지수 목록을 정하고 다음을 받는다.
     - `history`: `period='1y'`
@@ -112,7 +112,7 @@
 
 ### 정제·계산·출력 (`GFS`)
 
-- [ ] T012 [US1] `GFS` 종목 정제를 원자료 기반으로 바꾼다(research R5·R6).
+- [x] T012 [US1] `GFS` 종목 정제를 원자료 기반으로 바꾼다(research R5·R6).
   - `get_stats(sym)`을 `refine_ticker(sym, raw)`로 바꾼다. `yf.Ticker`·`t.xxx`·`requests.get` 대신 `RAW`로 읽는다.
   - 처리 순서와 `warn` 위치·문장은 지금과 같아야 한다. `status: error` 항목은 지금 `except` 자리의 문장을 저장된 `error` 글자로 만든다. 예: `"{sym}: 네이버 API 오류 ({error})"`, `"{sym}: 가격 이력 조회 실패 ({error})"`.
   - 바꿀 함수:
@@ -121,15 +121,16 @@
     - `enrich_global_stock`: `compute_ntm_eps(today=info.fetched_at 날짜)`
     - `check_krx_history`: `daum_days` 항목을 `data_checks.daum_frame`으로 바꾼다
     - `check_statement_lag`, `fetch_estimates`, `analyze_cycle`, `compute_pb_band`, `audit_unusual_items`: 원자료 표를 읽는다
-- [ ] T013 [US1] `GFS` 표 생성 중 접속·시각 제거.
+- [x] T013 [US1] `GFS` 표 생성 중 접속·시각 제거.
   - `fetch_investor_trends_table`은 `naver_trend`·`daum_quote`·`daum_investor_days` 항목을 읽는다. `now_kst`는 `naver_trend.fetched_at`이다.
   - `market_context_table`은 `yf.Ticker(b).history` 대신 지수 `history` 항목을 읽는다. `check_krx_index`는 `daum_index_days` 항목으로 하되, 지금과 같은 자리(시장 비교 표 안)에서 실행한다.
   - `earnings_dates(info, now)`: `now` = `info.fetched_at`
   - `data_basis_block`: 생성 시각 = `meta.collected_at`
-- [ ] T014 [US1] `GFS` 생성 경로(research R7, contracts §1).
+- [x] T014 [US1] `GFS` 생성 경로(research R7, contracts §1).
   - `reset_state()`는 `WARNINGS`·`HISTORY`·`SNAP`을 비운다.
   - `build_section4(raw, meta, options)`는 지금 `generate_report`의 본문(종목 정제 → 순환 지정 → 표 → 경고 섹션)을 옮긴 순수 함수다. `options`는 `tickers`·`cyclical_add`·`cyclical_remove`·`benchmarks`·`weights`다.
   - `main`의 순서: `COL.collect_all`(함수 안 import) → `RAW.dumps`/`loads` 왕복 → `build_section4` → `--snapshot`이면 `meta`·`inputs`·`values`·`series`·`warnings`를 한 번에 저장. 저장 실패 시 경고하고 계속하는 동작은 그대로다.
+  - *(결과 2026-10-20 19:02 KST)* 새 코드로 4개 종목 실제 수집(12.9초, 스냅샷 2.39MB) → 같은 스냅샷으로 `build_section4` 재실행: Section 4·values 646개·warnings 17개 모두 같음. 분리 전 코드(18:49) 기준과 판정 기호 행 23줄 같음(나머지 22줄은 13분 사이 데이터 변화: 시가총액, 장중 추정). 지수 목록은 `sorted()`로 순서를 고정(분리 전에는 집합 순서라 프로세스마다 경고 순서가 달라질 수 있었음)
   - `tests/test_snapshot.py`에서 `yf`·`requests`를 흉내 내던 테스트(`generate_report`, `check_krx_history`, `fetch_investor_trends_table`)를 합성 원자료 기반으로 바꾼다. 검사 내용(기록 경로·값·상태)은 유지한다. 이 작업 뒤 T008이 통과해야 한다
 - [ ] T015 [US1] 시험 스냅샷 `FX`(research R14, 로컬 실행).
   - 장중에 `get_financial_stats.py --tickers 000660.KS,005930.KS,MU,TSM --snapshot`으로 받는다. 표준 출력에 `snapshot.section4_body`를 적용하고 `attach_section4`로 기준본을 덧붙여 `FX/snapshot_data.json`을 만든다.

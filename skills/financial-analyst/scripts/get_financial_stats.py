@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Quantitative data collector for the financial-analyst / investment-strategy skills.
+"""Quantitative tables (Section 4) for the financial-analyst / investment-strategy skills.
 
 Prints markdown tables to stdout. Every data-quality warning goes to stderr and is also
 collected into the final "데이터 품질 경고" section, so the agent writing the report sees
 it instead of losing it in stderr.
+
+Spec 003: collect.py fetches every source once and stores the raw responses (raw_inputs.py).
+Everything in this file refines, computes and prints from those raw inputs only, so the same
+snapshot always gives the same Section 4 (rebuild_section4.py).
 """
 import argparse
 import datetime
@@ -13,9 +17,9 @@ import statistics
 import sys
 
 import pandas as pd
-import yfinance as yf
 
 import data_checks
+import raw_inputs as ri
 from data_checks import ki
 import snapshot
 from snapshot import Snapshot
@@ -46,12 +50,47 @@ MARKET_STATE_KO = {
 WARNINGS = []
 HISTORY = {}
 SNAP = Snapshot()
+RUN = {}                # 'raw': RawInputs of the run, 'collected_at': collection end time (meta.collected_at)
+ECHO_WARNINGS = True    # rebuild_section4.py turns the stderr echo off
+
+
+class RecordedFailure(Exception):
+    """A source failure recorded at collection time, raised again with its original message so the
+    surrounding `except` writes the same warning as the run that collected it (spec 003 R6)."""
 
 
 def warn(msg):
-    print(f"[Warn] {msg}", file=sys.stderr)
+    if ECHO_WARNINGS:
+        print(f"[Warn] {msg}", file=sys.stderr)
     WARNINGS.append(msg)
     SNAP.warning(msg)
+
+
+def reset_state():
+    WARNINGS.clear()
+    HISTORY.clear()
+    RUN.clear()
+    SNAP.values.clear()
+    SNAP.series_data.clear()
+    SNAP.warnings.clear()
+
+
+def raw_data(sym, name, kind='json'):
+    """Stored response for inputs.<sym>.<name>: data, None when it came back empty, RecordedFailure when it failed."""
+    raw = RUN['raw']
+    item = raw.get(sym, name)
+    if item['status'] == 'error':
+        raise RecordedFailure(item['error'])
+    if item['status'] == 'skipped':
+        raise ri.InvalidInput(f"원자료 형식 오류: inputs.{sym}.{name} — 수집하지 않은 항목(skipped)이 필요함", f"inputs.{sym}.{name}")
+    if item['status'] == 'empty':
+        return None
+    return {'json': raw.json, 'frame': raw.frame, 'table': raw.table}[kind](sym, name)
+
+
+def fetched(sym, name):
+    """When inputs.<sym>.<name> was received — the 'now' of every time-dependent step (spec 003 R4)."""
+    return RUN['raw'].fetched_at(sym, name)
 
 
 def num(val):
@@ -304,11 +343,15 @@ def sanitize_metrics(info, ticker_symbol=""):
 
 
 def compute_ntm_eps(eps_fy0, eps_fy1, info=None, today=None):
-    """Compute 12M Forward (NTM) EPS using remaining days (d/365) weighting between FY0 and FY1."""
+    """Compute 12M Forward (NTM) EPS using remaining days (d/365) weighting between FY0 and FY1.
+
+    `today` is the date the estimates were received (spec 003 R4), never the clock.
+    """
     if eps_fy0 is None or eps_fy1 is None:
         return None
     import calendar
-    today = today or datetime.date.today()
+    if today is None:
+        raise ValueError("compute_ntm_eps needs the fetch date (today=)")
     fy0_end = datetime.date(today.year, 12, 31)
     if info:
         ts = info.get('nextFiscalYearEnd') or info.get('lastFiscalYearEnd')
@@ -331,24 +374,19 @@ def compute_ntm_eps(eps_fy0, eps_fy1, info=None, today=None):
     return w0 * float(eps_fy0) + w1 * float(eps_fy1)
 
 
-def fetch_wisereport_ntm_eps(code, headers, today=None):
-    """Fetch FY0(E) and FY1(E) consensus EPS from WiseReport cF1002.aspx and return (eps_fy0, eps_fy1, ntm_eps)."""
-    import requests
-    import re
-    from bs4 import BeautifulSoup
+def parse_wisereport_eps(table, today):
+    """FY0(E) and FY1(E) consensus EPS from the stored WiseReport cF1002 table: (eps_fy0, eps_fy1, ntm_eps).
 
-    today = today or datetime.date.today()
-    url = f"https://navercomp.wisereport.co.kr/v2/company/cF1002.aspx?cmp_cd={code}&finGubun=MAIN"
-    res = requests.get(url, headers=headers, timeout=5)
-    res.raise_for_status()
-    soup = BeautifulSoup(res.text, 'html.parser')
+    `today` is the date the table was received (spec 003 R4).
+    """
+    import re
+
     # EPS is read by cell position, so refuse to parse a table whose layout moved (KI-004).
-    data_checks.validate_wisereport_header([th.get_text(strip=True) for th in soup.select('table thead th')])
+    data_checks.validate_wisereport_header(table['headers'])
 
     eps_by_year = {}
     estimate_eps = []
-    for tr in soup.select('table tbody tr'):
-        cells = [td.get_text(strip=True) for td in tr.find_all('td')]
+    for cells in table['rows']:
         if len(cells) >= 6:
             data_checks.check_wisereport_row(cells)
             period_str = cells[0]
@@ -376,15 +414,9 @@ def fetch_wisereport_ntm_eps(code, headers, today=None):
 
 def enrich_korean_stock(info, ticker_symbol, orig_fpe, orig_feps, orig_peg):
     """Overlay Naver / WiseReport consensus (and optional PyKrx) data on Yahoo data for KRX stocks."""
-    import requests
-    code = ticker_symbol.split('.')[0]
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
-
     # Priority 1: Naver Mobile Stock Integration JSON API
     try:
-        res = requests.get(f"https://m.stock.naver.com/api/stock/{code}/integration", headers=headers, timeout=5)
-        res.raise_for_status()
-        data = res.json()
+        data = raw_data(ticker_symbol, 'naver_integration')
 
         total_infos = data.get('totalInfos') or []
         kv = {item.get('code'): item.get('value') for item in total_infos if isinstance(item, dict)}
@@ -489,7 +521,8 @@ def enrich_korean_stock(info, ticker_symbol, orig_fpe, orig_feps, orig_peg):
 
     # Priority 1-B: WiseReport 12M Forward (NTM) EPS & P/E (blending FY0 and FY1 by remaining days d/365)
     try:
-        wr_fy0, wr_fy1, ntm_eps = fetch_wisereport_ntm_eps(code, headers)
+        wr_fy0, wr_fy1, ntm_eps = parse_wisereport_eps(raw_data(ticker_symbol, 'wisereport_eps', 'table'),
+                                                       fetched(ticker_symbol, 'wisereport_eps').date())
         info['_wr_fy0'], info['_wr_fy1'] = wr_fy0, wr_fy1
         price = info.get('currentPrice') or info.get('regularMarketPrice')
         if wr_fy0 is not None and wr_fy0 > 0:
@@ -525,24 +558,11 @@ def enrich_korean_stock(info, ticker_symbol, orig_fpe, orig_feps, orig_peg):
         SNAP.record(f"{ticker_symbol}.metrics.peg_ratio", info['pegRatio'], source="calculated", basis="derived", status="final",
                     inputs=[f"{ticker_symbol}.metrics.forward_pe"])
 
-    # Priority 2: PyKrx Fallback (KRX Official Data) for anything still missing
-    import os
-    krx_id = os.environ.get('KRX_ID')
-    krx_pw = os.environ.get('KRX_PW')
-    if krx_id and krx_pw:
+    # Priority 2: PyKrx Fallback (KRX Official Data) for anything still missing — collected only with KRX_ID/KRX_PW
+    if RUN['raw'].get(ticker_symbol, 'pykrx_fundamental')['status'] != 'skipped':
         try:
-            from pykrx import stock
-
-            df = None
-            for i in range(10):
-                date_str = (datetime.datetime.today() - datetime.timedelta(days=i)).strftime('%Y%m%d')
-                temp_df = stock.get_market_fundamental(date_str, market="ALL")
-                if not temp_df.empty:
-                    df = temp_df
-                    break
-
-            if df is not None and code in df.index:
-                row = df.loc[code]
+            row = (raw_data(ticker_symbol, 'pykrx_fundamental') or {}).get('row')
+            if row is not None:
                 if not info.get('trailingPE') and 'PER' in row and row['PER'] > 0:
                     info['trailingPE'] = float(row['PER'])
                 if not info.get('priceToBook') and 'PBR' in row and row['PBR'] > 0:
@@ -558,13 +578,13 @@ def enrich_korean_stock(info, ticker_symbol, orig_fpe, orig_feps, orig_peg):
             warn(f"{ticker_symbol}: PyKrx 오류 ({e})")
 
 
-def enrich_global_stock(info, t, orig_fpe, orig_peg):
+def enrich_global_stock(info, ticker_symbol, orig_fpe, orig_peg):
     """Compute 12M Forward (NTM) EPS & P/E using d/365 day-weighting of FY0 and FY1."""
     eps_fy0 = info.get('epsCurrentYear')
     eps_fy1 = info.get('forwardEps') or info.get('epsForward')
     if eps_fy0 is None or eps_fy1 is None:
         try:
-            ee = t.earnings_estimate
+            ee = raw_data(ticker_symbol, 'earnings_estimate', 'frame')
             if ee is not None and not ee.empty and 'avg' in ee.columns:
                 if eps_fy0 is None and '0y' in ee.index and pd.notna(ee.loc['0y', 'avg']):
                     eps_fy0 = float(ee.loc['0y', 'avg'])
@@ -572,7 +592,7 @@ def enrich_global_stock(info, t, orig_fpe, orig_peg):
                     eps_fy1 = float(ee.loc['+1y', 'avg'])
         except Exception:
             pass
-    ntm_eps = compute_ntm_eps(eps_fy0, eps_fy1, info=info)
+    ntm_eps = compute_ntm_eps(eps_fy0, eps_fy1, info=info, today=info['_fetched_at'].date())
     price = info.get('currentPrice') or info.get('regularMarketPrice')
 
     # Determine ADR / currency scale factor if EPS is in financialCurrency while price is in trading currency
@@ -607,7 +627,7 @@ def enrich_global_stock(info, t, orig_fpe, orig_peg):
 def check_krx_history(symbol, info):
     """Reconcile a KR stock's Yahoo history with KRX closes from Daum (KI-002, KI-006)."""
     try:
-        ref = data_checks.fetch_daum_days(symbol.split('.')[0])
+        ref = data_checks.daum_frame(raw_data(symbol, 'daum_days'))
     except Exception as e:
         warn(ki('KI-002', f"{symbol}: 다음 금융 일별 시세 조회 실패({e}) — Yahoo 가격 이력을 거래소 종가와 대조하지 못했습니다."))
         return
@@ -640,7 +660,7 @@ def check_krx_index(bench):
     if not market or hist is None:
         return
     try:
-        ref = data_checks.fetch_daum_index_days(market)
+        ref = data_checks.daum_frame(raw_data(bench, 'daum_index_days'))
     except Exception as e:
         warn(ki('KI-002', f"{bench}: 다음 금융 지수 시세 조회 실패({e}) — Yahoo 지수 이력을 대조하지 못했습니다."))
         return
@@ -673,13 +693,13 @@ def check_volume(symbol):
         warn(ki('KI-005', f"{symbol}: Yahoo 거래량 이상치 {len(outliers)}일 — {ex}. 거래량 관련 수치는 이 날짜를 제외하고 보세요."))
 
 
-def check_statement_lag(t, info, symbol):
+def check_statement_lag(info, symbol):
     """Warn when Yahoo's statement tables trail the periods its summary fields already report (KI-003)."""
     for attr, key, what, effect in (
             ('income_stmt', 'lastFiscalYearEnd', '연간', '사이클 위치·순환업종 판정은 그 이전 연도까지 기준이며, 갱신되면 판정이 바뀔 수 있습니다'),
             ('quarterly_income_stmt', 'mostRecentQuarter', '분기', '일회성 손익 감사·P/B 밴드는 이전 분기 기준입니다')):
         try:
-            df = getattr(t, attr)
+            df = raw_data(symbol, attr, 'frame')
         except Exception:
             continue
         latest = max(df.columns) if df is not None and not df.empty else None
@@ -797,22 +817,20 @@ def record_yahoo_raw_info(symbol, info):
             SNAP.record(f"{symbol}.{path_suffix}", val, source="yahoo", basis=basis, status="final")
 
 
-def get_stats(ticker_symbol):
+def refine_ticker(ticker_symbol):
+    """One ticker's Yahoo info refined with Naver/WiseReport/KRX data and checked, from the run's raw inputs."""
     try:
-        t = yf.Ticker(ticker_symbol)
-        try:
-            info = t.info
-        except Exception as inner_e:
-            # Defend against yfinance _fetch_complementary() failure when base _info succeeded
-            q = getattr(t, '_quote', None)
-            info = getattr(q, '_info', None) if q is not None else None
-            if info:
-                warn(f"{ticker_symbol}: 보조 시세 조회 실패({inner_e}) — 기본 시세 정보만 사용")
-            else:
-                raise inner_e
+        item = RUN['raw'].get(ticker_symbol, 'info')
+        if item['status'] == 'error':
+            raise RecordedFailure(item['error'])
+        info = raw_data(ticker_symbol, 'info')
+        if info and item.get('note'):
+            # collect.py fell back to yfinance's base quote after _fetch_complementary() failed
+            warn(f"{ticker_symbol}: 보조 시세 조회 실패({item['note']}) — 기본 시세 정보만 사용")
         if not info or 'symbol' not in info:
             return None
         info = dict(info)
+        info['_fetched_at'] = fetched(ticker_symbol, 'info')
 
         # Record raw Yahoo values before any enrichment / override
         record_yahoo_raw_info(ticker_symbol, info)
@@ -833,7 +851,7 @@ def get_stats(ticker_symbol):
         if ticker_symbol.endswith('.KS') or ticker_symbol.endswith('.KQ'):
             enrich_korean_stock(info, ticker_symbol, orig_fpe, orig_feps, orig_peg)
         else:
-            enrich_global_stock(info, t, orig_fpe, orig_peg)
+            enrich_global_stock(info, ticker_symbol, orig_fpe, orig_peg)
 
         basis = info.get('_fwd_basis')
         if basis and basis != 'NTM':
@@ -841,7 +859,7 @@ def get_stats(ticker_symbol):
 
         sanitize_metrics(info, ticker_symbol)
         try:
-            hist = t.history(period='5y', auto_adjust=False)
+            hist = raw_data(ticker_symbol, 'history', 'frame')
             HISTORY[ticker_symbol] = hist if hist is not None and not hist.empty else None
         except Exception as e:
             HISTORY[ticker_symbol] = None
@@ -849,23 +867,23 @@ def get_stats(ticker_symbol):
         if ticker_symbol.endswith(('.KS', '.KQ')):
             check_krx_history(ticker_symbol, info)
         check_volume(ticker_symbol)
-        check_statement_lag(t, info, ticker_symbol)
-        info['_est'] = fetch_estimates(t, info, ticker_symbol)
-        info['_cycle'] = analyze_cycle(t, info, ticker_symbol)
-        info['_audit_result'] = audit_unusual_items(t, info, ticker_symbol)
+        check_statement_lag(info, ticker_symbol)
+        info['_est'] = fetch_estimates(info, ticker_symbol)
+        info['_cycle'] = analyze_cycle(info, ticker_symbol)
+        info['_audit_result'] = audit_unusual_items(info, ticker_symbol)
         return info
     except Exception as e:
         print(f"Error fetching {ticker_symbol}: {e}", file=sys.stderr)
         return None
 
 
-def fetch_estimates(t, info, symbol):
+def fetch_estimates(info, symbol):
     """Yahoo consensus tables used by the revision, surprise and scenario sections."""
     est = {'scale': 1.0}
     for key, attr in (('ee', 'earnings_estimate'), ('trend', 'eps_trend'),
                       ('revisions', 'eps_revisions'), ('history', 'earnings_history')):
         try:
-            df = getattr(t, attr)
+            df = raw_data(symbol, attr, 'frame')
             est[key] = df if isinstance(df, pd.DataFrame) and not df.empty else None
         except Exception as e:
             est[key] = None
@@ -915,14 +933,14 @@ def est_value(info, period, col):
     return v if col == 'numberOfAnalysts' else v * est.get('scale', 1.0)
 
 
-def analyze_cycle(t, info, symbol):
+def analyze_cycle(info, symbol):
     """Earnings-cycle diagnostics: annual net income drawdown, margin position, and P/B band.
 
     Rule: references/rules/cycle-position.md (thresholds and known limits live there, not here).
     """
     out = {'auto': False, 'basis': None, 'opm_hist': []}
     try:
-        inc = t.income_stmt
+        inc = raw_data(symbol, 'income_stmt', 'frame')
     except Exception as e:
         inc = None
         warn(f"{symbol}: 연간 손익계산서 조회 실패 ({e})")
@@ -974,11 +992,11 @@ def analyze_cycle(t, info, symbol):
             out['cycle_sig'], out['cycle_desc'] = '🟡', '이익률 과거 중앙값~최고'
         else:
             out['cycle_sig'], out['cycle_desc'] = '🟢', '이익률 과거 중앙값 미만 (회복 구간)'
-    out['band'] = compute_pb_band(t, info, symbol)
+    out['band'] = compute_pb_band(info, symbol)
     return out
 
 
-def compute_pb_band(t, info, symbol):
+def compute_pb_band(info, symbol):
     """Historical P/B band from Yahoo balance sheets and same-day closes; the current P/B uses the same method.
 
     Rule: references/rules/verdict-matrix.md#pb-band
@@ -989,7 +1007,7 @@ def compute_pb_band(t, info, symbol):
     raw = {}
     for attr in ('balance_sheet', 'quarterly_balance_sheet'):
         try:
-            bs = getattr(t, attr)
+            bs = raw_data(symbol, attr, 'frame')
         except Exception:
             bs = None
         if bs is None or bs.empty:
@@ -1070,11 +1088,11 @@ def compute_pb_band(t, info, symbol):
     }
 
 
-def audit_unusual_items(t, info, ticker_symbol):
+def audit_unusual_items(info, ticker_symbol):
     """Detect large one-off items in the last 4 quarters and recompute nominal vs normalized
     ROE/EPS on the same denominators (average equity, median diluted shares)."""
     try:
-        q = t.quarterly_income_stmt
+        q = raw_data(ticker_symbol, 'quarterly_income_stmt', 'frame')
         if q is None or q.empty:
             return None
         dates = [d for d in q.columns if q[d].notna().any()][:4]
@@ -1123,7 +1141,7 @@ def audit_unusual_items(t, info, ticker_symbol):
         shares = shares or num(info.get('sharesOutstanding'))
 
         avg_eq = None
-        bs = t.quarterly_balance_sheet
+        bs = raw_data(ticker_symbol, 'quarterly_balance_sheet', 'frame')
         if bs is not None and not bs.empty:
             eq_row = next((r for r in ('Common Stock Equity', 'Stockholders Equity') if r in bs.index), None)
             if eq_row:
@@ -1207,8 +1225,8 @@ def revision_summary(info):
 
 
 def earnings_dates(info):
-    """(last, next) earnings dates in KST from Yahoo's earnings timestamps."""
-    now = datetime.datetime.now(datetime.timezone.utc).timestamp()
+    """(last, next) earnings dates in KST from Yahoo's earnings timestamps, as of when the info was received."""
+    now = info['_fetched_at'].timestamp()
     stamps = [num(info.get(k)) for k in ('earningsTimestamp', 'earningsTimestampStart', 'earningsTimestampEnd')]
     stamps = [s for s in stamps if s]
     past = [s for s in stamps if s <= now]
@@ -1220,19 +1238,18 @@ def earnings_dates(info):
     return last, nxt
 
 
-def fetch_investor_trends_table(ticker_code, company_name, info):
-    import requests
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Referer': 'https://finance.daum.net'}
+def fetch_investor_trends_table(ticker_code, company_name, info, symbol=None):
+    """Investor-flow table 1-1 from the stored Naver/Daum responses; 'today' is when the Naver rows arrived."""
+    key = symbol or info.get('symbol') or f"{ticker_code}.KS"
     try:
-        res = requests.get(f'https://m.stock.naver.com/api/stock/{ticker_code}/trend',
-                           headers={'User-Agent': 'Mozilla/5.0'}, timeout=5).json()
+        res = raw_data(key, 'naver_trend')
     except Exception as e:
         warn(f"{company_name}({ticker_code}): 네이버 수급 API 오류 ({e})")
         return ''
     if not isinstance(res, list) or not res:
         return ''
 
-    now_kst = datetime.datetime.now(KST)
+    now_kst = fetched(key, 'naver_trend')
     today_str = now_kst.strftime('%Y%m%d')
     naver_dates = [digits8(r.get('bizdate')) for r in res]
     has_today = today_str in naver_dates
@@ -1270,11 +1287,10 @@ def fetch_investor_trends_table(ticker_code, company_name, info):
     # Today has no Naver row yet: estimate today's foreign flow from the foreign-ownership change (intraday only)
     if not has_today and now_kst.weekday() < 5:
         try:
-            dq = requests.get(f'https://finance.daum.net/api/quotes/A{ticker_code}', headers=headers, timeout=5).json()
+            dq = raw_data(key, 'daum_quote')
             trade_date = digits8(dq.get('date') or dq.get('tradeDate'))
             if trade_date == today_str:
-                ddays = requests.get(f'https://finance.daum.net/api/investor/days?page=1&perPage=5&symbolCode=A{ticker_code}',
-                                     headers=headers, timeout=5).json()
+                ddays = raw_data(key, 'daum_investor_days')
                 prev = next((d for d in (ddays.get('data') or [])
                              if digits8(d.get('date') or d.get('tradeDate')) not in ('', today_str)
                              and d.get('foreignOwnShares')), None)
@@ -1368,7 +1384,7 @@ def fetch_investor_trends_table(ticker_code, company_name, info):
 
 
 def data_basis_block(results):
-    now = datetime.datetime.now(KST).strftime('%Y-%m-%d %H:%M KST')
+    now = RUN['collected_at'].strftime('%Y-%m-%d %H:%M KST')
     parts = []
     for sym, info in results.items():
         state = str(info.get('marketState') or '')
@@ -1404,7 +1420,7 @@ def investor_section(tickers_list, results):
         if symbol in results and symbol.endswith(('.KS', '.KQ')):
             info = results[symbol]
             name = info.get('shortName') or info.get('longName') or symbol
-            tbl = fetch_investor_trends_table(symbol.split('.')[0], name, info)
+            tbl = fetch_investor_trends_table(symbol.split('.')[0], name, info, symbol)
             if tbl:
                 tables.append(tbl)
     if not tables:
@@ -1496,10 +1512,11 @@ def market_index_for(sym):
 def market_context_table(symbols, results, benchmarks):
     benchmarks = [b for b in benchmarks if b not in symbols]
     # Index histories double as each market's trading calendar, so they are loaded even when not listed.
-    for b in set(benchmarks) | {market_index_for(s) for s in symbols if market_index_for(s)}:
+    # Sorted so warnings come in the same order on every run (a set's order changes between processes).
+    for b in sorted(set(benchmarks) | {market_index_for(s) for s in symbols if market_index_for(s)}):
         if b not in HISTORY:
             try:
-                h = yf.Ticker(b).history(period='1y', auto_adjust=False)
+                h = raw_data(b, 'history', 'frame')
                 HISTORY[b] = h if h is not None and not h.empty else None
                 check_krx_index(b)
             except Exception as e:
@@ -1981,7 +1998,7 @@ def scenario_table(results, weights):
         if not price or avg is None:
             lines.append(f"| **{sym}** | Yahoo 추정치 없음 | - | - | - | - | - |")
             continue
-        ntm = compute_ntm_eps(fy0, avg, info=info) if fy0 is not None else avg
+        ntm = compute_ntm_eps(fy0, avg, info=info, today=info['_fetched_at'].date()) if fy0 is not None else avg
         mult_a = price / ntm if ntm and ntm > 0 else None
         tgt = num(info.get('_yahoo_target_mean'))
         mult_b = tgt / avg if (tgt and avg > 0) else None
@@ -2064,39 +2081,6 @@ def warnings_section():
     return "\n".join(lines) + "\n"
 
 
-def collect_meta(args_dict):
-    import platform
-    import subprocess
-    import numpy as np
-    now_kst = datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST")
-    versions = {
-        'python': platform.python_version(),
-        'yfinance': getattr(yf, '__version__', 'unknown'),
-        'pandas': getattr(pd, '__version__', 'unknown'),
-        'numpy': getattr(np, '__version__', 'unknown'),
-    }
-    # An unknown commit is recorded with its reason, never silently dropped (spec 003 R15).
-    repo_commit, repo_commit_error = None, None
-    try:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        res = subprocess.run(["git", "-C", script_dir, "rev-parse", "--short", "HEAD"],
-                             capture_output=True, text=True, timeout=2)
-        if res.returncode == 0 and res.stdout.strip():
-            repo_commit = res.stdout.strip()
-        else:
-            repo_commit_error = (res.stderr or '').strip() or f"git exit {res.returncode}"
-    except Exception as e:
-        repo_commit_error = f"{type(e).__name__}: {e}"
-
-    return {
-        "generated_at": now_kst,
-        "args": args_dict or {},
-        "versions": versions,
-        "repo_commit": repo_commit,
-        "repo_commit_error": repo_commit_error,
-    }
-
-
 def record_history_series():
     for sym, hist in HISTORY.items():
         if hist is not None and not hist.empty and 'Close' in hist.columns:
@@ -2112,19 +2096,54 @@ def record_history_series():
                 SNAP.series(f"{sym}.volume", vol_dict, source=src, basis=b, limit=260)
 
 
-def generate_report(tickers_list, cyclical_add=frozenset(), cyclical_remove=frozenset(), benchmarks=None, weights=DEFAULT_WEIGHTS, snapshot_path=None, raw_args=None):
+class NoData(Exception):
+    """No ticker produced usable data."""
+
+
+def split_list(text):
+    return [x.strip() for x in (text or '').split(',') if x.strip()]
+
+
+def run_options(args, overrides=None):
+    """Options of a run from snapshot meta.args (strings as given on the command line), plus allowed overrides."""
+    opts = {
+        'tickers': split_list(args.get('tickers')),
+        'cyclical_add': set(split_list(args.get('cyclical'))),
+        'cyclical_remove': set(split_list(args.get('not_cyclical'))),
+        'benchmarks': split_list(args.get('benchmarks')) or None,
+        'weights': parse_weights(args.get('weights') or '0.2,0.5,0.3'),
+    }
+    opts.update(overrides or {})
+    if opts['weights'] is None:
+        raise ValueError(f"meta.args.weights {args.get('weights')!r}: Bull,Base,Bear 세 숫자, 합 1")
+    return opts
+
+
+def build_section4(snapshot, overrides=None, after_tables=None):
+    """Section 4 markdown from a format-2 snapshot (meta + raw inputs) — no network, no clock (spec 003).
+
+    The command builds from the snapshot it just collected and rebuild_section4.py from a saved one,
+    so both take the same path. `after_tables` runs before the warning section is written (the
+    command saves the snapshot there, so a save failure still appears in Section 8).
+    """
+    reset_state()
+    ri.check_format(snapshot)
+    RUN['raw'] = ri.RawInputs(snapshot['inputs'])
+    RUN['collected_at'] = datetime.datetime.fromisoformat(snapshot['meta']['collected_at'])
+    opts = run_options(snapshot['meta'].get('args') or {}, overrides)
+    tickers_list, weights, benchmarks = opts['tickers'], opts['weights'], opts['benchmarks']
+    cyclical_add, cyclical_remove = opts['cyclical_add'], opts['cyclical_remove']
+
     results = {}
     for symbol in tickers_list:
-        print(f"Fetching data for {symbol}...", file=sys.stderr)
-        info = get_stats(symbol)
+        info = refine_ticker(symbol)
         if info:
             results[symbol] = info
         else:
             warn(f"{symbol}: 데이터를 가져오지 못해 표에서 제외했습니다.")
 
     if not results:
-        print("No data retrieved.", file=sys.stderr)
-        sys.exit(1)
+        raise NoData("No data retrieved.")
 
     for symbol, info in results.items():
         cyc = info.get('_cycle') or {}
@@ -2158,17 +2177,31 @@ def generate_report(tickers_list, cyclical_add=frozenset(), cyclical_remove=froz
         audit_table(results),
         scenario_table(results, weights),
     ]
+    record_history_series()
+    if after_tables:
+        after_tables()
+    sections.append(warnings_section())
+    return "\n".join(s for s in sections if s)
 
-    if snapshot_path:
+
+def generate_report(tickers_list, cyclical_add=frozenset(), cyclical_remove=frozenset(), benchmarks=None, weights=DEFAULT_WEIGHTS, snapshot_path=None, raw_args=None):
+    """Collect every source, round-trip the raw inputs through JSON, then build Section 4 from them (research R7)."""
+    import collect
+    args = dict(raw_args or {})
+    # meta.args holds the options actually used, so a rebuild of the snapshot uses them too
+    args.update(tickers=','.join(tickers_list), cyclical=','.join(sorted(cyclical_add)),
+                not_cyclical=','.join(sorted(cyclical_remove)), benchmarks=','.join(benchmarks or []),
+                weights=','.join(repr(float(w)) for w in weights))
+    meta, inputs = collect.collect_all(tickers_list, benchmarks, args)
+    snap = ri.loads(ri.dumps(meta, inputs))
+
+    def save():
         try:
-            record_history_series()
-            meta = collect_meta(raw_args)
-            SNAP.dump(snapshot_path, meta=meta)
+            SNAP.dump(snapshot_path, meta=snap['meta'], inputs=snap['inputs'])
         except Exception as e:
             warn(f"데이터 스냅샷 저장 실패 ({snapshot_path}): {e}")
 
-    sections.append(warnings_section())
-    return "\n".join(s for s in sections if s)
+    return build_section4(snap, after_tables=save if snapshot_path else None)
 
 
 def parse_weights(text):
@@ -2201,16 +2234,17 @@ if __name__ == "__main__":
     if weights is None:
         parser.error("--weights must be three non-negative numbers (Bull,Base,Bear) that sum to 1, e.g. 0.2,0.5,0.3")
 
-    def split(text):
-        return [x.strip() for x in text.split(',') if x.strip()]
-
-    markdown_report = generate_report(
-        split(args.tickers),
-        set(split(args.cyclical)),
-        set(split(args.not_cyclical)),
-        split(args.benchmarks) or None,
-        weights,
-        snapshot_path=args.snapshot or None,
-        raw_args=vars(args),
-    )
+    try:
+        markdown_report = generate_report(
+            split_list(args.tickers),
+            set(split_list(args.cyclical)),
+            set(split_list(args.not_cyclical)),
+            split_list(args.benchmarks) or None,
+            weights,
+            snapshot_path=args.snapshot or None,
+            raw_args=vars(args),
+        )
+    except NoData:
+        print("No data retrieved.", file=sys.stderr)
+        sys.exit(1)
     print(markdown_report)
