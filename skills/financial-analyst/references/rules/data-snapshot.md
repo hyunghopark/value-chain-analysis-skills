@@ -270,7 +270,7 @@ python skills/financial-analyst/scripts/rebuild_section4.py X_data.json --json a
 uv run --no-project --with-requirements skills/financial-analyst/requirements.txt python skills/financial-analyst/scripts/rebuild_section4.py reports/X_data.json [--json r.json] [--print] [--verbose]
 ```
 
-- **확인 모드**(기본): 스냅샷 하나로 Section 4를 다시 만들어 기준본(`section4.text`, 줄 단위)·`values`(경로별로 정확히 같은지)·`warnings`(순서 포함)와 비교합니다. Section 4만 다르고 값·경고가 같으면 '계산 결과 같음, 글자만 다름'(`cause: text_only`)으로 구분합니다. 기록된 라이브러리 버전과 지금 버전이 다르면 경고만 하고 비교는 계속합니다.
+- **확인 모드**(기본): 스냅샷 하나로 Section 4를 다시 만들어 기준본(`section4.text`, 줄 단위로 정확히)·`values`(경로별)·`warnings`(순서 포함)와 비교합니다. `values`의 숫자(`value`, `original`)는 **상대 오차 1e-9(절대 1e-12) 안이면 같은 값**으로 봅니다. 같은 pandas·numpy라도 CPU 구조(x86_64와 arm64)에 따라 이동 표준편차·지수이동평균의 마지막 자리가 다르기 때문입니다(측정 상대 차이 약 5e-15). 이렇게 오차 안에서 달라진 경로는 숨기지 않고 `within_tolerance`에 따로 나열합니다. 글자·판정 기호·`None`·참거짓은 정확히 같아야 합니다. Section 4만 다르고 값·경고가 같으면 '계산 결과 같음, 글자만 다름'(`cause: text_only`)으로 구분합니다. 기록된 라이브러리 버전과 지금 버전이 다르면 경고만 하고 비교는 계속합니다.
 - **재계산 모드**: `--weights`, `--cyclical`, `--not-cyclical`만 바꿀 수 있고 `--out`(새 파일)이 필요합니다. 결과 파일 머리에 '재계산 결과 — 보고서가 아닙니다', 원본 경로·SHA-256, 바꾼 옵션을 적습니다. 스냅샷에 없는 종목·지수가 필요한 옵션은 거부하고 다시 수집하지 않습니다.
 - 지정한 스냅샷 하나만 읽고, 스냅샷은 고치지 않습니다(헌법 VI).
 

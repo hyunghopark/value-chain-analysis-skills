@@ -16,6 +16,7 @@ import argparse
 import difflib
 import hashlib
 import json
+import math
 import os
 import platform
 import sys
@@ -27,6 +28,11 @@ import snapshot as snapmod
 
 EXIT_SAME, EXIT_DIFF, EXIT_ERROR = 0, 1, 2
 SHOW = 20  # differences printed without --verbose
+# Numbers recomputed on another CPU architecture can differ in the last bits (pandas rolling/EWM kernels give
+# x86_64 and arm64 results ~1e-15 apart). Within this tolerance a value is the same; such paths are still listed.
+# Rule: references/rules/data-snapshot.md §9-7 — change both in one commit.
+VALUE_REL_TOL, VALUE_ABS_TOL = 1e-9, 1e-12
+NUMERIC_FIELDS = ('value', 'original')
 RECOMPUTE_OPTIONS = (('weights', 'weights'), ('cyclical', 'cyclical'), ('not_cyclical', 'not_cyclical'))
 
 LEGACY_MSG = ("이 스냅샷은 원자료가 없는 이전 형식(001·002)이라 다시 만들 수 없습니다. "
@@ -59,13 +65,29 @@ def _canon(record):
     return json.dumps(record, sort_keys=True, ensure_ascii=False)
 
 
+def _close(a, b):
+    """Same number up to floating-point noise; anything else (text, signals, None, bools) must match exactly."""
+    if isinstance(a, bool) or isinstance(b, bool) or not (isinstance(a, (int, float)) and isinstance(b, (int, float))):
+        return _canon(a) == _canon(b)
+    if math.isnan(a) or math.isnan(b):
+        return math.isnan(a) and math.isnan(b)
+    return math.isclose(a, b, rel_tol=VALUE_REL_TOL, abs_tol=VALUE_ABS_TOL)
+
+
 def compare_values(stored, rebuilt):
-    changed = [{'path': p, 'stored': stored[p].get('value'), 'rebuilt': rebuilt[p].get('value'),
-                'fields': sorted(k for k in set(stored[p]) | set(rebuilt[p]) if _canon(stored[p].get(k)) != _canon(rebuilt[p].get(k)))}
-               for p in stored if p in rebuilt and _canon(stored[p]) != _canon(rebuilt[p])]
+    changed, within = [], []
+    for p in stored:
+        if p not in rebuilt or _canon(stored[p]) == _canon(rebuilt[p]):
+            continue
+        fields = sorted(k for k in set(stored[p]) | set(rebuilt[p]) if _canon(stored[p].get(k)) != _canon(rebuilt[p].get(k)))
+        if all(k in NUMERIC_FIELDS and _close(stored[p].get(k), rebuilt[p].get(k)) for k in fields):
+            within.append(p)
+        else:
+            changed.append({'path': p, 'stored': stored[p].get('value'), 'rebuilt': rebuilt[p].get('value'), 'fields': fields})
     added = sorted(p for p in rebuilt if p not in stored)
     removed = sorted(p for p in stored if p not in rebuilt)
-    return {'same': not (changed or added or removed), 'count': len(stored), 'changed': changed, 'added': added, 'removed': removed}
+    return {'same': not (changed or added or removed), 'count': len(stored), 'changed': changed, 'added': added,
+            'removed': removed, 'within_tolerance': within}
 
 
 def compare_lines(baseline, rebuilt):
@@ -239,7 +261,12 @@ def render_summary(r, verbose=False):
             out.append(f"  {d['line']}행: {_short(d['baseline'])} → {_short(d['rebuilt'])}")
     v = r['values']
     if v['same']:
-        out.append(f"계산 결과(values): 같음 ({v['count']:,}개)")
+        tol = v.get('within_tolerance') or []
+        note = (f"; 마지막 자리만 다른 {len(tol)}개는 허용 오차(상대 {VALUE_REL_TOL:g}) 안 — CPU 구조에 따른 부동소수점 차이"
+                if tol else "")
+        out.append(f"계산 결과(values): 같음 ({v['count']:,}개{note})")
+        if tol and verbose:
+            out += [f"  ≈ {p}" for p in tol]
     else:
         out.append(f"계산 결과(values): 다름 — 바뀜 {len(v['changed'])} · 새로 생김 {len(v['added'])} · 없어짐 {len(v['removed'])}")
         out += _value_lines(v, limit)

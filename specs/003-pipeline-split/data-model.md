@@ -132,7 +132,8 @@
   "format_version": 2,
   "version_warnings": ["pandas 3.0.3 → 3.0.5"],
   "section4": {"compared": true, "same": false, "diff": [{"line": 41, "baseline": "...", "rebuilt": "..."}]},
-  "values":   {"same": false, "changed": [{"path": "MU.metrics.forward_pe", "stored": 9.81, "rebuilt": 9.83}], "added": [], "removed": []},
+  "values":   {"same": false, "changed": [{"path": "MU.metrics.forward_pe", "stored": 9.81, "rebuilt": 9.83}], "added": [], "removed": [],
+               "within_tolerance": ["MU.technical.bollinger_lower"]},
   "warnings": {"same": true, "diff": []},
   "errors":   [],
   "exit_code": 1
@@ -145,6 +146,7 @@
 | `section4.compared` | 기준본이 있을 때만 `true`. 없으면 `false`이고 차이로 보지 않는다(값·경고 비교는 한다) |
 | `errors` | 다시 만들 수 없는 이유. 예: `{"code": "missing_input", "path": "inputs.MU.quarterly_balance_sheet"}`, `{"code": "legacy_format"}`, `{"code": "option_needs_data", "detail": "--cyclical 000990.KS (스냅샷에 없는 종목)"}` |
 | `rebuilt_at` | 재현 도구 자신의 실행 기록용. 재현 결과(Section 4·values)에는 들어가지 않는다 |
+| `values.within_tolerance` | 숫자가 상대 1e-9(절대 1e-12) 안에서만 다른 경로 — 같은 값으로 보지만 나열한다(CPU 구조 차이, research R8 조정) |
 
 **오류 코드**: `legacy_format`, `missing_input`, `invalid_input`(형식이 맞지 않음), `unreadable`(파일 읽기 실패), `option_rejected`(허용하지 않는 옵션), `option_needs_data`, `output_exists`. 모두 종료 코드 2다.
 
