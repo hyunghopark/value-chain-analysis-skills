@@ -252,3 +252,15 @@ Section 4의 표 및 계산식을 100% 역추적할 수 있도록 일관된 계�
 
 스냅샷에는 원자료를 저장하고, 덮어쓰기·KI 교정·출처 간 대조·경고는 Section 4를 만들 때마다 원자료에서 같은 규칙으로 다시 실행합니다. 교정 기록(`original`·`ki`)은 지금처럼 `values`에 남고, 다시 만들 때 저장된 기록과 같아야 합니다. 생성할 때도 원자료를 JSON 글자로 바꿨다 다시 읽은 뒤 Section 4를 만들어, 생성과 재현이 같은 길을 씁니다.
 
+### 9-6. 규칙 변경 전후 비교 (spec 003 US2)
+
+판정 기준값·계산 방식을 바꾸는 PR은 **같은 스냅샷**으로 바꾸기 전과 후의 Section 4를 비교해, 달라진 줄과 계산값을 PR에 적습니다. 실시간 데이터로 비교하면 실행 사이의 시세 변동이 섞이므로 쓰지 않습니다.
+
+```bash
+git worktree add /tmp/before main                # 바꾸기 전 코드
+python /tmp/before/skills/financial-analyst/scripts/rebuild_section4.py X_data.json --print > before.md
+python skills/financial-analyst/scripts/rebuild_section4.py X_data.json --json after.json   # 바꾼 코드: 저장값과 차이 보고
+```
+
+`rebuild_section4.py`는 Section 4 차이가 계산값 변화 때문인지(`cause: values`) 글자만 바뀐 것인지(`cause: text_only`) 구분합니다. 바꾸기 전 코드에 재현 도구가 없으면(003 이전) `tests/tools/replay_main.py`로 같은 원자료를 재생해 비교합니다.
+

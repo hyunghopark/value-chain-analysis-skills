@@ -182,18 +182,19 @@
 
 **Independent Test**: 기준값 하나만 바꾼 코드로 `FX`를 다시 만들면, 차이가 그 기준값의 영향 범위 안에만 있다.
 
-- [ ] T020 [US2] `TRB` 영향 범위 테스트(SC-005, US2 시나리오 1·2).
+- [x] T020 [US2] `TRB` 영향 범위 테스트(SC-005, US2 시나리오 1·2).
   - 같은 코드로 두 번 만들면 차이가 0줄이다.
   - `GFS.THRESHOLDS['fpe']`를 바꿔 만들면, Section 4의 차이 줄이 모두 허용 목록 안에 있어야 한다.
     - 4·5번 매트릭스에서 해당 종목 행
     - 4·5번 표 아래 판정 기준 설명 줄
   - `values`의 차이 경로도 허용 목록 안에 있어야 한다: `rules.forward_pe.*`
   - 허용 목록 밖 차이가 하나라도 있으면 실패한다
-- [ ] T021 [US2] `RB` 차이 구분(US2 시나리오 3).
+  - *(결과 2026-10-20)* `fpe` (18,30)→(10,15): Section 4 4줄(TSM 4·5번 행, 기준 설명 2줄)·values 2개(`rules.forward_pe.*`)만 다름, TSM 4번 종합 🟢→🟡
+- [x] T021 [US2] `RB` 차이 구분(US2 시나리오 3).
   - Section 4는 다르지만 `values`·`warnings`가 같으면 요약에 "계산 결과 같음, 글자만 다름"을 표시한다. JSON에서는 `section4.cause: "text_only"`다.
   - `values`가 다르면 `"values"`다.
   - `TRB` 테스트: 출력 형식 함수(예: `fmt_signed_pct`의 자릿수)만 바꾼 경우는 `text_only`, 계산을 바꾼 경우는 `values`로 나오는지 확인한다
-- [ ] T022 [P] [US2] 규칙 변경 전후 비교 방법을 문서에 적는다.
+- [x] T022 [P] [US2] 규칙 변경 전후 비교 방법을 문서에 적는다.
   - `FA/references/rules/data-snapshot.md`의 재현 절: 같은 스냅샷으로 `main` worktree와 작업 브랜치에서 `RB --print`를 실행해 `diff`하는 방법
   - `CLAUDE.md` 규칙 1(기준값 변경)에 "같은 스냅샷으로 전후 Section 4를 비교해 PR에 적는다"를 추가한다
 

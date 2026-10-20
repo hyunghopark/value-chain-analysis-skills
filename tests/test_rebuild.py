@@ -249,3 +249,48 @@ def test_cli_exit_codes(tmp_path, capsys):
     assert rb.main([LEGACY, "--json", str(out_json)]) == 2
     assert json.loads(out_json.read_text(encoding="utf-8"))["errors"][0]["code"] == "legacy_format"
     assert rb.main([str(tmp_path / "missing_data.json")]) == 2
+
+
+# --- US2: the same snapshot shows exactly what a code change did (SC-005, US2 scenarios 1–3) ---
+
+def test_same_code_twice_is_identical():
+    import get_financial_stats as gfs
+    gfs.ECHO_WARNINGS = False
+    snap = _load_fx()
+    first = gfs.build_section4(copy.deepcopy(snap))
+    first_values = json.dumps(gfs.SNAP.values, sort_keys=True)
+    assert gfs.build_section4(copy.deepcopy(snap)) == first
+    assert json.dumps(gfs.SNAP.values, sort_keys=True) == first_values
+
+
+def test_threshold_change_stays_in_its_scope(monkeypatch):
+    """Changing the Forward P/E thresholds may only change general-company matrix rows, the criteria notes and rules.forward_pe.*."""
+    import get_financial_stats as gfs
+    monkeypatch.setitem(gfs.THRESHOLDS, "fpe", (10, 15))
+    result, _ = _rb().verify(FX)
+    diff = result["section4"]["diff"]
+    assert diff, "the change must show up (TSM, a general company, is judged on Forward P/E)"
+
+    def allowed_line(line):
+        if line is None:
+            return True
+        matrix_row = line.startswith("| **") and "| 일반 |" in line          # tables 4 and 5, general companies
+        criteria = "Forward PE(<" in line                                   # notes under tables 4 and 5
+        return matrix_row or criteria
+    outside = [d for d in diff if not (allowed_line(d["baseline"]) and allowed_line(d["rebuilt"]))]
+    assert not outside, outside
+    v = result["values"]
+    assert not v["added"] and not v["removed"]
+    assert v["changed"] and all(c["path"].startswith("rules.forward_pe.") for c in v["changed"]), v["changed"]
+    assert result["section4"]["cause"] == "values"
+
+
+def test_text_only_change_is_told_apart(monkeypatch):
+    """US2 scenario 3: a formatting change alters Section 4 text while every computed value stays the same."""
+    import get_financial_stats as gfs
+    monkeypatch.setattr(gfs, "fmt_signed_pct", lambda val, digits=1: f"{val * 100:+.{digits + 1}f}%" if isinstance(val, (int, float)) else "N/A")
+    result, _ = _rb().verify(FX)
+    assert result["exit_code"] == 1
+    assert result["values"]["same"] and result["warnings"]["same"]
+    assert result["section4"]["cause"] == "text_only"
+    assert "글자만 다름" in _rb().render_summary(result)
