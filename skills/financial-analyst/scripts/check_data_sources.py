@@ -14,6 +14,7 @@ import sys
 import pandas as pd
 import yfinance as yf
 
+import collect
 import data_checks as dc
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
@@ -25,8 +26,8 @@ def won(v):
 
 def kr_section(code, days):
     lines = [f"## 한국 종목 {code} — Yahoo · 거래소(다음 금융) · 네이버(차트)\n"]
-    krx = dc.fetch_daum_days(code, per_page=100, pages=3).iloc[-days:]
-    naver = dc.fetch_naver_fchart(code, count=days + 30)
+    krx = collect.fetch_daum_days(code, per_page=100, pages=3).iloc[-days:]
+    naver = collect.fetch_naver_fchart(code, count=days + 30)
     ya = yf.Ticker(f"{code}.KS").history(start=krx.index[0].strftime('%Y-%m-%d'),
                                           end=(krx.index[-1] + pd.Timedelta(days=1)).strftime('%Y-%m-%d'), auto_adjust=False)
     start, end = krx.index[0], krx.index[-1]
@@ -72,7 +73,7 @@ def us_section(symbol, days):
     lines = [f"## 미국 종목 {symbol} — Yahoo · Nasdaq.com\n"]
     end = datetime.date.today()
     start = end - datetime.timedelta(days=int(days * 1.5))
-    nq = dc.fetch_nasdaq_history(symbol, start.isoformat(), end.isoformat())
+    nq = collect.fetch_nasdaq_history(symbol, start.isoformat(), end.isoformat())
     nq = nq.iloc[-days:]
     ya = yf.Ticker(symbol).history(start=nq.index[0].strftime('%Y-%m-%d'),
                                    end=(nq.index[-1] + pd.Timedelta(days=1)).strftime('%Y-%m-%d'), auto_adjust=False)

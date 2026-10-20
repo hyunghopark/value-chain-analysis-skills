@@ -3,7 +3,8 @@
 Rules: skills/financial-analyst/references/rules/data-quality.md
 Incidents (KI-xxx): wiki/known-issues/ in the value-chain-analysis-skills repository.
 
-Pure functions (no network) come first so tests can feed them fixtures; fetchers follow.
+Pure functions only (no network), so tests and snapshot rebuilds can feed them stored responses.
+The requests that produce those responses live in collect.py (spec 003).
 """
 import datetime
 import math
@@ -176,56 +177,3 @@ def ref_close_on(ref, date8):
         return None
     d = pd.Timestamp(f"{date8[:4]}-{date8[4:6]}-{date8[6:]}")
     return float(ref.at[d, 'Close']) if d in ref.index and pd.notna(ref.at[d, 'Close']) else None
-
-
-# ---------------------------------------------------------------- fetchers (network)
-
-def fetch_daum_days(code, per_page=100, pages=1):
-    """Daily KRX OHLCV from Daum Finance (finance.daum.net) — the KRX-close reference for KR stocks."""
-    import requests
-    headers = {'User-Agent': BROWSER_UA, 'Referer': 'https://finance.daum.net'}
-    rows = []
-    for p in range(1, pages + 1):
-        r = requests.get(f"https://finance.daum.net/api/quote/A{code}/days",
-                         params={'symbolCode': f'A{code}', 'page': p, 'perPage': per_page, 'pagination': 'true'},
-                         headers=headers, timeout=8)
-        r.raise_for_status()
-        rows += r.json().get('data') or []
-    return daum_frame(rows)
-
-
-def fetch_daum_index_days(market, per_page=100):
-    """Daily KRX index closes (KOSPI/KOSDAQ) from Daum Finance; open/high/low may be absent."""
-    import requests
-    r = requests.get("https://finance.daum.net/api/market_index/days",
-                     params={'page': 1, 'perPage': per_page, 'market': market, 'pagination': 'true'},
-                     headers={'User-Agent': BROWSER_UA, 'Referer': 'https://finance.daum.net'}, timeout=8)
-    r.raise_for_status()
-    return daum_frame(r.json().get('data') or [])
-
-
-def fetch_naver_fchart(code, count=260):
-    """Daily OHLCV from Naver's chart feed (same basis as the Naver mobile price API)."""
-    import re
-    import requests
-    xml = requests.get("https://fchart.stock.naver.com/sise.nhn",
-                       params={'symbol': code, 'timeframe': 'day', 'count': count, 'requestType': 0},
-                       headers={'User-Agent': BROWSER_UA}, timeout=8).text
-    recs = {}
-    for item in re.findall(r'data="([^"]+)"', xml):
-        d, o, h, l, c, v = item.split('|')
-        recs[pd.Timestamp(d)] = {'Open': float(o), 'High': float(h), 'Low': float(l), 'Close': float(c), 'Volume': float(v)}
-    return pd.DataFrame.from_dict(recs, orient='index').sort_index()
-
-
-def fetch_nasdaq_history(symbol, start, end, limit=400):
-    """Daily close/volume from Nasdaq.com for US listings."""
-    import requests
-    r = requests.get(f"https://api.nasdaq.com/api/quote/{symbol}/historical",
-                     params={'assetclass': 'stocks', 'fromdate': start, 'todate': end, 'limit': limit},
-                     headers={'User-Agent': BROWSER_UA, 'Accept': 'application/json, text/plain, */*'}, timeout=20)
-    r.raise_for_status()
-    rows = ((r.json().get('data') or {}).get('tradesTable') or {}).get('rows') or []
-    recs = {pd.Timestamp(datetime.datetime.strptime(x['date'], '%m/%d/%Y')):
-            {'Close': _num(x['close'].replace('$', '')), 'Volume': _num(x['volume'])} for x in rows}
-    return pd.DataFrame.from_dict(recs, orient='index').sort_index()

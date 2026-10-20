@@ -17,12 +17,12 @@
 | `.specify/` | Spec Kit: 헌법(`memory/constitution.md`), 템플릿, PowerShell 보조 스크립트. `feature.json`(현재 스펙 폴더)은 PC별이라 Git 제외. |
 | `.claude/skills/speckit-*` | Spec Kit 명령 스킬 (`/speckit-specify` 등). |
 | `docs/decisions/` | 왜 그렇게 정했는지(결정 기록). |
-| `tests/` | `data_checks.py`·`snapshot.py`·`check_report_numbers.py` 테스트. `fixtures/002/`는 숫자 점검 검증 세트(사람이 확정한 라벨). |
+| `tests/` | 스크립트 테스트. `fixtures/002/`는 숫자 점검 검증 세트(사람이 확정한 라벨), `fixtures/003/`은 재현 시험 스냅샷(pandas·numpy는 `requirements-pinned.txt`에 고정), `tools/replay_main.py`는 분리 전 코드 재생 비교(로컬 수동). |
 | `.claude/skills/karpathy-llm-wiki/` | 위키 스킬 (고정 커밋 복사본, 이 저장소에서만 작동). |
 
 ## 규칙
 
-1. **기준값을 바꾸면** 규칙 문서·코드·테스트를 같은 커밋에서 고치고, `docs/decisions/`에 이유를 남깁니다.
+1. **기준값을 바꾸면** 규칙 문서·코드·테스트를 같은 커밋에서 고치고, `docs/decisions/`에 이유를 남깁니다. 같은 스냅샷으로 바꾸기 전후 Section 4를 비교해(`rebuild_section4.py`, 규칙 원본 `data-snapshot.md` §9-6) 달라진 줄을 PR에 적습니다.
 2. **새 데이터 문제를 발견하면** `references/rules/data-quality.md`의 '새 데이터 문제를 발견했을 때' 절차를 따릅니다. 근거(`raw/`) → 사건 문서(`wiki/known-issues/`) → 코드 경고 `ki('KI-NNN', ...)` → 테스트 순서입니다.
 3. **위키에는 방법론과 데이터 품질 사실만** 넣습니다. 기업별 분석 결론·판정·목표가는 넣지 않습니다(investment-strategy의 Clean-Slate 원칙).
 4. 위키 숫자는 `raw/`에 글자 그대로 있어야 합니다. 커밋 전 근거 대조를 돌립니다.
@@ -43,13 +43,15 @@
 
 ```bash
 # 테스트 (CI와 같음, 네트워크 없음)
-uv run --no-project --with-requirements skills/financial-analyst/requirements.txt --with pytest pytest tests -q -m "not network"
+uv run --no-project --with-requirements skills/financial-analyst/requirements.txt --with-requirements tests/requirements-pinned.txt --with pytest pytest tests -q -m "not network"
 # 실제 데이터 출처에 접속하는 테스트까지 전부 (로컬)
-uv run --no-project --with-requirements skills/financial-analyst/requirements.txt --with pytest pytest tests -q
+uv run --no-project --with-requirements skills/financial-analyst/requirements.txt --with-requirements tests/requirements-pinned.txt --with pytest pytest tests -q
 # 출처 정기 점검 (결과를 raw/data-checks/YYYY-MM-DD-cross-source-check.md로 저장한 뒤 위키에 ingest)
 uv run --no-project --with-requirements skills/financial-analyst/requirements.txt python skills/financial-analyst/scripts/check_data_sources.py --krx 005930,000660 --us MU
 # 보고서 숫자 점검 (보고서 옆의 *_data.json을 자동으로 찾음, --section: 점검 결과 블록, --fetch-sources: 기사 대조)
 uv run --no-project --with-requirements skills/financial-analyst/requirements.txt python skills/financial-analyst/scripts/check_report_numbers.py reports/보고서.md
+# Section 4 재현 확인 (스냅샷만, 네트워크 없음 — 0 같음 / 1 다름 / 2 다시 만들 수 없음)
+uv run --no-project --with-requirements skills/financial-analyst/requirements.txt python skills/financial-analyst/scripts/rebuild_section4.py reports/보고서_data.json
 # 위키 근거 대조
 python .claude/skills/karpathy-llm-wiki/scripts/check_evidence.py .
 ```

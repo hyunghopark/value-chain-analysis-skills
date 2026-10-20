@@ -29,6 +29,10 @@ STATUSES = {
     'corrected',
 }
 
+FORMAT_VERSION = 2  # snapshots with raw inputs (spec 003); format 1 has no format_version
+# First line of get_financial_stats.py output; the report's Section 4 is what follows it.
+FINANCIAL_HEADER = "## 📊 정량 데이터 분석 결과 (스크립트 자동 산출)"
+
 _UNSET = object()
 _KI_PATTERN = re.compile(r'\[(KI-\d+)\]')
 
@@ -138,24 +142,40 @@ class Snapshot:
             "msg": clean_msg,
         })
 
-    def to_dict(self, meta: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Return snapshot representation as a dictionary."""
-        return {
-            "meta": meta or {},
-            "values": self.values,
-            "series": self.series_data,
-            "warnings": self.warnings,
-        }
+    def to_dict(self, meta: Optional[Dict[str, Any]] = None, inputs: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Return snapshot representation as a dictionary.
 
-    def dump(self, file_path: str, meta: Optional[Dict[str, Any]] = None) -> None:
+        With raw inputs it is format 2 (spec 003): Section 4 can be rebuilt from `inputs` alone.
+        """
+        meta = dict(meta or {})
+        payload: Dict[str, Any] = {"meta": meta}
+        if inputs is not None:
+            meta["format_version"] = FORMAT_VERSION
+            payload["inputs"] = inputs
+        payload.update({"values": self.values, "series": self.series_data, "warnings": self.warnings})
+        return payload
+
+    def dump(self, file_path: str, meta: Optional[Dict[str, Any]] = None, inputs: Optional[Dict[str, Any]] = None) -> None:
         """Serialize snapshot to JSON file. Raises Exception on I/O error."""
         parent_dir = os.path.dirname(os.path.abspath(file_path))
         if parent_dir and not os.path.exists(parent_dir):
             os.makedirs(parent_dir, exist_ok=True)
 
-        payload = self.to_dict(meta=meta)
+        payload = self.to_dict(meta=meta, inputs=inputs)
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
+
+
+def section4_body(stdout_text: str) -> str:
+    """Section 4 as the report holds it: the script output without its header line.
+
+    generate_strategy_report.py and rebuild_section4.py both use this, so a rebuilt Section 4
+    compares line by line with the stored baseline (spec 003 FR-005).
+    """
+    text = stdout_text.strip()
+    if text.startswith(FINANCIAL_HEADER):
+        text = text[len(FINANCIAL_HEADER):].strip()
+    return text
 
 
 def attach_section4(file_path: str, text: str) -> None:
