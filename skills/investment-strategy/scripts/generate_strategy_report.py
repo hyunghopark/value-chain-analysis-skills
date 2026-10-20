@@ -5,7 +5,6 @@ import subprocess
 import sys
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
-FINANCIAL_HEADER = "## 📊 정량 데이터 분석 결과 (스크립트 자동 산출)"
 
 
 def run_script(cmd, label):
@@ -68,6 +67,8 @@ def main():
     for path in (mermaid_script, financial_script):
         if not os.path.isfile(path):
             sys.exit(f"❌ 보조 스크립트를 찾을 수 없습니다: {path}")
+    sys.path.insert(0, os.path.dirname(financial_script))
+    from snapshot import attach_section4, section4_body
 
     # 1. Determine Output Filename & Snapshot Filename first
     now_kst = datetime.datetime.now(KST)
@@ -108,16 +109,12 @@ def main():
             financial_cmd += [flag, value]
     financial_output = run_script(financial_cmd, "재무 데이터 수집")
 
-    cleaned_financial = financial_output
-    if cleaned_financial.startswith(FINANCIAL_HEADER):
-        cleaned_financial = cleaned_financial[len(FINANCIAL_HEADER):].strip()
+    cleaned_financial = section4_body(financial_output)
 
     # Keep Section 4 as written in the snapshot, so check_report_numbers.py can detect later edits (spec 002).
     baseline_note = ""
     if os.path.isfile(snapshot_filename):
-        sys.path.insert(0, os.path.dirname(financial_script))
         try:
-            from snapshot import attach_section4
             attach_section4(snapshot_filename, cleaned_financial)
         except Exception as e:
             baseline_note = f" (Section 4 기준본 저장 실패: {e})"

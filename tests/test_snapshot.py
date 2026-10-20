@@ -403,3 +403,27 @@ def test_attach_section4(tmp_path):
 
     with pytest.raises(Exception):
         attach_section4(str(tmp_path / "missing_data.json"), text)
+
+
+def test_dump_format2_with_inputs(tmp_path):
+    """Spec 003: a snapshot carrying raw inputs is format 2; values/series/warnings keep their shape."""
+    snap = Snapshot()
+    snap.record("MU.quote.current_price", 100.0, source="yahoo", basis="quote")
+    inputs = {"MU": {"info": {"source": "yahoo", "fetched_at": "2026-10-20T14:05:12+09:00", "status": "ok",
+                              "kind": "json", "data": {"symbol": "MU"}, "error": None, "note": None}}}
+    path = tmp_path / "x_data.json"
+    snap.dump(str(path), meta={"collected_at": "2026-10-20T14:05:12+09:00"}, inputs=inputs)
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    assert list(loaded) == ["meta", "inputs", "values", "series", "warnings"]
+    assert loaded["meta"]["format_version"] == 2
+    assert loaded["inputs"] == inputs
+    assert loaded["values"]["MU.quote.current_price"]["value"] == 100.0
+    # Without inputs the shape stays format 1 (callers that only record values)
+    assert "inputs" not in snap.to_dict(meta={}) and "format_version" not in snap.to_dict(meta={})["meta"]
+
+
+def test_section4_body_matches_report_generator():
+    from snapshot import section4_body, FINANCIAL_HEADER
+    out = f"\n{FINANCIAL_HEADER}\n\n> 🕒 기준\n| a |\n\n"
+    assert section4_body(out) == "> 🕒 기준\n| a |"
+    assert section4_body("  > 머리 없음\n") == "> 머리 없음"

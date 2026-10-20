@@ -61,7 +61,7 @@
     - 형식이 틀리면 `InvalidInput`
     - `meta.format_version`이 없거나 2가 아니거나 `inputs`가 없으면 `LegacyFormat`
   - `dumps(meta, inputs)` / `loads(text)`는 생성과 재현이 같이 쓴다. 테스트는 위 예외 4종과, `empty`·`error`·`skipped` 항목이 `None`과 항목 정보를 돌려주는지 확인한다
-- [ ] T006 [P] `FA/scripts/snapshot.py` 형식 2.
+- [x] T006 [P] `FA/scripts/snapshot.py` 형식 2.
   - `to_dict`/`dump`가 `meta.format_version: 2`와 `inputs`를 함께 쓴다. `values`·`series`·`warnings`·`section4` 형식은 바꾸지 않는다.
   - Section 4 머리 줄 떼기 함수 `section4_body(stdout_text)`를 여기로 옮긴다(지금은 `generate_strategy_report.py`의 `FINANCIAL_HEADER` 처리). `generate_strategy_report.py`는 이 함수를 쓰고, 동작은 그대로다.
   - 테스트는 `tests/test_snapshot.py`에 둔다
