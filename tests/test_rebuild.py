@@ -346,3 +346,29 @@ def test_recompute_rejects_other_options_and_existing_output(tmp_path):
         rb.main([FX, "--weights", "0.1,0.5,0.4"])          # recompute needs --out
     assert e.value.code == 2
     assert _sha(FX) == before
+
+
+# --- Floating-point differences between CPU architectures (CI x86_64 vs local arm64, research R8) ---
+
+def test_compare_values_tolerates_last_bit_differences():
+    rb = _rb()
+    stored = {"a": {"value": 888.3901777977313, "basis": "derived"}, "b": {"value": 1.8584003998398702},
+              "c": {"value": 1.0}, "d": {"value": "🟢"}, "e": {"value": None}, "f": {"value": 0.0}}
+    rebuilt = {"a": {"value": 888.3901777977314, "basis": "derived"}, "b": {"value": 1.8584003998398573},
+               "c": {"value": 1.000001}, "d": {"value": "🟡"}, "e": {"value": 0.0}, "f": {"value": 1e-13}}
+    v = rb.compare_values(stored, rebuilt)
+    assert sorted(c["path"] for c in v["changed"]) == ["c", "d", "e"]
+    assert v["within_tolerance"] == ["a", "b", "f"]
+
+
+def test_rebuild_same_across_architectures(tmp_path):
+    """The x86_64 CI recomputes rolling/EWM values that differ from arm64 in the last bits; that is still the same rebuild."""
+    snap = _load_fx()
+    shaken = ("MU.technical.deviation_lower", "TSM.technical.rsi_14", "005930.KS.technical.bollinger_lower")
+    for path in shaken:
+        snap["values"][path]["value"] *= 1 + 5e-15
+    result, _ = _rb().verify(_write(tmp_path, snap))
+    assert result["exit_code"] == 0, _rb().render_summary(result, verbose=True)
+    # on x86_64 the fixture's own arm64 values already differ in the last bits for a few more paths
+    assert set(shaken) <= set(result["values"]["within_tolerance"])
+    assert "허용 오차" in _rb().render_summary(result)
