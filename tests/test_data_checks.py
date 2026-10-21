@@ -119,7 +119,7 @@ def test_ref_close_on():
 
 def test_ki_prefix():
     assert dc.ki('KI-001', 'msg') == '[KI-001] msg'
-    assert set(dc.KNOWN_ISSUES) == {f'KI-00{i}' for i in range(1, 9)}
+    assert set(dc.KNOWN_ISSUES) == {f'KI-00{i}' for i in range(1, 10)}
     assert dc.DAUM_INDEX == {'^KS11': 'KOSPI', '^KQ11': 'KOSDAQ'}
 
 
@@ -132,3 +132,18 @@ def test_reconcile_index_without_ohlc():
     assert filled == [pd.Timestamp('2026-10-13')]
     assert replaced == []  # 6384.240234 vs 6384.24 is the same close
     assert fixed['Close'].iloc[-1] == 6035.35
+
+
+def test_nxt_after_market_window():
+    """KI-009: KRX closes 15:30, NXT trades until 20:00 KST on weekdays."""
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    tue = lambda h, m: datetime.datetime(2026, 10, 20, h, m, tzinfo=kst)  # noqa: E731
+    assert not dc.nxt_after_market(tue(15, 29))
+    assert dc.nxt_after_market(tue(15, 30))
+    assert dc.nxt_after_market(tue(19, 59))
+    assert not dc.nxt_after_market(tue(20, 0))
+    assert not dc.nxt_after_market(datetime.datetime(2026, 10, 24, 17, 0, tzinfo=kst))   # Saturday
+    # KRX holiday on a weekday: the last KRX trade is from an earlier day, so no NXT window either
+    assert not dc.nxt_after_market(tue(17, 0), krx_last_trade=tue(15, 30) - datetime.timedelta(days=1))
+    assert dc.nxt_after_market(tue(17, 0), krx_last_trade=tue(15, 30))
+    assert dc.KRX_FLOW_FINAL < dc.NXT_CLOSE < dc.NXT_FLOW_FINAL

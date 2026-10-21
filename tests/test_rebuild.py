@@ -141,7 +141,7 @@ def test_fixture_rebuilds_identically():
     assert result["warnings"]["same"] and result["warnings"]["count"] > 0
     assert elapsed < 10, elapsed                      # SC-006
     assert _sha(FX) == before                         # FR-010: read only
-    assert "장중 잠정" in body                         # a provisional flow row is rebuilt as provisional
+    assert "NXT 시간외 잠정" in body                   # a provisional flow row read after the KRX close (KI-009)
 
 
 def test_rebuild_with_network_and_clock_blocked(monkeypatch):

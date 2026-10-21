@@ -1260,24 +1260,35 @@ def fetch_investor_trends_table(ticker_code, company_name, info, symbol=None):
     if has_today:
         row = res[naver_dates.index(today_str)]
         reasons = []
-        if (now_kst.hour, now_kst.minute) < (15, 40):
+        snapshot_kind = '장중 스냅샷'
+        nxt_open = False
+        if (now_kst.hour, now_kst.minute) < data_checks.KRX_FLOW_FINAL:
             reasons.append('장 마감(15:30) 전 실행')
+        elif (now_kst.hour, now_kst.minute) < data_checks.NXT_FLOW_FINAL:
+            # NXT keeps trading until 20:00, so the row can still change after the KRX close (KI-009)
+            reasons.append('KRX 마감 후 NXT 시간외 거래(20:00 마감) 중 실행(KI-009)')
+            snapshot_kind = 'NXT 시간외 거래 중 스냅샷'
+            nxt_open = True
         actual_close = num(info.get('regularMarketPrice') or info.get('currentPrice'))
         actual_vol = num(info.get('regularMarketVolume'))
         row_close = parse_korean_number(row.get('closePrice'))
         row_vol = parse_korean_number(row.get('accumulatedTradingVolume'))
-        if actual_close and row_close and abs(row_close - actual_close) / actual_close > 0.001:
-            # Since 2026-09-14 Naver's close field also differs from the KRX close after the session (KI-001).
-            reasons.append(f'행 종가 ₩{row_close:,.0f} ≠ 실제 종가 ₩{actual_close:,.0f}(네이버 종가 기준 차이일 수 있음, KI-001)')
-        if actual_vol and row_vol and abs(row_vol - actual_vol) / actual_vol > 0.03:
-            reasons.append(f'행 거래량 {row_vol:,.0f}주 ≠ 실제 {actual_vol:,.0f}주')
+        # After the NXT close the row includes NXT trades, so it differs from the KRX-only Yahoo quote by basis,
+        # not because it is incomplete (KI-001 cause, KI-009); the KI-001 basis warning below still reports it.
+        if reasons:
+            if actual_close and row_close and abs(row_close - actual_close) / actual_close > 0.001:
+                reasons.append(f'행 종가 ₩{row_close:,.0f} ≠ KRX 종가 ₩{actual_close:,.0f}(NXT 체결 포함 기준 차이일 수 있음, KI-001)')
+            if actual_vol and row_vol and abs(row_vol - actual_vol) / actual_vol > 0.03:
+                reasons.append(f'행 거래량 {row_vol:,.0f}주 ≠ 실제 {actual_vol:,.0f}주')
         if reasons:
             today_label = '잠정'
-            status_note = f"> ⚠️ 당일 행은 **잠정치(장중 스냅샷)**입니다 — {', '.join(reasons)}.\n\n"
-            warn(f"{company_name}({ticker_code}): 당일 수급 행은 잠정치입니다 — {', '.join(reasons)}")
+            status_note = f"> ⚠️ 당일 행은 **잠정치({snapshot_kind})**입니다 — {', '.join(reasons)}.\n\n"
+            msg = f"{company_name}({ticker_code}): 당일 수급 행은 잠정치입니다 — {', '.join(reasons)}"
+            warn(ki('KI-009', msg) if nxt_open else msg)
         else:
             today_label = '마감 후 집계'
-            status_note = "> 당일 행은 장 마감 후 집계입니다(거래소 확정 거래대금과는 소폭 다를 수 있음).\n\n"
+            status_note = ("> 당일 행은 NXT 시간외 거래(20:00 마감)까지 포함한 마감 후 집계입니다. 종가는 KRX 정규장 종가와 다를 수 있고"
+                           "(KI-001), 거래소 확정 거래대금과도 소폭 다를 수 있습니다.\n\n")
 
     rows = []
     tot_frgn_amt = tot_org_amt = tot_ind_amt = 0.0
@@ -1303,11 +1314,32 @@ def fetch_investor_trends_table(ticker_code, company_name, info, symbol=None):
                     ratio = num(dq.get('foreignRatio'))
                     ratio_str = f"{ratio * 100:.2f}%" if ratio is not None else 'N/A'
                     date_str = f"{today_str[:4]}-{today_str[4:6]}-{today_str[6:]}"
-                    rows.append(f'| **{date_str} (장중 잠정)** | ₩{curr_price:,.0f} | **{diff_amt:+,.0f}억 (지분 변동 추정)** | (집계 전) | (집계 전) | {ratio_str} |')
-                    daum_row_used = True
-                    status_note = "> ⚠️ 당일 행은 외국인 지분 변동으로 추정한 **장중 잠정치**이며, 기관·개인은 아직 집계되지 않았습니다.\n\n"
                     sym = info.get('symbol') or f"{ticker_code}.KS"
-                    SNAP.record(f"{sym}.flows.{date_str}.price", curr_price, source="daum", basis="flow_feed_price", as_of=date_str, status="provisional")
+                    # After the KRX close the quote is the NXT after-market trade, not the KRX close (KI-009)
+                    market_status = str(dq.get('marketStatus') or '')
+                    row_label = data_checks.DAUM_FLOW_ROW_LABEL.get(market_status, '장중 잠정')
+                    price_note = None
+                    if market_status in data_checks.DAUM_FLOW_ROW_LABEL:
+                        t6 = str(dq.get('tradeTime') or '')
+                        at = f"{t6[:2]}:{t6[2:4]}" if len(t6) >= 4 else 'N/A'
+                        price_note = (f"NXT 시간외 최종 체결가({at})" if market_status == 'CLOSING'
+                                      else f"NXT 시간외 체결가({at} 현재)")
+                        krx_close = num(dq.get('regularTradePrice'))
+                        price_desc = f"가격 ₩{curr_price:,.0f}은 {price_note}" + (f"이며 KRX 정규장 종가는 ₩{krx_close:,.0f}입니다" if krx_close else "입니다")
+                        if krx_close:
+                            SNAP.record(f"{sym}.flows.{date_str}.krx_close", krx_close, source="daum", basis="krx_regular_close",
+                                        as_of=date_str, status="final", ki="KI-009")
+                        status_note = (f"> ⚠️ 당일 행은 외국인 지분 변동으로 추정한 **{row_label}치**이며, 기관·개인은 아직 집계되지 않았습니다. "
+                                       f"KRX 정규장은 15:30에 끝났고 {price_desc}(KI-009).\n\n")
+                        warn(ki('KI-009', f"{company_name}({ticker_code}): 수급 표 당일 행은 KRX 마감 후 다음 금융 시세로 추정한 {row_label}치입니다 "
+                                          f"— {price_desc}. 다음 금융의 외국인 보유 주식 수는 KRX 마감 후 갱신되지 않아 이 행의 금액은 "
+                                          "가격만 NXT 기준으로 바뀝니다. 확정 수급은 네이버 당일 행이 생긴 뒤 다시 실행해 확인하세요."))
+                    else:
+                        status_note = "> ⚠️ 당일 행은 외국인 지분 변동으로 추정한 **장중 잠정치**이며, 기관·개인은 아직 집계되지 않았습니다.\n\n"
+                    rows.append(f'| **{date_str} ({row_label})** | ₩{curr_price:,.0f} | **{diff_amt:+,.0f}억 (지분 변동 추정)** | (집계 전) | (집계 전) | {ratio_str} |')
+                    daum_row_used = True
+                    SNAP.record(f"{sym}.flows.{date_str}.price", curr_price, source="daum", basis="flow_feed_price", as_of=date_str,
+                                status="provisional", note=price_note)
                     SNAP.record(f"{sym}.flows.{date_str}.foreign_net_amt", diff_amt, source="calculated", basis="derived", as_of=date_str, status="provisional", note="지분 변동 추정")
                     frgn_inputs.append(f"{sym}.flows.{date_str}.foreign_net_amt")
                     if ratio is not None:
@@ -1386,16 +1418,25 @@ def fetch_investor_trends_table(ticker_code, company_name, info, symbol=None):
 def data_basis_block(results):
     now = RUN['collected_at'].strftime('%Y-%m-%d %H:%M KST')
     parts = []
+    nxt_any = False
     for sym, info in results.items():
         state = str(info.get('marketState') or '')
         state_ko = MARKET_STATE_KO.get(state, state or 'N/A')
         ts = num(info.get('regularMarketTime'))
-        last = datetime.datetime.fromtimestamp(ts, tz=KST).strftime('%m-%d %H:%M KST') if ts else 'N/A'
+        last_dt = datetime.datetime.fromtimestamp(ts, tz=KST) if ts else None
+        last = last_dt.strftime('%m-%d %H:%M KST') if last_dt else 'N/A'
         delay = info.get('exchangeDataDelayedBy')
-        parts.append(f"{sym} {state_ko}(최종 체결 {last}" + (f", {delay}분 지연" if delay else "") + ")")
+        # Yahoo quotes the KRX session only; NXT trades on until 20:00, as of when this info arrived (KI-009)
+        nxt = bool(sym.endswith(('.KS', '.KQ')) and last_dt) and data_checks.nxt_after_market(info['_fetched_at'], last_dt)
+        nxt_any = nxt_any or nxt
+        parts.append(f"{sym} {'KRX ' if nxt else ''}{state_ko}(최종 체결 {last}" + (f", {delay}분 지연" if delay else "")
+                     + (", NXT 시간외 거래는 20:00까지" if nxt else "") + ")")
+    nxt_note = ("KRX 마감 후 NXT 시간외 거래 중(20:00 마감)에 실행하면 시세·등락은 KRX 정규장 종가 기준이고 "
+                "수급 당일 행은 잠정치입니다(KI-009). " if nxt_any else "")
     return (f"> 🕒 **데이터 기준**: {now} 생성 · " + " · ".join(parts) + "\n"
             "> 출처: Yahoo Finance(시세·재무·컨센서스), 네이버 금융(국내 지표·수급), WiseReport(국내 컨센서스 EPS), "
             "다음 금융(국내 거래소 종가 — Yahoo 종목·지수 이력 대조·보완). 장중에 실행하면 시세·수급은 잠정치입니다. "
+            + nxt_note +
             "경고의 [KI-xxx]는 스킬 저장소 wiki/known-issues/의 사건 번호입니다.\n")
 
 
