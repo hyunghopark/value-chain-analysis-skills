@@ -167,6 +167,8 @@ Python 패키지는 [uv](https://docs.astral.sh/uv/)가 있으면 SKILL.md의 `u
 - **분리 전후 같음**: 분리 전 코드에 같은 원자료를 재생해 Section 4 305줄이 모두 같음을 확인(`tests/tools/replay_main.py`).
 - **고침**: 스냅샷 `repo_commit`이 `import os` 누락으로 늘 비던 문제(이유를 `repo_commit_error`에 기록). 지수 대조 순서를 고정해 경고 순서가 실행마다 같다.
 - **테스트**: 실제 4종목 시험 스냅샷(`tests/fixtures/003`), pandas·numpy를 그 버전에 고정(`tests/requirements-pinned.txt`).
+- **부동소수점 허용 오차**(PR #10): 같은 버전이라도 CPU 구조(x86_64·arm64)에 따라 이동 계산의 마지막 자리가 달라, 재현 비교의 숫자는 상대 1e-9 안이면 같은 값으로 보고 따로 나열한다. Section 4 글자는 정확히 비교.
+- **확인**: 수집 다음 날(정규장 중) 네트워크를 막고 재현 — NXT 거래 중·거래 종료 후·시험 스냅샷 3개 모두 같음.
 
 ### 2026-10-14 — 002 보고서 숫자 자동 대조 (financial-analyst v3.3.0 / investment-strategy v2.2.0)
 - **숫자 점검 도구** `check_report_numbers.py`: 본문 숫자를 스냅샷 값 일치 / 인용 출처 있음 / 근거 없음으로 분류. 표시 자릿수·단위(조·억·%·배)·부호를 고려하고, 우연한 일치를 막기 위해 경로 종류·정보량·근사 표현 규칙을 둔다(규칙 원본 `references/rules/report-number-check.md`, 결정 0005).

@@ -4,7 +4,7 @@
 
 **Input**: Feature specification from `specs/003-pipeline-split/spec.md`
 
-**Status**: Approved (2026-10-20)
+**Status**: Implemented (2026-10-21, PR #9·#10 병합)
 
 ## Summary
 
