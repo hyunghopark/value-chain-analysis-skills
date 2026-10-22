@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-19
 
-**Status**: Approved (2026-10-20)
+**Status**: Implemented (2026-10-21, PR #9·#10 병합)
 
 **Input**: 로드맵 3단계 — "계산·표 생성이 스냅샷만 읽는다. 같은 스냅샷이면 같은 보고서가 나온다" ([ROADMAP](../../ROADMAP.md)). 1단계([001](../001-data-snapshot/spec.md))의 스냅샷과 2단계([002](../002-report-number-check/spec.md))의 Section 4 기준본 위에 쌓는다.
 
