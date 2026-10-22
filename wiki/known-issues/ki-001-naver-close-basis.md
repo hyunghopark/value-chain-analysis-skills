@@ -1,8 +1,8 @@
 # KI-001 네이버 종가 필드가 거래소 종가와 다름
 
-> Sources: check_data_sources.py 실행 결과, 2026-10-14; 뉴스핌·싱글리스트·인포스탁데일리 마감 시황, 2026-10-13
-> Raw: [교차 점검](../../raw/data-checks/2026-10-14-cross-source-check.md); [언론 보도 종가 메모](../../raw/news/2026-10-13-krx-close-press-reports.md); [수급 데이터 가격 기준](../../raw/data-checks/2026-10-14-investor-feed-price-basis.md)
-> Updated: 2026-10-14
+> Sources: check_data_sources.py 실행 결과, 2026-10-14; 뉴스핌·싱글리스트·인포스탁데일리 마감 시황, 2026-10-13; collect.py 수집 함수로 받은 네이버·다음 응답, 2026-10-20
+> Raw: [교차 점검](../../raw/data-checks/2026-10-14-cross-source-check.md); [언론 보도 종가 메모](../../raw/news/2026-10-13-krx-close-press-reports.md); [수급 데이터 가격 기준](../../raw/data-checks/2026-10-14-investor-feed-price-basis.md); [NXT 시간외 거래 시간대 원자료](../../raw/data-checks/2026-10-20-nxt-after-market-flows.md)
+> Updated: 2026-10-21
 
 ## Overview
 
@@ -24,6 +24,9 @@
 ## 원인
 
 미확인입니다. 넥스트레이드(NXT) 시간외 거래를 포함한 통합 가격이라는 가설이 있지만 확인하지 못했습니다.
+
+> **Status: Outdated** (2026-10-21)
+> 원인이 확인됐습니다. 2026-10-20 SK하이닉스 네이버 수급 `closePrice` 1,190,000은 그날 다음 시세의 NXT 마지막 체결가(19:59, `CLOSING`)와 같고 KRX 종가 1,223,000과 달랐습니다. 삼성전자도 209,000(NXT) 대 211,500(KRX)이었습니다. 수급 데이터의 가격은 NXT 체결까지 포함한 마지막 체결가입니다. 근거: NXT 시간외 거래 시간대 원자료(2026-10-20). 시간대별 표시는 [KI-009](ki-009-nxt-after-market-window.md).
 
 ## 영향과 조치
 

@@ -1,8 +1,8 @@
 # 네이버 금융
 
 > Sources: check_data_sources.py 실행 결과, 2026-10-14
-> Raw: [교차 점검](../../raw/data-checks/2026-10-14-cross-source-check.md)
-> Updated: 2026-10-14
+> Raw: [교차 점검](../../raw/data-checks/2026-10-14-cross-source-check.md); [NXT 시간외 거래 시간대 원자료](../../raw/data-checks/2026-10-20-nxt-after-market-flows.md)
+> Updated: 2026-10-21
 
 ## Overview
 
@@ -19,8 +19,10 @@
 - 종가 필드가 2026-09-14부터 거래소 정규장 종가와 다릅니다. 오류가 아니라 수급 데이터와 같은 가격 기준으로 보입니다 → [KI-001](../known-issues/ki-001-naver-close-basis.md)
 - 거래량은 Yahoo와 같은 기준으로 보이고(241/243일 일치), 거래소(다음)와는 0/244일 같았습니다.
 - 장중에도 현재가를 실시간으로 갱신하므로, 당일 행은 장중 스냅샷일 수 있습니다.
+- 수급(`trend`)의 당일 행은 2026-10-20에 NXT 마감(20:00) 뒤에 생겼고(20:03 없음, 20:20 있음), 가격은 NXT 마지막 체결가였습니다 → [KI-009](../known-issues/ki-009-nxt-after-market-window.md)
 
 ## See Also
 
 - [다음 금융](daum-finance.md)
 - [WiseReport](wisereport.md)
+- [KI-009 KRX 마감 후 NXT 시간외 거래 시간대의 당일 수급·가격](../known-issues/ki-009-nxt-after-market-window.md)

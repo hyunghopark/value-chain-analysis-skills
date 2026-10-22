@@ -60,3 +60,8 @@
 - Disposition: Update
 - Raw: raw/data-checks/2026-10-14-investor-feed-price-basis.md
 - Updated: 다음 금융, 네이버 금융 (수급 금액 조치를 Outdated로 표시)
+
+## [2026-10-21] ingest | KI-009 KRX 마감 후 NXT 시간외 거래 시간대의 당일 수급·가격
+- Disposition: New; Update
+- Raw: raw/data-checks/2026-10-20-nxt-after-market-flows.md
+- Updated: KI-001 네이버 종가 필드가 거래소 종가와 다름 (원인 미확인을 Outdated로 표시), 다음 금융, 네이버 금융

@@ -429,3 +429,147 @@ def test_section4_body_matches_report_generator():
     out = f"\n{FINANCIAL_HEADER}\n\n> 🕒 기준\n| a |\n\n"
     assert section4_body(out) == "> 🕒 기준\n| a |"
     assert section4_body("  > 머리 없음\n") == "> 머리 없음"
+
+
+# --- KI-009: KRX closed, NXT after-market trading until 20:00 ---
+
+def _nxt_flow_inputs(sym, fetched_at, daum_status, trade_time="190100", trade_price=1199000.0, krx_close=1223000.0):
+    """Naver has no row for the run day yet, so the Daum quote estimates it (as in tests/fixtures/003)."""
+    naver_rows = [{"bizdate": d, "closePrice": "1,000,000", "accumulatedTradingVolume": "1,000",
+                   "foreignerPureBuyQuant": "-1,000", "organPureBuyQuant": "+500", "individualPureBuyQuant": "+500",
+                   "foreignerHoldRatio": "48.81%"} for d in ("20261019", "20261016", "20261015", "20261014", "20261013")]
+    quote = {"date": "2026-10-20", "tradeDate": "20261020", "tradeTime": trade_time, "tradePrice": trade_price,
+             "regularTradePrice": krx_close, "foreignOwnShares": 356585226, "foreignRatio": 0.4881436728}
+    if daum_status is not None:
+        quote["marketStatus"] = daum_status
+    days = {"data": [{"date": "2026-10-19 00:00:00", "foreignOwnShares": 356621525, "tradePrice": 1304000.0}]}
+    return {sym: {"naver_trend": _item(naver_rows, "naver", fetched_at),
+                  "daum_quote": _item(quote, "daum", fetched_at),
+                  "daum_investor_days": _item(days, "daum", fetched_at)}}
+
+
+def _flow_table(monkeypatch, inputs, sym, info=None):
+    import get_financial_stats as gfs
+    _use_raw(monkeypatch, inputs)
+    monkeypatch.setattr(gfs, "WARNINGS", [])
+    monkeypatch.setattr(gfs, "SNAP", Snapshot())
+    table = gfs.fetch_investor_trends_table(sym.split(".")[0], "테스트", info or {"symbol": sym})
+    return table, gfs.WARNINGS, gfs.SNAP
+
+
+def test_flow_row_after_krx_close_uses_nxt_label(monkeypatch):
+    """19:01 Daum quote in AFTER_MARKET: the price is the NXT trade, not the KRX close — label and warn (KI-009)."""
+    sym = "009991.KS"
+    table, warns, snap = _flow_table(monkeypatch, _nxt_flow_inputs(sym, "2026-10-20T19:02:29+09:00", "AFTER_MARKET"), sym)
+    assert "| **2026-10-20 (NXT 시간외 잠정)** | ₩1,199,000 |" in table
+    assert "장중 잠정" not in table
+    assert "NXT 시간외 체결가(19:01 현재)이며 KRX 정규장 종가는 ₩1,223,000입니다(KI-009)" in table
+    ki009 = [w for w in warns if w.startswith("[KI-009]")]
+    assert len(ki009) == 1 and "₩1,199,000" in ki009[0] and "₩1,223,000" in ki009[0]
+    price = snap.values[f"{sym}.flows.2026-10-20.price"]
+    assert price["status"] == "provisional" and price["basis"] == "flow_feed_price"
+    assert price["note"] == "NXT 시간외 체결가(19:01 현재)"
+    krx = snap.values[f"{sym}.flows.2026-10-20.krx_close"]
+    assert krx["value"] == 1223000.0 and krx["basis"] == "krx_regular_close" and krx["ki"] == "KI-009"
+    # The amount is unchanged by the label: ownership change x the quote price
+    amt = snap.values[f"{sym}.flows.2026-10-20.foreign_net_amt"]["value"]
+    assert amt == pytest.approx((356585226 - 356621525) * 1199000.0 / 1e8)
+
+
+def test_flow_row_after_nxt_close_is_closing(monkeypatch):
+    """After 20:00 Daum reports CLOSING with the NXT last trade (19:59) while Naver still has no row."""
+    sym = "009992.KS"
+    inputs = _nxt_flow_inputs(sym, "2026-10-20T20:03:36+09:00", "CLOSING", trade_time="195900", trade_price=1190000.0)
+    table, warns, _ = _flow_table(monkeypatch, inputs, sym)
+    assert "| **2026-10-20 (마감 후 잠정)** | ₩1,190,000 |" in table
+    assert "NXT 시간외 최종 체결가(19:59)" in table
+    assert any(w.startswith("[KI-009]") and "마감 후 잠정치" in w for w in warns)
+
+
+@pytest.mark.parametrize("status", [None, "REGULAR_HOURS"])
+def test_flow_row_during_session_stays_intraday(monkeypatch, status):
+    """Without an after-market status the existing intraday label stays and no KI-009 warning is raised."""
+    sym = "009993.KS"
+    inputs = _nxt_flow_inputs(sym, "2026-10-20T11:00:00+09:00", status, trade_time="105900", trade_price=1210000.0)
+    table, warns, snap = _flow_table(monkeypatch, inputs, sym)
+    assert "| **2026-10-20 (장중 잠정)** | ₩1,210,000 |" in table
+    assert not [w for w in warns if "KI-009" in w]
+    assert f"{sym}.flows.2026-10-20.krx_close" not in snap.values
+    assert snap.values[f"{sym}.flows.2026-10-20.price"].get("note") is None
+
+
+def _naver_today_inputs(sym, fetched_at, close="1,223,000", volume="3,639,928"):
+    rows = [{"bizdate": d, "closePrice": close if d == "20261020" else "1,000,000",
+             "accumulatedTradingVolume": volume if d == "20261020" else "1,000",
+             "foreignerPureBuyQuant": "-1,000", "organPureBuyQuant": "+500", "individualPureBuyQuant": "+500",
+             "foreignerHoldRatio": "48.81%"} for d in ("20261020", "20261019", "20261016", "20261015", "20261014")]
+    skipped = {"source": "daum", "fetched_at": fetched_at, "status": "skipped", "kind": None, "data": None, "error": None, "note": None}
+    return {sym: {"naver_trend": _item(rows, "naver", fetched_at), "daum_quote": skipped, "daum_investor_days": skipped}}
+
+
+@pytest.mark.parametrize("fetched_at, expect", [
+    ("2026-10-20T15:35:00+09:00", "장 마감(15:30) 전 실행"),
+    ("2026-10-20T17:00:00+09:00", "NXT 시간외 거래(20:00 마감) 중 실행(KI-009)"),
+    ("2026-10-20T20:05:00+09:00", "NXT 시간외 거래(20:00 마감) 중 실행(KI-009)"),
+    ("2026-10-20T20:10:00+09:00", None),
+])
+def test_naver_same_day_row_final_only_after_nxt_close(monkeypatch, fetched_at, expect):
+    """A Naver row for the run day read before 20:10 (NXT close + 10 min) is provisional (KI-009); the clock is fetched_at."""
+    sym = "009994.KS"
+    info = {"symbol": sym, "regularMarketPrice": 1223000.0, "regularMarketVolume": 3639928}
+    table, warns, snap = _flow_table(monkeypatch, _naver_today_inputs(sym, fetched_at), sym, info)
+    status = snap.values[f"{sym}.flows.2026-10-20.foreign_net_shares"]["status"]
+    if expect is None:
+        assert "**2026-10-20 (마감 후 집계)**" in table and status == "final" and not warns
+    else:
+        assert "**2026-10-20 (잠정)**" in table and expect in table and status == "provisional"
+        assert len(warns) == 1 and (warns[0].startswith("[KI-009]") == ("KI-009" in expect))
+    if expect and "KI-009" in expect:
+        assert "잠정치(NXT 시간외 거래 중 스냅샷)" in table
+
+
+def test_data_basis_line_marks_nxt_window(monkeypatch):
+    """Data-basis line: KR tickers read between 15:30 and 20:00 on a KRX trading day say KRX close + NXT until 20:00."""
+    import datetime as dt
+    import get_financial_stats as gfs
+    kst = dt.timezone(dt.timedelta(hours=9))
+    krx_close_ts = dt.datetime(2026, 10, 20, 15, 30, 13, tzinfo=kst).timestamp()
+
+    def info(fetched, ts=krx_close_ts, state="POSTPOST"):
+        return {"marketState": state, "regularMarketTime": ts, "exchangeDataDelayedBy": 20,
+                "_fetched_at": dt.datetime.fromisoformat(fetched)}
+
+    monkeypatch.setitem(gfs.RUN, "collected_at", dt.datetime(2026, 10, 20, 19, 2, 37, tzinfo=kst))
+    line = gfs.data_basis_block({"000660.KS": info("2026-10-20T19:02:27+09:00"),
+                                 "MU": info("2026-10-20T19:02:30+09:00", ts=dt.datetime(2026, 10, 20, 5, 0, tzinfo=kst).timestamp(),
+                                            state="PRE")})
+    assert "000660.KS KRX 장 마감(최종 체결 10-20 15:30 KST, 20분 지연, NXT 시간외 거래는 20:00까지)" in line
+    assert "MU 프리마켓(최종 체결 10-20 05:00 KST, 20분 지연)" in line
+    assert "수급 당일 행은 잠정치입니다(KI-009)" in line
+
+    after = gfs.data_basis_block({"000660.KS": info("2026-10-20T20:03:36+09:00")})
+    holiday = gfs.data_basis_block({"000660.KS": info("2026-10-21T17:00:00+09:00")})   # no KRX trade that day
+    for text in (after, holiday):
+        assert "000660.KS 장 마감(최종 체결 10-20 15:30 KST, 20분 지연)" in text and "KI-009" not in text
+
+
+def test_naver_row_after_nxt_close_is_final_despite_krx_basis(monkeypatch):
+    """20:20 on 2026-10-20: Naver's row carries the NXT last trade (₩1,190,000), Yahoo the KRX close (₩1,223,000).
+
+    The gap is the price basis (KI-001 cause), not an unfinished row, so the row is final after 20:10 (KI-009).
+    Before 20:10 the same gap is listed as one more provisional reason.
+    """
+    sym = "009995.KS"
+    info = {"symbol": sym, "regularMarketPrice": 1223000.0, "regularMarketVolume": 3639928}
+    inputs = _naver_today_inputs(sym, "2026-10-20T20:20:41+09:00", close="1,190,000", volume="3,464,412")
+    table, warns, snap = _flow_table(monkeypatch, inputs, sym, info)
+    assert "| **2026-10-20 (마감 후 집계)** | ₩1,190,000 |" in table
+    assert "NXT 시간외 거래(20:00 마감)까지 포함한 마감 후 집계" in table
+    assert snap.values[f"{sym}.flows.2026-10-20.foreign_net_shares"]["status"] == "final" and not warns
+
+    inputs = _naver_today_inputs(sym, "2026-10-20T19:30:00+09:00", close="1,190,000", volume="3,464,412")
+    table, warns, _ = _flow_table(monkeypatch, inputs, sym, info)
+    assert "**2026-10-20 (잠정)**" in table
+    assert "행 종가 ₩1,190,000 ≠ KRX 종가 ₩1,223,000(NXT 체결 포함 기준 차이일 수 있음, KI-001)" in table
+    assert "행 거래량 3,464,412주 ≠ 실제 3,639,928주" in table
+    assert len(warns) == 1 and warns[0].startswith("[KI-009]")

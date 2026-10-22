@@ -20,7 +20,17 @@ KNOWN_ISSUES = {
     'KI-006': 'Yahoo 한국 종목 산발적 종가 오류',
     'KI-007': 'Yahoo 재무상태표 주식수 이상치',
     'KI-008': 'ADR 통화 불일치',
+    'KI-009': 'KRX 마감 후 NXT 시간외 거래 시간대의 당일 수급·가격',
 }
+
+# KRX regular session ends 15:30 KST; Nextrade (NXT) after-market trading runs until 20:00 KST (KI-009).
+KRX_CLOSE = (15, 30)
+NXT_CLOSE = (20, 0)
+# A same-day Naver flow row read before these times is provisional: KRX close + 10 min, NXT close + 10 min.
+KRX_FLOW_FINAL = (15, 40)
+NXT_FLOW_FINAL = (20, 10)
+# Daum /api/quotes marketStatus -> label of the intraday flow row estimated from that quote (KI-009).
+DAUM_FLOW_ROW_LABEL = {'AFTER_MARKET': 'NXT 시간외 잠정', 'CLOSING': '마감 후 잠정'}
 
 # The first six header cells of WiseReport cF1002; EPS is read from cell index 5 of each row.
 WISEREPORT_HEADER = ('재무년월', '매출액(억원, %)', '영업이익(억원, %)', '당기순이익(억원, %)', 'EPS(원)', 'PER(배)')
@@ -34,6 +44,17 @@ BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 def ki(code, msg):
     """Prefix a warning with its known-issue id so the report links to wiki/known-issues/."""
     return f"[{code}] {msg}"
+
+
+def nxt_after_market(when, krx_last_trade=None):
+    """True when a KST time falls after the KRX close but before the NXT close on a weekday (KI-009).
+
+    krx_last_trade (KST datetime of the last KRX trade, e.g. Yahoo regularMarketTime) rules out KRX holidays:
+    the window only applies when the KRX traded that same day.
+    """
+    if when.weekday() >= 5 or not (KRX_CLOSE <= (when.hour, when.minute) < NXT_CLOSE):
+        return False
+    return krx_last_trade is None or krx_last_trade.date() == when.date()
 
 
 def _num(val):
