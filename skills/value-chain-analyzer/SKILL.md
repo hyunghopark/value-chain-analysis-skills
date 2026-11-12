@@ -36,8 +36,11 @@ Break the industry down into logical stages. The standard model is:
 
 *Note: Adapt this structure to fit the specific industry. For example, software might be structured as Infrastructure -> Platform -> Application.*
 
-### Step 3: Deep Dive and Research each Stage
-1. Use web search (Antigravity `search_web` · Claude Code `WebSearch`/`WebFetch`) or browser capabilities to search for the latest market data, industry studies, corporate news, and official specifications.
+### Step 3: Deep Dive and Research each Stage (`finance-api-hub` MCP Priority Checklist)
+1. When researching stage margins (GPM), working capital bargaining power ($\text{CCC} = \text{DIO} + \text{DSO} - \text{DPO}$), capex guidance, or supply-chain bottlenecks, apply the **Data Source & MCP Priority Checklist (`.agents/skills/financial-analyst/references/rules/data-quality.md`)** before falling back to general web search:
+   - **미국·글로벌 공급망 키워드 & 고객사/병목 검증**: `1순위 SEC EDGAR MCP (sec_search 전체 공시 전문 검색 예: "HBM3E", "CoWoS", sec_document 10-K Item 1 Business / Item 7 MD&A)` → `2순위 실시간 웹 검색 (search_web)`
+   - **한국 기업 공급망·수주·설비투자·사업부별 매출**: `1순위 DART MCP (dart_disclosures + dart_document 사업보고서 'II. 사업의 내용' 원문 표)` → `2순위 KRX MCP / Toss MCP (toss_sector_rankings)` → `3순위 실시간 웹 검색 (search_web)`
+   - **가치사슬 교섭력 정량 지표 (`GPM`, `CCC`)**: `1순위 DART MCP (dart_financials) & SEC EDGAR MCP (sec_financials)` → `2순위 Yahoo Finance / 네이버 금융`
 2. For each stage identified in Step 2, determine:
    - **Key Components/Processes:** What exactly is being made or done here?
    - **Technological Importance:** Why is this step critical? What are the barriers to entry?

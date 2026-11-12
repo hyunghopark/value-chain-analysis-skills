@@ -14,8 +14,10 @@ Antigravity 에이전트를 위한 산업 밸류체인 분석, 정밀 기업 재
     ├── financial-analyst/
     │   ├── SKILL.md
     │   ├── references/rules/        # 판정·데이터 규칙 원본
+    │   ├── references/taxonomy/     # 5대 비즈니스 프로파일 및 GICS 163개 세부산업 매트릭스
     │   ├── scripts/
     │   │   ├── get_financial_stats.py
+    │   │   ├── profile_detector.py  # 섹터 적응형 5대 비즈니스 프로파일 라우팅 엔진
     │   │   ├── data_checks.py       # 출처 교차 점검
     │   │   ├── collect.py           # 외부 출처 접속(유일) — 원자료와 받은 시각 수집
     │   │   ├── raw_inputs.py        # 스냅샷 원자료 형식·접근
@@ -31,10 +33,33 @@ Antigravity 에이전트를 위한 산업 밸류체인 분석, 정밀 기업 재
     │   │   └── generate_mermaid.py
     │   └── templates/
     │       └── report_template.md
+    ├── market-analyst/
+    │   ├── SKILL.md
+    │   ├── references/rules/        # 시장 국면·소크라테스 검증·위기 지지선 규칙 원본
+    │   ├── scripts/
+    │   │   ├── get_market_stats.py
+    │   │   ├── market_metrics.py    # 지표·낙폭·지지선·섹터 회귀 계산
+    │   │   ├── market_regime.py     # 6대 시장 국면 판정 엔진
+    │   │   ├── socratic_auditor.py  # 소크라테스 6대 질문·인지 편향 감사·무효화 사다리
+    │   │   ├── market_collect.py    # 실시간 시장 데이터 수집
+    │   │   ├── market_raw_inputs.py # 스냅샷 원자료 직렬화
+    │   │   ├── market_snapshot.py   # 스냅샷 기록·저장·해시 연결
+    │   │   ├── rebuild_market_section4.py # 스냅샷 기반 오프라인 Section 4 재구축 검증
+    │   │   ├── generate_market_report.py # 마스터 보고서 생성 CLI
+    │   │   └── check_market_report_numbers.py # 보고서 숫자 검증 도구
+    │   └── templates/
+    │       └── market_report_template.md
+    ├── market-intelligence/
+    │   ├── SKILL.md
+    │   └── scripts/
+    │       ├── intelligence_collector.py # 실시간 특수 상황·이상 징후 뉴스 수집 및 5단계 위기 감지
+    │       ├── mcp_client.py            # SEC EDGAR 및 금융 오픈 API 연동
+    │       └── render_intelligence.py   # 조건부 침묵(Zero Dead Data) 및 마크다운 렌더링
     └── investment-strategy/
         ├── SKILL.md
         └── scripts/
-            └── generate_strategy_report.py
+            ├── generate_strategy_report.py
+            └── check_strategy_report_numbers.py
 ```
 
 운영 지식은 스킬과 함께 저장소 루트에서 관리합니다(스킬 설치에는 필요 없음).
@@ -159,6 +184,13 @@ Python 패키지는 [uv](https://docs.astral.sh/uv/)가 있으면 SKILL.md의 `u
 - **정기 점검**: `check_data_sources.py` 결과를 `raw/data-checks/`에 저장하고 위키에 반영합니다. 명령은 `CLAUDE.md`에 있습니다.
 
 ## 📝 변경 이력
+
+### 2026-11-12 — 004 기관급 통합 투자 분석 엔진 및 금융 공공 MCP 연동 체계 구축
+- **공식 MCP 연동 체계**: DART, ECOS, EDGAR, FRED, KRX, Toss 6대 공식 MCP 서버 연동 클라이언트(`mcp_client.py`) 구축 및 실시간 시점·지연시간 실측 검증.
+- **market-intelligence 스킬 신설**: 특수 상황(거버넌스·사법 리스크 등) 5단계 분류, 이벤트 게이트키퍼(WATCH 동결), 조건부 침묵(Zero Dead Data) 원칙 확립.
+- **market-analyst 스킬 신설**: 탑다운 거시 국면 분석(6대 국면), 11개 섹터 로테이션, 위기 지지선 매트릭스 슬림화(죽은 데이터 제거), 소크라테스 6대 질문 및 인지 편향 감사.
+- **financial-analyst 고도화**: 섹터 적응형 5대 비즈니스 프로파일 분류, 경제적 부가가치(EVA) 감사 및 회계 이상치(Unusual Items) 일회성 정규화 로직 탑재.
+- **investment-strategy 파이프라인 통합**: 마스터 보고서 생성(`generate_strategy_report.py`) 및 수치 무결성 검증 도구(`check_strategy_report_numbers.py`) 구축 (전체 단위/통합 테스트 343개 통과).
 
 ### 2026-10-20 — 003 수집·정제·계산·출력 분리 (financial-analyst v3.4.0)
 - **수집 분리**: 외부 접속과 현재 시각 읽기는 `collect.py`에서만. 출처 응답 전체를 받은 시각과 함께 스냅샷 `inputs`(형식 2)에 저장하고, 실패는 기록만 한다.

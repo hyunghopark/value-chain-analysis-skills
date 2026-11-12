@@ -1,124 +1,161 @@
 ---
 name: investment-strategy
-description: Use when the user requests an investment analysis of an industry, combining value chain mapping (upstream/midstream/downstream), bottleneck identification, and stock valuation (4-horizon P/E, cyclical-aware decision matrix, consensus revisions, data-driven scenario stress test, and a verdict-conditional trading plan).
-version: 2.2.0
-allowed-skills: value-chain-analyzer financial-analyst
+description: Use when the user requests an investment analysis of an industry, combining pre-flight breaking event intelligence (market-intelligence), top-down macro regime and crisis supports (market-analyst), structural supply chain mapping and bottleneck identification (value-chain-analyzer), and bottom-up corporate valuation with consensus revisions and scenario stress testing (financial-analyst).
+version: 4.0.0
+allowed-skills: market-analyst value-chain-analyzer financial-analyst market-intelligence
 ---
 
-# Investment Strategy
+# 통합 4-티어 투자 전략 (Unified 4-Tier Investment Strategy)
 
-## Overview
+## 1. 개요 (Overview)
 
-The Investment Strategy Skill coordinates the `value-chain-analyzer` and `financial-analyst` skills to generate a comprehensive, investment-grade strategy report for any industry. By combining supply chain mapping (structural analysis) with stock valuation (quantitative analysis), it helps investors judge which bottleneck companies in a supply chain offer a favorable risk/reward profile — **and which do not**.
+`investment-strategy` 스킬은 4개 전문 분석 스킬(`market-intelligence`, `market-analyst`, `value-chain-analyzer`, `financial-analyst`)을 유기적으로 통합 오케스트레이션하여 기관 투자자 수준의 포괄적 투자 전략 보고서를 자동 생성합니다:
+0. **Phase 0: 사전 특수 상황 및 뉴스 인텔리전스 (`market-intelligence`)**: 시작 즉시 1~2초 만에 비편향 광대역 헤드라인 수집, 고유명사/위기 토큰 스파이크 감지, 적응형 2단계 자율 멀티홉(Adaptive Multi-hop) 질의를 통해 경영진 거버넌스·사법 리스크·블랙스완을 사전 스캔하여 독립 스냅샷(`{ticker}_intelligence.json`) 봉인.
+1. **Phase 1: 탑다운 거시 시장 및 국면 진단 (`market-analyst`)**: 거시 시장 체제(6대 Market Regime), 3단계 동적 지지선 및 적응형 위기 벤치마크(Tier 1 단기전술·Tier 2 롤링 1년 최대조정·Tier 3 적응형 4단계 근접도 밴드), 11개 SPDR 섹터 순환매, 거시 스트레스 지표(VIX, 10년물 금리, 신용 스프레드, 환율), 소크라테스식 6대 질문, 5대 인지 편향 감사, 가설 무효화 사다리(Thesis Invalidation Ladder).
+2. **Phase 2: 산업 가치사슬 및 핵심 병목 해자 매핑 (`value-chain-analyzer`)**: 전방(Upstream), 중방(Midstream), 후방(Downstream) 구조화, 1+2+1 비교 프레임워크([타겟], [직접경쟁], [병목협력]), Mermaid 구조도.
+3. **Phase 3: 바텀업 기업 정밀 밸류에이션 및 시나리오 스트레스 테스트 (`financial-analyst`)**: 4-호라이즌 PER, 역사적 P/B 밴드(동일 산식), 30일 이익 추정치 리비전, 4분기 어닝 서프라이즈, 정량 팩터 신호등 및 종합 판단 매트릭스, 일회성 손익 회계 감사, 데이터 기반 2-티어 시나리오 스트레스 테스트 및 결합 하방 바닥가(Multiple C: Joint De-rating Floor).
+4. **Phase 4: 이벤트 게이트키퍼 & 비상 오버라이드 조립 (Unified Resynthesis)**:
+   - Phase 0의 팩트와 Phase 3의 퀀트 수치(피어 등락률, Multiple C 바닥가)를 결합.
+   - Level 4~5 위기 시 `apply_event_gatekeeper`를 통해 투자의견을 **`🟡 중립/관망 (🚨 거버넌스 긴급 경보: 사실관계 확인 중 — WATCH)`**으로 자동 강등.
+   - Section 1.2에서 '금리 탓'을 배제하고 '피어 대비 단독 괴리율 및 CEO 해임 리스크'로 원인 진단을 전면 대체.
+   - 모델 포트폴리오를 **타겟 0.0% 동결, 안전 현금 40.0%, 피어 50.0%**로 스마트 재배분.
 
-## 🧭 객관성 원칙 (Objectivity Rules) — 모든 단계에 우선 적용
+---
 
-> 이 스킬은 "매수 근거를 찾는 도구"가 아니라 "판단을 검증하는 도구"입니다.
+## 🧭 객관성 및 신뢰성 원칙 (Objectivity Rules)
 
-1. **결론을 먼저 정하지 않습니다.** 어떤 섹션도 '증명·입증'을 목표로 쓰지 않습니다. 데이터가 기존 논리와 반대로 나오면 그대로 씁니다.
-2. **스크립트 판정과 일치시킵니다.** 한 줄 결론과 기업별 판정은 Section 4 › 5번 매트릭스의 '종합 판단'과 같아야 합니다. 다르게 쓰려면 Section 6.2에 이유와 출처를 적습니다.
-3. **급락은 그 자체로 매수 근거가 아닙니다.** 먼저 하락 원인을 기업 고유 / 업종 전반 / 시장 전체로 판별하고(Section 4 › 1-3 시장 비교 표), 매매 전략은 판정에 따라 씁니다.
-4. **숫자는 스크립트나 출처에서만 가져옵니다.** 스크립트에 없는 수치(영업이익 전망, 점유율, 가격 민감도 등)는 출처 제목·발행일·URL을 붙여 인용하고, 출처가 없으면 쓰지 않습니다. 직접 추정 계산을 만들지 않습니다.
-5. **과거 비교는 데이터 범위 안에서만 합니다.** 밸류에이션 역사 비교는 Section 4 › 2-2 밴드 표의 기간 안에서만 합니다. 표에 없는 시기(예: 2008년)와 비교하지 않습니다.
-6. **최신 정보만 촉매로 씁니다.** 촉매·기술 현황은 90일 이내 출처로 확인합니다. 더 오래된 정보는 날짜를 밝히고 '과거 정보'로 표시합니다.
-7. **추정·잠정은 그대로 표기합니다.** 수급 금액은 '추정', 장중 데이터는 '잠정'으로 쓰고 '확정·증명·입증' 같은 표현을 쓰지 않습니다.
-8. **데이터 품질 경고를 무시하지 않습니다.** Section 4 › 8번 경고에 나온 수치를 본문에서 인용할 때는 경고 내용을 함께 밝힙니다. 경고의 `[KI-xxx]`는 스킬 저장소 `wiki/known-issues/` 사건 문서 번호입니다.
-9. **웹 기사 수치는 가격 데이터와 대조합니다.** 기사의 종가·등락률을 인용할 때는 Section 4 › 1-3 표나 거래소 종가와 맞는지 확인하고, 다르면 장중 수치일 수 있음을 밝히거나 거래소 종가를 씁니다.
+1. **결론 사전 확정 금지 (Clean-Slate Policy)**: 어떤 섹션도 사전 확정된 결론을 입증하기 위해 쓰지 않습니다. 과거 작성된 보고서 파일이나 과거 데이터 스냅샷을 일체 참조하지 않고, 오직 실시간 API 데이터와 독립적 신규 리서치에 기반합니다.
+2. **헤더 듀얼 신호등 요약 & Executive Summary**:
+   - 보고서 최상단에 바쁜 투자자를 위한 **Executive Summary & Signal Dashboard** 카드를 배치합니다:
+     - 3줄 핵심 결론
+     - 거시 시장 신호 vs 기업 밸류 신호 대시보드
+     - 권장 모델 포트폴리오 비중
+3. **통화 기호 백틱 감싸기 (KaTeX 수식 충돌 100% 방지)**:
+   - 본문 및 모든 마크다운 표에서 달러 기호(`$`) 및 외화 표기는 반드시 백틱(예: `` `$91.25` ``, `` `$490.54` ``)으로 감싸 뷰어의 KaTeX(수식 렌더러)와 충돌하여 표 레이아웃이 무너지는 현상을 원천 방지합니다.
+4. **실시간 Web 조사(`search_web`) 및 실제 URL(HTTP 200) 직결 원칙 (Zero-Hallucination & No-404 Policy)**:
+   - 가상 URL 생성 및 임의의 기사 주소 날조를 엄격히 금지합니다.
+   - Section 1.1(산업 전망), Section 1.3(체크리스트), Section 5(기업별 촉매 및 리스크), Section 8(참고문헌)의 모든 자료는 **반드시 `search_web` 툴을 실행하여 검색된 실제 언론사/기관의 원문 URL(HTTP 200 OK 확인)과 실제 발행일, 실제 기사 제목**으로 작성합니다.
+   - 클릭 시 404가 발생하는 임의 조합 URL(예: `20261015-12345.html` 등)은 절대 금지되며, 반드시 실제 브라우저에서 열리는 유효한 링크만 인용합니다.
+5. **하이브리드 의사결정 실행 전략 (Hybrid Execution Framework)**:
+   - **탑다운 거시 현금 제약 (Cash Allocation Constraint)**: 시장 국면(Phase 1 Table 5)에서 도출된 최소 권장 현금 비중(예: 25% 이상, 45% 이상)을 엄격히 준수합니다.
+   - **바텀업 판정 & 무효화 사다리 연계 분할 매수**: 기업 판정이 🟢(매수 후보)일지라도, 거시 지지선 및 6.3 가설 무효화 사다리의 트리거 조건과 연동하여 단계별 분할 매수 계획을 수립합니다.
+6. **Section 4 수치 직접 수정 절대 금지**: Section 4의 모든 표와 숫자는 파이썬 스크립트가 자동 산출하며, SHA-256 해시로 봉인됩니다. 단 한 글자라도 임의 수정 시 검증 도구가 실패 처리합니다.
+7. **플레이스홀더 제로 원칙 (Zero-Unpopulated Placeholders)**: 보고서 본문에 `[AI_TODO]`, `[수치]`, `[XX%]`, `[🟢/🟡/🔴]`, `[출처]`, `[방어 유지]` 등 미완성 플레이스홀더가 하나라도 남아있으면 검증 도구가 실패 처리합니다.
+8. **엄격한 숫자 추적성 (Traceability)**: 본문에 인용된 모든 숫자는 동반 데이터 스냅샷(`*_data.json`)에 존재하는 값이거나, [번호] 인용 출처가 동일 문장에 명시되어야 합니다.
 
-## Process Flow
+---
 
-> ⚠️ **[중요 원칙: 독립적 신규 분석 원칙 (Clean-Slate Policy)]**  
-> 스킬 실행 시 기존 프로젝트에 저장되어 있는 과거 보고서 파일들(`*_Investment_Strategy_Report.md` 등) 및 과거 데이터 스냅샷 파일들(`*_data.json`)을 **일체 검색하거나 열람하지 마십시오**. 과거 보고서나 스냅샷에 의존할 경우 낡은 데이터 오염(Data Contamination)이나 편향(Anchoring Bias)이 발생합니다. 항상 현재 시점의 새로운 웹 리서치와 실시간 API 데이터만을 바탕으로 독립적인 신규 분석을 수행해야 합니다. (스냅샷 파일은 사후 감사·재현을 위한 기록용입니다.)
+## 2. 통합 3-티어 워크플로우 (3-Tier Process Flow)
 
-When the user triggers this skill (e.g. "I want an investment strategy for [Industry]" or typing `/investment-strategy`), execute the following steps:
+### 🚀 Phase 1: 탑다운 거시 시장 및 국면 진단 (Skill A: market-analyst)
+1. **스마트 벤치마크 자동 감지**:
+   - 산업 키워드에 "반도체"/"메모리" 포함 시: `반도체` (^SOX, SMH, NVDA, 005930.KS, 000660.KS).
+   - 산업 키워드에 "기술"/"빅테크"/"소프트웨어"/"AI" 포함 시: `기술주식` (^NDX, XLK).
+   - 타겟 티커가 `.KS`/`.KQ` 또는 6자리 숫자일 시: `한국증시` (^KS11, ^KQ11, USDKRW=X).
+   - 미국 상장 티커일 시: `미국증시` (^GSPC, ^NDX, ^DJI, ^RUT, ^SOX).
+   - `--market` 플래그로 명시적 오버라이드 가능.
+2. **실시간 시장 데이터 수집 및 5대 기둥 국면 판정**:
+   - 6대 시장 국면: 상승 확장(현금 10%), 과열/후기(현금 25~35%), 건전한 조정(현금 20~30%), 유동성 충격(현금 40~50%), 스태그플레이션(현금 40~60%), 구조적 약세(현금 60~80%).
+   - 3단계 동적 지지선 및 적응형 위기 벤치마크 (Tier 1 단기전술, Tier 2 롤링 1년 최대조정, Tier 3 역사적 위기 적응형 4단계 근접도 밴드).
+   - 11개 SPDR 섹터 순환매 스프레드(경기민감 vs 경기방어).
+   - 소크라테스 5대 인지 편향 정량 감사 및 가설 무효화 사다리(Thesis Invalidation Ladder).
 
-### Phase 1: Value Chain Analysis & Bottleneck Identification (Skill A)
-1. Trigger the `value-chain-analyzer` skill on the target [Industry].
-2. Identify the Upstream, Midstream, and Downstream segments using fresh web research.
-3. **[비교 분석 대상 4개사 필수 선정 규칙 (1+2+1 Framework)]**:
-   - **① 타겟 기업 (1개사, [타겟])**: 분석 의뢰 기업. 다각화 복합 대기업의 경우 질의 맥락의 언급 부문(예: HBM, 스마트폰 등)을 우선하며, 언급이 없을 시 최근 영업이익 기여도 1위 사업부(예: 삼성전자는 DS 메모리)를 기준으로 함.
-   - **② 수평 직접 경쟁사 (2개사, [직접경쟁])**: 핵심 사업부 기준 글로벌 시장 점유율 2위 및 3위 과점 경쟁사 (예: 삼성전자 분석 시 SK하이닉스 `000660.KS`, 마이크론 테크놀로지 `MU`).
-   - **③ 수직 가치사슬 핵심 병목 (1개사, [병목협력])**: 공정 수율, 패키징 또는 납품을 좌우하는 독점적 서플라이체인 핵심 파트너/공급사 (예: ASML, TSMC `TSM`).
-   - **역할이 겹치면 함께 표기**: 병목 기업이 타겟의 특정 사업부와 경쟁 관계이면 `[병목협력·경쟁]`처럼 두 역할을 모두 표기하고 본문에 설명합니다 (예: 삼성전자 분석 시 TSMC는 AI 칩·HBM 생태계의 병목이자 삼성 파운드리의 경쟁사).
-   - **Mermaid 시각화 연동**: 다이어그램 노드에 `[타겟]`, `[직접경쟁]`, `[병목협력]` 태그를 포함하여 색상과 굵기로 역할을 구분합니다. 항목 이름 안에는 쉼표를 쓰지 않습니다(필요하면 `·` 사용).
-4. **[필수 시장 변동성 및 최근 현안 진단]**: 웹 검색(Antigravity `search_web` · Claude Code `WebSearch`)으로 **최근 1~5일간의 주가 급변동, 52주 고점 대비 낙폭, 시장을 흔든 직접적 트리거**(실적·피크아웃 논쟁, 경쟁사 기술 발표, 규제, 수급 등)를 조사합니다. (검색 예: `[기업명/산업] 주가 급락 원인`, `[기업명] 잠정실적`).
-   - **원인 판별은 데이터로**: Section 4 › 1-3 시장 비교 표(지수·해외 피어 등락)를 근거로 '기업 고유 / 업종 전반 / 시장 전체' 중 무엇인지 먼저 판단합니다. 공매도 잔고는 보조 지표일 뿐, 하락 원인을 '국내 수급'으로 단정하는 근거가 되지 않습니다.
-   - **수급 정량화**: `get_financial_stats.py`의 1-1 표(최근 5거래일 투자자별 순매매 추정, 외국인 지분율)를 Section 1.2와 Section 4에 인용합니다. 금액은 '추정', 당일 행이 잠정이면 '잠정'으로 표기합니다.
-5. **[검증 체크리스트 (필수 — 보고서 Section 1.3)]**: 각 항목에 출처 제목·발행일·URL을 붙입니다.
-   - 타겟·경쟁사의 **최근 실적 및 잠정실적** (한국 기업은 잠정실적 공시가 확정 실적보다 3주가량 앞섭니다) — 스크립트 7번 시나리오의 EPS 범위와 맞는지 확인
-   - **다음 실적 발표일** (Section 4 › 3-1)
-   - **최근 30일 이익 추정치 방향** (Section 4 › 3-1)
-   - **지수·해외 피어 동반 등락 여부** (Section 4 › 1-3)
-   - **트리거의 사실관계**: 발표 원문 확인, 공개된 사양·수율·고객사 여부
-   - **핵심 촉매의 현재 상태**: 90일 이내 출처만
+### 🔍 Phase 2: 가치사슬 구조화 및 핵심 병목 해자 매핑 (Skill B: value-chain-analyzer)
+1. 산업 가치사슬을 Upstream, Midstream, Downstream으로 분해.
+2. **비교 분석 대상 4개사 필수 선정 (1+2+1 Framework)**:
+   - **① 타겟 기업 (1개사, [타겟])**: 분석 대상 핵심 기업.
+   - **② 수평 직접 경쟁사 (2개사, [직접경쟁])**: 글로벌 점유율 2위 및 3위 과점 경쟁사.
+   - **③ 수직 가치사슬 핵심 병목 (1개사, [병목협력])**: 공정 수율, 패키징 또는 독점 장비/소재 파트너.
+   - 역할이 겹칠 시 `[병목협력·경쟁]`처럼 병기.
+3. Mermaid 시각화 다이어그램 자동 렌더링.
+4. **경제학적 교섭력 분석**: 매출총이익률(GPM, 러너 독점도 지수 대용) 및 현금전환주기(CCC = 재고자산회전일수 + 매출채권회전일수 - 매입채무회전일수)를 통해 밸류체인 내 가격 전가력과 운전자본 우위 검증.
 
-### Phase 2: High-Precision Financial Audits & Valuation (Skill B)
-1. For each of the **4 companies** selected in Phase 1 (1+2+1), trigger the `financial-analyst` skill.
-2. Retrieve their correct stock tickers and listing exchanges.
-3. **[경기순환 업종 지정]**: 메모리 반도체·화학·철강·해운·정유·디스플레이처럼 이익이 업황에 따라 크게 출렁이는 기업은 `--cyclical`로 지정합니다. 스크립트도 연간 순이익이 50% 이상 감소한 이력으로 자동 감지하지만, 가용 기간(약 4년)이 짧아 놓칠 수 있습니다. 잘못 감지된 기업은 `--not-cyclical`로 제외합니다.
-   - 순환업종은 이익 정점에서 PER·PEG가 가장 낮아 보입니다. 그래서 스크립트는 순환업종을 **P/B 밴드 위치 · 사이클 위치(이익률) · 추정치 방향 · 부채비율**로 판정하고, PER·PEG·매출성장·EV/EBITDA·ROE는 '제외'로 표시합니다.
-4. The script gathers (do not retype these numbers by hand):
-   - **4-Horizon PER & EPS**: TTM, FY0, FY1, and 12M Forward (NTM) day-weighted EPS/PER. NTM이 아닌 기준이면 표에 기준이 함께 표시됩니다.
-   - **Asset & Book Value**: P/B, BPS, simple Forward P/B·BPS(과거 P/B와 비교 금지), and the **historical P/B band computed with the same method as the current P/B** (Section 4 › 2-2).
-   - **Multiples & Growth**: PEG, EV/EBITDA, YoY Revenue & Earnings Growth.
-   - **Quality & Financial Health**: ROE, ROA, DuPont Leverage, Debt/Equity, Dividend Payout Ratio.
-   - **Market comparison** (Section 4 › 1-3), **peer averages** (2-3), **consensus targets from one source** (3), **30-day EPS revisions and earnings dates** (3-1), **last 4 quarters' EPS surprises** (3-2).
-5. Review the decision matrices (Section 4 › 4, 5). Verdicts: 🟢 강력 매수 후보 / 🟢 매수 고려 / 🟡 중립·관망 / 🔴 신중 접근 / ⚪ 판단 보류(데이터 부족).
-6. **[회계 감사: 일회성 손익 분리 & 정규화 지표]**: 스크립트가 최근 4분기에서 큰 일회성 손익(`Total Unusual Items > 세전이익 15%` 또는 `순이익 > 영업이익`)을 감지하면, 명목·정규화 ROE/EPS를 **같은 분모**로 다시 계산합니다. 분류는 Yahoo 기준이라 큰 항목은 공시(DART·IR)로 확인하고, 평가이익이 이후 분기에 되돌려질 가능성(관련 자산 가격 변동)을 함께 적습니다.
-7. **[시나리오 스트레스 테스트]**: 스크립트가 내년(FY1) 컨센서스 EPS 최저·평균·최고에 두 가지 배수(A: 현재 배수 유지, B: 목표가 내재 배수)를 적용해 계산합니다. 보고서는 이 표를 그대로 인용합니다.
-8. **[데이터 품질 경고]**: Section 4 › 8번에 출처 간 5% 이상 차이, 통화 보정, 잠정 수급, 가격 이력 보완·교정, 재무제표 반영 지연 등이 모입니다. 해당 수치를 인용할 때 경고를 함께 밝힙니다. 사이클 위치 🔴는 '이익률 기록 경신 경보'이지 정점 확인이 아닙니다(`financial-analyst/references/rules/cycle-position.md`).
+### 📊 Phase 3: 기업 정밀 밸류에이션 및 시나리오 스트레스 테스트 (Skill C: financial-analyst)
+1. 선정된 4개사에 대해 재무 데이터 및 컨센서스 수집.
+2. **섹터 적응형 5대 비즈니스 프로파일(`profile_detector.py`) 자동 감지** 및 `--cyclical` 지정:
+   - **Type 1 (`GENERAL`, 전통 제조/내수)**: Forward P/E, PEG, 매출성장률, EV/EBITDA, ROE, 부채비율, 30일 추정치 방향 (7개 기둥).
+   - **Type 2 (`CYCLICAL`, 반도체/시클리컬)**: 이익 정점의 왜곡된 저PER 대신 **P/B 밴드 위치, 사이클 위치(영업이익률), 추정치 방향, 부채비율** (4개 기둥)로 엄격 판정.
+   - **Type 3 (`PLATFORM_SAAS`, 플랫폼/SaaS)**: 매출성장률, FCF 마진율, Rule of 40, EV/Sales, PEG, 추정치 방향 (6개 기둥, 전통 PBR/부채비율 배제).
+   - **Type 4 (`FINANCIAL_REIT`, 금융/리츠/고배당 인프라)**: P/B 밴드, ROE, 배당수익률, Forward P/E, 추정치 방향 (5개 기둥, 일반 부채비율/EV·EBITDA 배제).
+   - **Type 5 (`BIOTECH_RD`, 바이오/딥테크 R&D)**: Cash Runway(현금런웨이), 순현금/시총 비중, R&D 집약도, 추정치 방향, 부채비율 (5개 기둥, 전통 PER/ROE 배제).
+   - **상세 레퍼런스 및 GICS 163개 세부산업 매트릭스**: `.agents/skills/financial-analyst/references/taxonomy/business-profiles.md`, `gics-163-subindustries.md` 및 프로젝트 로컬 위키(`wiki/index.md`, `wiki/entities/10~60-*.md`) 참조.
+3. 4-호라이즌 PER, P/B 밴드, 프로파일별 특화 보조지표(Table 4.3-4), 30일 이익 추정치 리비전 방향, 최근 4분기 어닝 서프라이즈, 종합 투자 시그널 매트릭스 산출.
+4. 일회성 손익 분리 회계 감사 및 정규화 ROE.
+5. **2-Tier 경제학 해자 및 밸류 트랩 게이트키퍼 (Table 4.3-6.1)**:
+   - EVA Spread ($\text{ROIC}-\text{WACC}$), Implied ERP, 주주환원율(배당+순자사주), 현금전환비율(OCF/NI) 감사.
+   - 1차 매트릭스가 🟢라도 게이트키퍼 🔴(자본잠식/주주가치 희석/이익 품질 불량) 발생 시 자동으로 `🟡 중립/관망 (⚠️ 밸류 트랩 경보)`로 1단계 하향.
+6. **3-Tier 시나리오 스트레스 테스트**:
+   - Multiple A (현재 배수 유지), Multiple B (애널리스트 목표가 내재 배수) 외에 **Multiple C (Joint De-rating Floor: Bear EPS × Band Lowest Multiple)**를 필수 산출하여 이익 급감과 배수 동시 압축 시의 최악 바닥가 및 하방 마진 점검.
 
-### Phase 3: Synthesis & Strategy Formulation
-To prevent omissions (e.g., missing financial tables), you MUST use the master script to auto-generate the report template.
+---
 
-1. Execute the master template script. The three skills (`investment-strategy`, `financial-analyst`, `value-chain-analyzer`) must sit side by side in the same skills folder, because this script runs the other two.
-   - **Claude Code** — `${CLAUDE_SKILL_DIR}` is replaced with this skill's folder. With [uv](https://docs.astral.sh/uv/) no setup is needed; otherwise `pip install -r "${CLAUDE_SKILL_DIR}/requirements.txt"` into a virtual environment and run the script with that Python:
-     ```bash
-     uv run --no-project --with-requirements "${CLAUDE_SKILL_DIR}/requirements.txt" python "${CLAUDE_SKILL_DIR}/scripts/generate_strategy_report.py" --industry "[Industry Name]" --upstream "[Upstream info]" --midstream "[Midstream info]" --downstream "[Downstream info]" --tickers "[Target,Peer1,Peer2,Bottleneck]" [--cyclical "[Tickers]"] [--not-cyclical "[Tickers]"] [--benchmarks "^KS11,^SOX"] [--weights "0.2,0.5,0.3"]
-     ```
-   - **Antigravity** — activate the project virtual environment (Windows: `venv\Scripts\python.exe`):
-     ```bash
-     venv/bin/python3 .agents/skills/investment-strategy/scripts/generate_strategy_report.py --industry "[Industry Name]" --upstream "[Upstream info]" --midstream "[Midstream info]" --downstream "[Downstream info]" --tickers "[Target,Peer1,Peer2,Bottleneck]" [--cyclical "[Tickers]"] [--not-cyclical "[Tickers]"] [--benchmarks "^KS11,^SOX"] [--weights "0.2,0.5,0.3"]
-     ```
-   - 보조 스크립트(다이어그램·재무 데이터)가 실패하면 보고서 파일을 만들지 않고 종료합니다. **표를 손으로 채우지 말고** 오류를 해결한 뒤 다시 실행합니다.
-2. The script creates a new file `reports/[Industry_Name]_[YYYYMMDD]_Investment_Strategy_Report.md` and a companion data snapshot `reports/[Industry_Name]_[YYYYMMDD]_Investment_Strategy_Report_data.json` (KST date; same-day reruns get `_v2.md`, `_v3.md` ... so nothing is overwritten). `reports/` goes in the project folder when the skills are installed inside a project (`<project>/.agents/skills` or `<project>/.claude/skills`), and in the current working folder for personal installs (`~/.claude/skills`, `~/.agents/skills`); `--output` sets the path explicitly. The file already contains:
-   - The analysis timestamp (KST) and market state of each ticker.
-   - The companion snapshot file path stated in the header metadata block.
-   - Mermaid value chain flowchart.
-   - All quantitative tables (Section 4), including the verdicts, cyclical diagnostics, scenario table and data-quality warnings.
-   - Ticker-specific analysis blocks under Section 5, the verification checklist (1.3), and the Bear-thesis section (6.2).
-3. Use your file-editing tool to locate the `[AI_TODO]` placeholders within the generated file.
-4. Replace these placeholders with your research analysis. Do NOT manually type out or edit the numbers in Section 4; the script handles that.
-5. **숫자 점검을 실행합니다.** 모든 `[AI_TODO]`를 채운 뒤, 본문 숫자가 스냅샷이나 인용 출처로 확인되는지 점검합니다(규칙: `financial-analyst/references/rules/report-number-check.md`).
-   - **Claude Code**:
-     ```bash
-     uv run --no-project --with-requirements "${CLAUDE_SKILL_DIR}/../financial-analyst/requirements.txt" python "${CLAUDE_SKILL_DIR}/../financial-analyst/scripts/check_report_numbers.py" "reports/[보고서].md"
-     ```
-   - **Antigravity**:
-     ```bash
-     venv/bin/python3 .agents/skills/financial-analyst/scripts/check_report_numbers.py "reports/[보고서].md"
-     ```
-   - 종료 코드 `0`: 기록되지 않은 문제 없음 · `1`: 고칠 문제 있음 · `2`: 실행 불가(경로 확인).
-6. **문제를 고치고 다시 점검합니다.**
-   - **근거 없음**: Section 4·스냅샷 값을 표시된 그대로 옮겨 쓰거나(단위만 바꾸는 것은 허용), 출처 번호 `[n]`을 같은 문장·표 행에 붙이거나, 근거가 없으면 그 주장과 함께 지웁니다. 직접 계산한 숫자(합계·차이·변화율)는 쓰지 않습니다.
-   - **Section 4 수정됨**: 바뀐 줄을 원래대로 되돌립니다.
-   - **참고문헌 형식**: 홈페이지가 아닌 기사·문서 주소와 발행일(`YYYY-MM-DD`)로 고칩니다.
-   - 고친 뒤 5단계를 다시 실행합니다.
-7. **남은 문제를 기록합니다.** 더 고칠 수 없는 문제가 남으면 `--section`을 붙여 실행한 출력('## 9. 숫자 점검 결과' 블록)을 '## 8. 참고 문헌' 목록 뒤, 면책 문구 앞에 넣고, 표의 `[AI_TODO: 남긴 이유]`마다 사유를 적습니다. 종료 코드 `0`이 나올 때까지 5~7단계를 반복한 뒤 보고서를 마무리합니다. 개수가 달라졌다는 오류(`check_section_stale`)가 나오면 `--section`으로 다시 만들어 바꿔 넣습니다(적은 사유는 유지됨).
-8. **(선택, 로컬)** `--fetch-sources`를 붙이면 인용한 기사를 내려받아 숫자가 실제로 있는지 대조합니다. `not_found`·`unverifiable`도 6~7단계처럼 고치거나 기록합니다.
+## 3. 실행 방법 (CLI Instructions)
 
-## Best Practices
+### 1단계: 마스터 보고서 템플릿 및 동반 스냅샷 생성
 
-- **Zero-Prior-File Dependency (Clean-Slate):** 과거 작성된 보고서 파일 및 데이터 스냅샷(`*_data.json`)을 참조하지 않고, 오직 실시간 시장 데이터와 최신 공시/뉴스만을 기준으로 리포트를 작성합니다.
-- **Never Overwrite (히스토리 보존):** 보고서는 항상 `reports/` 디렉토리에 실행 날짜 기반 신규 파일로 누적 보관되어 시계열적 투자 판단 변화를 추적할 수 있도록 합니다.
-- **장기 구조 + 단기 시황을 함께 보되, 순서를 지킵니다:** 장기 밸류체인 구조(해자)와 단기 급변동을 균형 있게 다룹니다. 급락장에서는 "왜 빠졌는지"를 데이터로 먼저 판별하고, 매매 전략은 판정에 따라 제시합니다.
-- **Connect Supply Chain Strengths to Financial Multiples:** Explain *why* a company trades at a premium or discount. For cyclical companies, explain the multiple in the context of the earnings cycle (a low P/E at peak earnings is not, by itself, cheapness).
-- **Strict Risk Matrix Alignment:** 🔴 2개 이상이면 '신중 접근', 🔴가 1개라도 있으면 '강력 매수' 불가, 유효 신호가 4개 미만이면 '판단 보류'입니다.
-- **Enforce Referencing:** 웹에서 가져온 모든 수치(점유율, 실적, 목표가 등)에는 본문 인용 번호와 함께 출처 제목·발행일·URL을 붙입니다. 사이트 홈페이지만 가리키는 링크는 출처로 인정하지 않습니다. 인용 번호는 그 숫자와 **같은 문장 또는 같은 표 행**에 있어야 인정됩니다. Phase 3 5단계의 숫자 점검이 이를 확인합니다.
-- **점검할 수 있게 숫자 쓰기:** Section 4 값은 표에 보이는 자릿수 그대로 씁니다(예: "52.18%", "-39,334억 원" → "-3조 9,334억 원"처럼 단위만 바꾸는 것은 가능). 건수·작은 정수(예: "하향 25건", "62%")는 우연히 맞기 쉬워 직접 대조하지 않으므로 같은 문장에 `(Section 4 › 3-1)`처럼 표를 밝힙니다. "₩262,000 부근"처럼 근사로 쓴 값은 확인되지 않습니다. 숫자를 지워 점검을 통과시키지 말고, 근거가 없으면 그 주장도 함께 빼거나 출처를 찾습니다.
-- **Maintain Modular Outputs:** Complete the supply chain mapping first, then fetch the financial data, and finally synthesize the investment strategy.
-- **시나리오 스트레스 테스트 인용:** Section 6.1은 스크립트 7번 표를 그대로 인용합니다. 하방이 음수면 그대로 적고, 결론에 맞추려고 배수·확률·EPS를 바꾸지 않습니다. 확률은 `--weights`로만 바꾸며, 바꿨다면 이유를 적습니다.
-- **반대 논리 (Bear Thesis) 필수:** Section 6.2에 판단이 틀릴 수 있는 이유 3가지와 판단 무효화 조건을 출처와 함께 적습니다.
-- **기술적 지표는 보조 수단:** RSI·볼린저밴드는 판정이 나온 뒤 진입 시점을 고르는 데만 씁니다. 과매도 자체를 매수 근거로 쓰지 않습니다.
-- **판정 연동 실행 전략:** 7.1은 판정(🟢/🟡/🔴)에 따라 분할 매수 계획 / 관망 조건 / 비중 축소 근거 중 하나로 씁니다. 7.2 배분은 판정과 연동하고(🔴 판정 기업은 0% 또는 축소), 현금 비중과 업종 집중 위험을 함께 밝힙니다.
-- **면책 문구 유지:** 보고서 끝의 면책 문구를 지우지 않습니다.
+마스터 스크립트를 실행하여 통합 보고서 마크다운 파일과 단일 통합 데이터 스냅샷(`*_data.json`)을 동시 생성합니다:
+
+```bash
+# Antigravity 환경 실행 예시
+./venv/bin/python3 .agents/skills/investment-strategy/scripts/generate_strategy_report.py \
+  --industry "AI 메모리 반도체" \
+  --upstream "실리콘 웨이퍼, 포토레지스트, EUV 노광장비(ASML), HBM 전용 TC 본더" \
+  --midstream "DRAM/NAND 칩 제조, HBM3E 패키징, 첨단 파운드리 TSMC CoWoS" \
+  --downstream "CSP 데이터센터(MSFT/GOOGL), AI 가속기 서버(NVDA HGX B200), 온디바이스 스마트폰" \
+  --tickers "005930.KS,000660.KS,MU,TSM" \
+  --cyclical "005930.KS,000660.KS,MU,TSM" \
+  --benchmarks "^KS11,^SOX" \
+  --weights "0.2,0.5,0.3"
+```
+
+생성 결과물:
+- `reports/[Industry]_[YYYYMMDD]_Investment_Strategy_Report.md`: 통합 보고서 본문.
+- `reports/[Industry]_[YYYYMMDD]_Investment_Strategy_Report_data.json`: 거시 및 재무 데이터 통합 동반 스냅샷.
+
+### 2단계: AI 에이전트 분석 작성 (Fill `[AI_TODO]` — 다중 MCP 우선순위 체크리스트 적용)
+
+파일 편집 도구를 사용하여 보고서 내부의 모든 `[AI_TODO]` 영역을 채울 때, 단순 웹 검색에 앞서 **`.agents/skills/financial-analyst/references/rules/data-quality.md`의 항목별 출처 및 다중 MCP 폴백 우선순위 체크리스트(1순위 → 2순위 → 3순위)**를 우선 적용합니다:
+- **Section 1.2 (거시/업황 트리거 및 수급 진단)**:
+  - 금리·신용·유동성: `1순위 FRED MCP (fred_bundle: rates/credit/liquidity) & ECOS MCP (ecos_market_rates)` → `2순위 Toss MCP (toss_market_indicator_prices)` → `3순위 Yahoo Finance`
+  - 국내 시장·업종 수급: `1순위 Toss MCP (toss_market_investor_trading 7대 기관 세분화, toss_sector_rankings)` → `2순위 KRX MCP (krx_stock market_summary)` → `3순위 네이버/다음 금융`
+- **Section 1.3 (검증 체크리스트 — 잠정실적·발표일·트리거 사실관계)**:
+  - 한국 기업 실적·잠정실적: `1순위 DART MCP (dart_disclosures + dart_document 공정공시 원문 표)` → `2순위 WiseReport / 네이버 금융` → `3순위 search_web`
+  - 미국 기업 실적·가이던스: `1순위 SEC EDGAR MCP (sec_filings + sec_document 10-K/10-Q/8-K Item 2.02)` → `2순위 Yahoo Finance` → `3순위 search_web`
+  - 매크로 이벤트 일정: `1순위 FRED MCP (fred_release_calendar)` → `2순위 search_web`
+- **Section 3 & Section 5 (4개사 가치사슬 교섭력 CCC/GPM, 핵심 촉매, 오버행·거버넌스 리스크)**:
+  - 재무·운전자본(CCC)·자사주·오버행: `1순위 DART MCP (dart_financials, dart_report: stockTotqySttus / tesstkAcqsDspsSttus / alotMatter / cbIssuAcmslt) & SEC EDGAR MCP (sec_financials, sec_search 공급망 키워드 검색)` → `2순위 KRX MCP / 네이버 금융` → `3순위 Yahoo Finance`
+  - 종목별 공매도·프로그램 수급: `1순위 Toss MCP (toss_stock_short_selling, toss_stock_program_trades)` → `2순위 네이버 금융`
+- **Section 6**:
+  - 6.1 시나리오 스트레스 테스트 해석(하방 위험 직시: Multiple A, B 및 최악 복합 디레이팅 바닥가 Multiple C 하방 마진 점검).
+  - 6.2 소크라테스 6대 질문(명료화, 숨은 가정, 정량 근거, Bear Anti-Thesis 반대 논증, 연쇄 파급효과, 메타인지).
+  - 6.3 5대 인지 편향 교정 점검 및 가설 무효화 사다리(Thesis Invalidation Ladder).
+- **Section 7**:
+  - 7.1 탑다운 거시 현금 제약(권장 현금 비중 준수).
+  - 7.2 판정 연동 실행 전략(분할 매수 가격대, 무효화 트리거 발생 시 즉시 대응).
+  - 7.3 포트폴리오 비중 제안.
+- **Section 8**: 참고 문헌 `[번호] 제목 — 발행일 — URL`.
+
+### 3단계: 통합 검증 도구 실행 (`check_strategy_report_numbers.py`)
+
+보고서 작성이 완료되면 반드시 통합 검증기를 실행하여 무결성을 검증합니다:
+
+```bash
+./venv/bin/python3 .agents/skills/investment-strategy/scripts/check_strategy_report_numbers.py \
+  "reports/AI_메모리_반도체_20261106_Investment_Strategy_Report.md"
+```
+
+- **종료 코드 `0`**: 모든 검증 통과 (Section 4 해시 일치, 플레이스홀더 0개, 모든 숫자 스냅샷/출처 추적 완료).
+- **종료 코드 `1`**: 수정 필요 항목 존재 (미완성 `[AI_TODO]`, Section 4 임의 수정, 출처 없는 숫자 등).
+- **종료 코드 `2`**: 파일 경로 오류.
+
+남은 문제 사유를 문서화해야 할 경우 `--section` 옵션을 붙여 `## 9. 숫자 점검 결과` 블록을 생성할 수 있습니다.
+
+---
+
+## 4. 모범 사례 및 금지 사항 (Best Practices)
+
+- **장단기 입체적 조망**: 거시 시장 체제와 단기 급락 트리거(1~5일)를 먼저 분석하고, 중장기 가치사슬 해자 및 정밀 밸류에이션을 결합합니다.
+- **급락을 그 자체로 저가 매수 근거로 삼지 마십시오**: 낙폭 과대나 RSI 과매도만으로 매수를 추천하지 않습니다. 펀더멘털 손상 여부와 거시 현금 제약을 먼저 확인합니다.
+- **소크라테스식 반대 논증 (Bear Anti-Thesis) 필수**: 분석자가 아무리 확신하더라도, 기관 공매도 세력의 핵심 반대 논리 3가지를 반드시 서술합니다.
+- **가설 무효화 조건 명시**: 어떤 정량적 수치나 이벤트가 발생하면 기존 투자 결론을 즉시 폐기하고 비중을 축소할지 명확한 사다리를 정의합니다.
+- **면책 문구 보존**: 보고서 최하단의 법적 고지 및 면책 문구를 절대 삭제하지 않습니다.
