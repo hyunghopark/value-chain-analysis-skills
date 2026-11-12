@@ -1,0 +1,5 @@
+# market-analyst requirements
+yfinance>=1.0
+pandas>=2.0
+requests
+beautifulsoup4
