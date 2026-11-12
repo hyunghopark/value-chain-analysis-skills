@@ -12,6 +12,7 @@ import argparse
 import datetime
 import difflib
 import hashlib
+import io
 import json
 import os
 import re
@@ -194,14 +195,20 @@ NUMBER = re.compile(
     r'(?P<num>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)'
     r'(?P<unit>%p|%|배|조|억|만|건|GB|TB|bp|주|(?:x|T|B|M|K)(?![A-Za-z]))?')
 EOK_AFTER_JO = re.compile(r'\s?(\d{1,3}(?:,\d{3})+|\d+)억')
-RANGE_SEP = re.compile(r'\s?[~∼]\s?$')
+# Range separators: tildes and dashes with optional spaces, or a bare hyphen glued to both numbers
+# ('10-15%'; with a space before it the hyphen reads as the sign of the second number).
+RANGE_SEP = re.compile(r'\s?[~∼～〜–—]\s?$|-$')
+# English magnitude words read as the T/B/M units ('$54.23 billion' = '$54.23B').
+MAGNITUDE_WORDS = {'trillion': 'T', 'billion': 'B', 'million': 'M', 'tn': 'T', 'bn': 'B', 'mn': 'M'}
+MAGNITUDE_WORD = re.compile(r'\s?(' + '|'.join(MAGNITUDE_WORDS) + r')(?![A-Za-z])', re.IGNORECASE)
 
 
 def parse_numbers(text):
     """Read every number in text as (value, unit, decimals, sign, currency) with its position.
 
-    '3조 9,334억' is one amount (3.9334 조), '50~60%' lends '%' to 50, and a '-' glued to a preceding
-    letter or digit ('1-1', '10-14') is a separator, not a sign.
+    '3조 9,334억' is one amount (3.9334 조), '50~60%' and '10–15%' lend '%' to the first number,
+    '$54.23 billion' reads as '$54.23B', and a '-' glued to a preceding letter or digit ('1-1', '10-14')
+    is a separator, not a sign.
     """
     tokens = []
     pos = 0
@@ -222,7 +229,11 @@ def parse_numbers(text):
         value = float(num.replace(',', ''))
         decimals = len(num.split('.')[1]) if '.' in num else 0
         unit = m.group('unit') or ''
-        if not unit:
+        word = None if unit else MAGNITUDE_WORD.match(text, end)
+        if word:
+            unit = MAGNITUDE_WORDS[word.group(1).lower()]
+            end = word.end()
+        elif not unit:
             letters = re.match(r'[A-Za-z]+', text[end:])
             if letters:                      # a unit we do not compare (2.5W, 2.5Tbps): kept, never matched
                 unit = letters.group(0)
@@ -273,7 +284,8 @@ MASKS = [
                                 r'|\d+-?(?:Hi|bit)\b|\d+(?:nm|나노|세대)|\d+단(?!계|기|위|순)|\b\d[a-wyz]\b|\b\d+(?:\.\d+)?D\b')),
     ('duration', re.compile(r'\d+(?:\s?~\s?\d+)?\s?(?:거래일간?|영업일|개월간?|일간|일|년간|주간|시간|분(?!기))'
                             r'|(?<![\d,.])\d{1,3}주(?=\s?(?:최고|최저|고점|저점|범위|신고|신저|동안|이동))'
-                            r'|(?<![\d,.$₩])\d{1,2}M\b'
+                            r'|(?<![\d,.$₩])\d{1,2}[MY]\b'
+                            r'|국채\s?\d{1,2}Y?'
                             r'|(?<![\d,.])\d{1,2}년(?![도대])')),
     ('year', re.compile(r'(?<![\d,.$₩])(?:19|20)\d{2}(?!\d|,\d|\.\d|%|조|억|만|배|건|주)(?:년)?')),
 ]
@@ -770,7 +782,7 @@ def render_section(result):
     return '\n'.join(lines)
 
 
-WARNINGS_TABLE = re.compile(r'^#{3,4}\s*(?:[^\w\s]+\s*)?8\.')
+WARNINGS_TABLE = re.compile(r'^#{3,4}.*데이터\s*품질\s*경고')
 
 
 def section4_region(section):
@@ -941,28 +953,47 @@ def check_references(report):
 
 FETCH_TIMEOUT = 10
 MIN_ARTICLE_CHARS = 500
-
-
-def _to_eok(value, unit):
-    return value * 1e4 if unit == '조' else value
+# Amount units that convert into each other when a cited number is looked up in a document (rules §7).
+MAGNITUDE_SCALE = {'조': 1e12, '억': 1e8, '만': 1e4, 'T': 1e12, 'B': 1e9, 'M': 1e6, 'K': 1e3}
 
 
 def number_in_document(m, tokens):
-    """Is the cited number written in the document? Same unit, or 조 and 억 converted (rules §7)."""
+    """Is the cited number written in the document? Same unit, or amount units converted (rules §7)."""
     tol = 0.5 * 10 ** (-m.decimals) + 1e-9
     for t in tokens:
         if t.unit == m.unit and abs(abs(t.value) - abs(m.value)) <= tol:
             return True
-        if {t.unit, m.unit} <= {'조', '억'} and t.unit != m.unit:
-            if abs(abs(_to_eok(t.value, t.unit)) - abs(_to_eok(m.value, m.unit))) <= _to_eok(tol, m.unit):
+        if t.unit != m.unit and t.unit in MAGNITUDE_SCALE and m.unit in MAGNITUDE_SCALE:
+            scale = MAGNITUDE_SCALE[m.unit]
+            if abs(abs(t.value) * MAGNITUDE_SCALE[t.unit] - abs(m.value) * scale) <= tol * scale:
                 return True
     return False
+
+
+def is_pdf(resp):
+    ctype = ((getattr(resp, 'headers', None) or {}).get('Content-Type') or '').lower()
+    return ctype.startswith('application/pdf') or (getattr(resp, 'content', None) or b'')[:5] == b'%PDF-'
+
+
+def document_text(resp):
+    """Text of a fetched HTML page or PDF, and why it could not be read ('' when it was read)."""
+    if not is_pdf(resp):
+        from bs4 import BeautifulSoup
+        return BeautifulSoup(resp.text, 'html.parser').get_text('\n'), ''
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return '', 'PDF 미지원(pypdf 미설치)'
+    try:
+        reader = PdfReader(io.BytesIO(resp.content))
+        return '\n'.join(page.extract_text() or '' for page in reader.pages), ''
+    except Exception as e:
+        return '', f"PDF 읽기 실패: {e}"
 
 
 def fetch_and_verify(result, get=None):
     """--fetch-sources: download each cited reference and look for the numbers cited with it (local only)."""
     import requests
-    from bs4 import BeautifulSoup
     get = get or requests.get
     issues = []
     for ref in result.references:
@@ -974,9 +1005,11 @@ def fetch_and_verify(result, get=None):
         else:
             try:
                 resp = get(ref.url, timeout=FETCH_TIMEOUT, headers={'User-Agent': 'Mozilla/5.0'})
-                text = BeautifulSoup(resp.text, 'html.parser').get_text('\n') if resp.status_code == 200 else ''
+                text, unreadable = document_text(resp) if resp.status_code == 200 else ('', '')
                 if resp.status_code != 200:
                     fetch.update(status='unverifiable', reason=f"HTTP {resp.status_code}")
+                elif unreadable:
+                    fetch.update(status='unverifiable', reason=unreadable)
                 elif len(text.strip()) < MIN_ARTICLE_CHARS:
                     fetch.update(status='unverifiable', reason=f"본문 {len(text.strip())}자 — 유료·차단 추정")
                 else:

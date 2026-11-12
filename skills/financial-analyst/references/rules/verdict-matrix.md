@@ -18,9 +18,12 @@
 
 값이 없거나 0 이하(배수)면 ⚪(데이터 없음)입니다.
 
-- **일반 기업**: `fpe, peg, rg, ev, roe, de, rev` 7개
-- **순환업종**: `band, cycle, rev, de` 4개 — 이익 정점에서 좋아 보이는 PER·PEG·매출성장·EV/EBITDA·ROE는 '제외'로 표시하고 쓰지 않습니다.
-- **순환업종 지정**: 연간 순이익의 최대 감소율이 -50% 이하이면 자동 지정. `--cyclical` / `--not-cyclical`로 사람이 덮어씁니다.
+- **일반 기업 (`GENERAL`, Type 1)**: `fpe, peg, rg, ev, roe, de, rev` 7개
+- **순환업종 (`CYCLICAL`, Type 2)**: `band, cycle, rev, de` 4개 — 이익 정점에서 좋아 보이는 PER·PEG·매출성장·EV/EBITDA·ROE는 '제외'로 표시하고 쓰지 않습니다.
+- **플랫폼/SaaS (`PLATFORM_SAAS`, Type 3)**: `rg, fcf_margin, rule_of_40, ev_sales, peg, rev` 6개 — 무형자산 및 고성장 재투자 구조를 반영하여 전통적 PBR 및 단순 PER·D/E는 제외합니다.
+- **금융/리츠/인프라 (`FINANCIAL_REIT`, Type 4)**: `band, roe, div_yield, fpe, rev` 5개 — 원재료가 '자본/차입금'이므로 일반 기업의 부채비율(`de`), `ev`(EV/EBITDA), `peg`는 제외합니다.
+- **바이오텍/R&D (`BIOTECH_RD`, Type 5)**: `runway, net_cash_mcap, rd_intensity, rev, de` 5개 — 임상 및 선행 R&D 단계의 계획된 적자 특성을 반영하여 전통적 수익성 배수(`fpe, peg, ev, roe`)는 제외합니다.
+- **순환업종 및 프로파일 자동 지정**: `scripts/profile_detector.py`가 GICS 섹터/산업 분류, 재무제표 구조, 연간 순이익 최대 감소율(-50% 이하 시 순환업종)을 종합하여 5대 프로파일을 자동 분류하며, `--cyclical` / `--not-cyclical`로 사람이 덮어씁니다. 상세 분류 기준은 [`../taxonomy/business-profiles.md`](../taxonomy/business-profiles.md) 및 [`../taxonomy/gics-163-subindustries.md`](../taxonomy/gics-163-subindustries.md)를 따릅니다.
 
 <a id="estimate-revisions"></a>
 ## 추정치 방향 (30일)
@@ -55,3 +58,14 @@
 | 5 | 그 외 | 🟡 중립/관망 (🔴 1개면 '주의 신호 1개' 표시) |
 
 순환업종은 기둥이 4개뿐이라 하나라도 ⚪이면 판단 보류가 됩니다.
+
+<a id="economic-gatekeeper"></a>
+## 경제학 Moat & 밸류 트랩 게이트키퍼 (`economic_auditor.py`, v4.0)
+
+1차 신호등 집계로 🟢(강력 매수 후보 또는 매수 고려) 판정이 나오더라도, `Table 6-1 [경제학 감사]`에서 아래 결함(🔴)이 감지되면 최종 판정을 **1단계 자동 강등(Downgrade)**합니다:
+1. **자본 파괴 (Value Destruction)**: 초과이윤 스프레드 $\text{EVA} = \text{ROIC} - \text{WACC} < 0.0\%p$ 🔴
+2. **이익 현금전환율 불량 (Earnings Quality Alert)**: $\text{CCR} = \text{OCF} / \text{Net Income} < 0.7$ 🔴
+3. **주주가치 지분 희석 (Dilution)**: 총주주환원율 중 순자사주 증감률 $\le -2.0\%$ 🔴
+
+- **강등 결과**: `🟡 **중립/관망 (⚠️ 밸류 트랩 경보: [사유])**`
+- **효과**: 🟢 판정은 기술적·재무적 신호등과 경제학적 자본비용/현금흐름 검증을 모두 무결하게 통과한 진짜 초우량 기업에게만 부여됩니다.

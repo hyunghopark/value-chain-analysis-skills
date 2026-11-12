@@ -3,5 +3,7 @@ yfinance>=1.0
 pandas
 requests
 beautifulsoup4
+# check_report_numbers.py --fetch-sources: text of cited PDF documents
+pypdf
 # Optional: KRX official data fallback (needs KRX_ID / KRX_PW environment variables)
 # pykrx

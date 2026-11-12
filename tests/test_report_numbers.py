@@ -147,6 +147,20 @@ def _tok(text):
     ("1.24~10.89", [(1.24, "", 2, None, None), (10.89, "", 2, None, None)]),
     ("+2.4% 반등", [(2.4, "%", 1, "+", None)]),
     ("+12.5%p", [(12.5, "%p", 1, "+", None)]),
+    # dashes as range separators lend the unit like '~' (en dash, em dash, glued hyphen)
+    ("10–15% QoQ", [(10.0, "%", 0, None, None), (15.0, "%", 0, None, None)]),
+    ("10 – 15%", [(10.0, "%", 0, None, None), (15.0, "%", 0, None, None)]),
+    ("10—15%", [(10.0, "%", 0, None, None), (15.0, "%", 0, None, None)]),
+    ("10-15%", [(10.0, "%", 0, None, None), (15.0, "%", 0, None, None)]),
+    ("10～15%", [(10.0, "%", 0, None, None), (15.0, "%", 0, None, None)]),
+    # English magnitude words read as T/B/M
+    ("$54.23 billion", [(54.23, "B", 2, None, "$")]),
+    ("$61.5 billion ± $1.5 billion", [(61.5, "B", 1, None, "$"), (1.5, "B", 1, None, "$")]),
+    ("1.2 Trillion won", [(1.2, "T", 1, None, None)]),
+    ("$500mn", [(500.0, "M", 0, None, "$")]),
+    ("$3.4bn", [(3.4, "B", 1, None, "$")]),
+    ("10–15 billion", [(10.0, "B", 0, None, None), (15.0, "B", 0, None, None)]),
+    ("5 millions of units", [(5.0, "", 0, None, None)]),   # not the bare word: left as is
 ])
 def test_parse_numbers(text, expected):
     assert _tok(text) == expected
@@ -162,6 +176,13 @@ def test_parse_numbers_positions_and_raw():
     text = "외국인 -3조 9,334억 원 순매도"
     (t,) = crn.parse_numbers(text)
     assert t.raw == "-3조 9,334억"
+    assert text[t.start:t.end] == t.raw
+
+
+def test_parse_numbers_magnitude_word_is_part_of_raw():
+    text = "매출 $54.23 billion으로"
+    (t,) = crn.parse_numbers(text)
+    assert t.raw == "$54.23 billion"
     assert text[t.start:t.end] == t.raw
 
 
@@ -288,7 +309,11 @@ def test_rules_document_matches_constants():
     assert doc_units == {k: list(v) for k, v in crn.UNIT_KINDS.items()}
     aliases = by("4-6.", "별칭")
     assert {row[0].strip("`"): tuple(x.strip() for x in row[1].split(",")) for row in aliases["rows"]} == crn.INDEX_ALIASES
+    words = by("3.", "단위")
+    assert {row[0].strip("`"): row[1].strip("`") for row in words["rows"]} == crn.MAGNITUDE_WORDS
     assert _keys(by("7.", "뜻")) == set(crn.FETCH_STATUSES)
+    scales = by("7.", "배율")
+    assert {row[0].strip("`"): float(row[1]) for row in scales["rows"]} == crn.MAGNITUDE_SCALE
     assert _keys(by("8.", "뜻")) == {str(crn.EXIT_OK), str(crn.EXIT_ISSUES), str(crn.EXIT_CANNOT_RUN)}
 
 
@@ -1060,8 +1085,9 @@ PADDING = " 본문 문장입니다." * 80
 
 
 class FakePage:
-    def __init__(self, text, status=200):
+    def __init__(self, text, status=200, headers=None, content=b""):
         self.text, self.status_code = text, status
+        self.headers, self.content = headers or {}, content
 
 
 def fake_fetch(calls):
@@ -1109,6 +1135,107 @@ def test_no_fetch_without_option(tmp_path, monkeypatch):
     assert calls == []
     assert all(r.fetch is None for r in result.references)
     assert not any(i.kind.startswith("source_") for i in result.issues)
+
+
+# Notation differences between a report and its sources that once came out as not_found (2026-10-22 report).
+NOTATION_REPORT = """# 기사 대조 — 표기 차이
+
+> **데이터 스냅샷**: `r_data.json`
+
+## 1. 산업 개요
+
+DRAM 계약가는 10~15% 오를 전망이다 [1]. 마이크론 매출은 $54.23B였다 [2]. 매출 가이던스는 $61.5B다 [3].
+같은 매출을 원화 기사처럼 쓰면 542억 달러다 [4].
+
+## 8. 참고 문헌 (References)
+
+[1] [가격 전망](https://example.com/news/1) — 2026-10-10
+[2] [실적 기사](https://example.com/news/2) — 2026-10-10
+[3] [실적 자료](https://example.com/ir/3.pdf) — 2026-10-10
+[4] [실적 기사 2](https://example.com/news/4) — 2026-10-10
+"""
+
+PDF_PADDING = ["This line pads the filing so that it reads as a full document of text."] * 12
+
+
+def _pdf(lines):
+    """A one-page PDF (Helvetica, ASCII) that shows the given lines."""
+    stream = "BT /F1 9 Tf 12 TL 36 800 Td " + " ".join(f"({line}) Tj T*" for line in lines) + " ET"
+    objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        f"<< /Length {len(stream)} >>\nstream\n{stream}\nendstream",
+    ]
+    out, offsets = "%PDF-1.4\n", []
+    for n, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += f"{n} 0 obj\n{body}\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n" + "".join(f"{o:010d} 00000 n \n" for o in offsets)
+    out += f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"
+    return out.encode("latin-1")
+
+
+def notation_pages(pdf=None):
+    pdf = pdf or FakePage("", headers={"Content-Type": "application/pdf"},
+                          content=_pdf(["Fiscal Q1 2027 revenue guidance of $61.5 billion, plus or minus $1.5 billion."]
+                                       + PDF_PADDING))
+    pages = {
+        "https://example.com/news/1": FakePage(f"<html><body><p>DRAM contract prices are set to rise 10–15% QoQ.</p>"
+                                               f"{PADDING}</body></html>", headers={"Content-Type": "text/html"}),
+        "https://example.com/news/2": FakePage(f"<html><body><p>Revenue of $54.23 billion in FQ4.</p>{PADDING}</body></html>"),
+        "https://example.com/ir/3.pdf": pdf,
+        "https://example.com/news/4": FakePage(f"<html><body><p>Revenue of $54.23 billion in FQ4.</p>{PADDING}</body></html>"),
+    }
+    return lambda url, **kwargs: pages[url]
+
+
+def _notation_result(tmp_path, pdf=None):
+    result = crn.check(write_case(tmp_path, NOTATION_REPORT, snapshot=s4_snapshot(baseline="")))
+    issues = crn.fetch_and_verify(result, get=notation_pages(pdf))
+    return result, issues
+
+
+def test_fetch_notation_differences_are_found(tmp_path):
+    result, issues = _notation_result(tmp_path)
+    assert {r.number: r.fetch["status"] for r in result.references} == {1: "found", 2: "found", 3: "found", 4: "found"}
+    assert [m.raw for m in result.mentions if 1 in m.scope_citations] == ["10", "15%"]
+    assert _mention(result, "10").unit == "%"                       # '10~15%' lends '%' to 10
+    assert result.references[0].fetch["checked"] == [_mention(result, "10").id, _mention(result, "15%").id]
+    assert not [i for i in issues if i.kind.startswith("source_")]
+
+
+def test_fetch_en_dash_range_in_document():
+    tokens = [t for t in crn.extract_numbers("DRAM contract prices are set to rise 10–15% QoQ.")[0]]
+    assert [(t.value, t.unit) for t in tokens] == [(10.0, "%"), (15.0, "%")]
+
+
+def test_number_in_document_converts_amount_units():
+    doc = crn.extract_numbers("Revenue of $54.23 billion; capex 1.2 trillion won; 5,000만 주")[0]
+    probe = lambda raw: crn.extract_numbers(raw)[0][0]
+    assert crn.number_in_document(probe("$54.23B"), doc)
+    assert crn.number_in_document(probe("542억 달러"), doc)            # 542억 = 54.2B within 0.5억
+    assert crn.number_in_document(probe("1.2조 원"), doc)
+    assert crn.number_in_document(probe("$50M"), doc)                 # 5,000만 = 50M ('50M' alone is a duration)
+    assert not crn.number_in_document(probe("$54.3B"), doc)
+    assert not crn.number_in_document(probe("54.23%"), doc)           # a percent is not an amount
+
+
+def test_fetch_pdf_without_pypdf_is_unverifiable(tmp_path, monkeypatch):
+    monkeypatch.setitem(sys.modules, "pypdf", None)                   # import pypdf -> ImportError
+    result, issues = _notation_result(tmp_path)
+    fetch = result.references[2].fetch
+    assert (fetch["status"], fetch["reason"]) == ("unverifiable", "PDF 미지원(pypdf 미설치)")
+    assert {i.id: i.kind for i in issues}["source_unverifiable-3"] == "source_unverifiable"
+
+
+def test_fetch_unreadable_pdf_is_unverifiable(tmp_path):
+    broken = FakePage("", headers={"Content-Type": "application/octet-stream"}, content=b"%PDF-1.4\nnot really a pdf")
+    result, _ = _notation_result(tmp_path, pdf=broken)
+    fetch = result.references[2].fetch
+    assert fetch["status"] == "unverifiable" and fetch["reason"].startswith("PDF 읽기 실패")
 
 
 def test_numbers_inside_ai_todo_placeholders_are_not_checked(tmp_path):

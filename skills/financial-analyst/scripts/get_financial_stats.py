@@ -24,14 +24,84 @@ from data_checks import ki
 import snapshot
 from snapshot import Snapshot
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
+import profile_detector
+from profile_detector import (
+    detect_business_profile,
+    PROFILE_NAMES,
+    PROFILE_CYCLICAL,
+    PROFILE_CASH_COW,
+    PROFILE_TECH_GROWTH,
+    PROFILE_FINANCIALS,
+    PROFILE_BIOTECH,
+    PROFILE_GENERAL,
+)
+import economic_auditor
+
 KST = datetime.timezone(datetime.timedelta(hours=9))
 DEFAULT_WEIGHTS = (0.2, 0.5, 0.3)  # Bull, Base, Bear
 GENERAL_PILLARS = ('fpe', 'peg', 'rg', 'ev', 'roe', 'de', 'rev')
 CYCLICAL_PILLARS = ('band', 'cycle', 'rev', 'de')
 MIN_VALID_PILLARS = 4
+
+PROFILE_DEFINITIONS = {
+    PROFILE_CYCLICAL: {
+        'name': '🔄 순환',
+        'table4_pillars': ('band', 'cycle', 'rev', 'de'),
+        'active': ('band', 'cycle', 'rev', 'de'),
+        'excluded': ('fpe', 'peg', 'rg', 'ev', 'roe'),
+    },
+    PROFILE_CASH_COW: {
+        'name': '🛡️ 배당·현금흐름',
+        'table4_pillars': ('fcf_conv', 'fcf_payout', 'rev', 'net_debt_ebitda'),
+        'active': ('fcf_conv', 'fcf_payout', 'net_debt_ebitda', 'rev'),
+        'excluded': ('fpe', 'peg', 'rg', 'ev', 'band', 'cycle'),
+    },
+    PROFILE_TECH_GROWTH: {
+        'name': '🚀 고성장',
+        'table4_pillars': ('peg', 'rule_of_40', 'rg', 'de'),
+        'active': ('rule_of_40', 'peg', 'rg', 'rev', 'de'),
+        'excluded': ('band', 'cycle', 'fpe', 'ev'),
+    },
+    PROFILE_FINANCIALS: {
+        'name': '🏦 금융',
+        'table4_pillars': ('band', 'roe', 'rev', 'div_yield'),
+        'active': ('band', 'roe', 'div_yield', 'rev'),
+        'excluded': ('de', 'ev', 'peg', 'rg', 'fpe', 'cycle'),
+    },
+    PROFILE_BIOTECH: {
+        'name': '🧪 바이오',
+        'table4_pillars': ('cash_runway', 'rd_intensity', 'rev', 'net_cash'),
+        'active': ('cash_runway', 'net_cash', 'rd_intensity', 'rev'),
+        'excluded': ('fpe', 'peg', 'ev', 'roe', 'band', 'cycle'),
+    },
+    PROFILE_GENERAL: {
+        'name': '일반',
+        'table4_pillars': ('fpe', 'roe', 'rg', 'de'),
+        'active': ('fpe', 'peg', 'rg', 'ev', 'roe', 'de', 'rev'),
+        'excluded': ('band', 'cycle'),
+    },
+}
+
 # Verdict thresholds (green, yellow) — rule source: references/rules/verdict-matrix.md; change both in one commit.
 # They are also recorded in the snapshot under rules.* so report text citing them can be traced (spec 002).
-THRESHOLDS = {'fpe': (18, 30), 'peg': (1, 2), 'rg': (20, 5), 'ev': (12, 20), 'roe': (20, 10), 'de': (50, 100)}
+THRESHOLDS = {
+    'fpe': (18, 30),
+    'peg': (1, 2),
+    'rg': (20, 5),
+    'ev': (12, 20),
+    'roe': (20, 10),
+    'de': (50, 100),
+    'fcf_conv': (80, 50),
+    'fcf_payout': (80, 100),
+    'net_debt_ebitda': (3.0, 4.5),
+    'rule_of_40': (40, 25),
+    'cash_runway': (2.5, 1.5),
+    'rd_intensity': (30, 15),
+    'div_yield': (3.5, 2.0),
+}
 REVISION_BREADTH = 0.3       # 30-day (up − down) / total: ≥ +30% 🟢, ≤ −30% 🔴
 REVISION_MIN_COUNT = 3       # with fewer revisions, the FY1 mean-EPS change decides instead
 REVISION_FY1_CHANGE = 0.01   # ±1% FY1 mean-EPS change
@@ -110,7 +180,7 @@ def format_number(val, is_currency=False, currency="USD"):
             if currency == "KRW":
                 return f"₩{val:,.0f}"
             if currency in ("USD", None, ""):
-                return f"${val:,.2f}"
+                return f"`${val:,.2f}`"
             return f"{val:,.2f} {currency}"
         return f"{val:,.2f}"
     return str(val)
@@ -142,7 +212,7 @@ def format_large_number(val, currency="USD"):
         if currency == "KRW":
             return f"₩{formatted}"
         if currency in ("USD", None, ""):
-            return f"${formatted}"
+            return f"`${formatted}`"
         return f"{formatted} {currency}"
     return str(val)
 
@@ -519,6 +589,32 @@ def enrich_korean_stock(info, ticker_symbol, orig_fpe, orig_feps, orig_peg):
     except Exception as e:
         warn(f"{ticker_symbol}: 네이버 API 오류 ({e})")
 
+    # Official KRX Overlay (Tier-1 Primary for Official Close, Market Cap, Shares)
+    if RUN['raw'].has(ticker_symbol, 'krx_stock'):
+        try:
+            krx = raw_data(ticker_symbol, 'krx_stock')
+            if krx and isinstance(krx, dict):
+                krx_close = num(krx.get('종가'))
+                if krx_close:
+                    orig_val = info.get('currentPrice')
+                    info['currentPrice'] = krx_close
+                    info['regularMarketPrice'] = krx_close
+                    SNAP.record(f"{ticker_symbol}.quote.current_price", krx_close, source="krx", basis="krx_regular_close", status="final", original=orig_val)
+
+                krx_mcap = num(krx.get('시가총액'))
+                if krx_mcap:
+                    orig_val = info.get('marketCap')
+                    info['marketCap'] = krx_mcap
+                    SNAP.record(f"{ticker_symbol}.quote.market_cap", krx_mcap, source="krx", basis="quote", status="final", original=orig_val)
+
+                krx_shrs = num(krx.get('상장주식수'))
+                if krx_shrs:
+                    orig_val = info.get('sharesOutstanding')
+                    info['sharesOutstanding'] = krx_shrs
+                    SNAP.record(f"{ticker_symbol}.quote.shares_outstanding", krx_shrs, source="krx", basis="statement", status="final", original=orig_val)
+        except Exception as e:
+            warn(f"{ticker_symbol}: KRX 공식 시세 파싱 오류 ({e})")
+
     # Priority 1-B: WiseReport 12M Forward (NTM) EPS & P/E (blending FY0 and FY1 by remaining days d/365)
     try:
         wr_fy0, wr_fy1, ntm_eps = parse_wisereport_eps(raw_data(ticker_symbol, 'wisereport_eps', 'table'),
@@ -559,7 +655,7 @@ def enrich_korean_stock(info, ticker_symbol, orig_fpe, orig_feps, orig_peg):
                     inputs=[f"{ticker_symbol}.metrics.forward_pe"])
 
     # Priority 2: PyKrx Fallback (KRX Official Data) for anything still missing — collected only with KRX_ID/KRX_PW
-    if RUN['raw'].get(ticker_symbol, 'pykrx_fundamental')['status'] != 'skipped':
+    if RUN['raw'].has(ticker_symbol, 'pykrx_fundamental') and RUN['raw'].get(ticker_symbol, 'pykrx_fundamental')['status'] != 'skipped':
         try:
             row = (raw_data(ticker_symbol, 'pykrx_fundamental') or {}).get('row')
             if row is not None:
@@ -744,6 +840,37 @@ def record_rule_thresholds(weights):
         rec(f"{name}.yellow_above_pct", THRESHOLDS[key][1], vm)
     rec("debt_to_equity.green_below_pct", THRESHOLDS['de'][0], vm)
     rec("debt_to_equity.yellow_below_pct", THRESHOLDS['de'][1], vm)
+    rec("fcf_conversion.green_above_pct", THRESHOLDS['fcf_conv'][0], vm)
+    rec("fcf_conversion.yellow_above_pct", THRESHOLDS['fcf_conv'][1], vm)
+    rec("fcf_payout.green_below_pct", THRESHOLDS['fcf_payout'][0], vm)
+    rec("fcf_payout.yellow_below_pct", THRESHOLDS['fcf_payout'][1], vm)
+    rec("net_debt_to_ebitda.green_below", THRESHOLDS['net_debt_ebitda'][0], vm)
+    rec("net_debt_to_ebitda.yellow_below", THRESHOLDS['net_debt_ebitda'][1], vm)
+    rec("rule_of_40.green_above_pct", THRESHOLDS['rule_of_40'][0], vm)
+    rec("rule_of_40.yellow_above_pct", THRESHOLDS['rule_of_40'][1], vm)
+    # Economic audit thresholds (Table 6-1)
+    rec("eva_spread.green_above_pct", 3.0, "Economic Moat audit threshold")
+    rec("eva_spread.yellow_above_pct", 0.0, "Economic Moat audit threshold")
+    rec("implied_erp.green_above_pct", 3.0, "Equity Risk Premium threshold")
+    rec("implied_erp.yellow_above_pct", 0.0, "Equity Risk Premium threshold")
+    rec("total_shareholder_yield.green_above_pct", 3.0, "Total Shareholder Yield threshold")
+    rec("total_shareholder_yield.yellow_above_pct", 0.0, "Total Shareholder Yield threshold")
+    rec("cash_conversion_ratio.green_above", 1.0, "CCR threshold")
+    rec("cash_conversion_ratio.yellow_above", 0.7, "CCR threshold")
+    rec("cash_runway.green_above_years", THRESHOLDS['cash_runway'][0], vm)
+    rec("cash_runway.yellow_above_years", THRESHOLDS['cash_runway'][1], vm)
+    rec("rd_intensity.green_above_pct", THRESHOLDS['rd_intensity'][0], vm)
+    rec("rd_intensity.yellow_above_pct", THRESHOLDS['rd_intensity'][1], vm)
+    rec("dividend_yield.green_above_pct", THRESHOLDS['div_yield'][0], vm)
+    rec("dividend_yield.yellow_above_pct", THRESHOLDS['div_yield'][1], vm)
+    rec("eva_spread.green_above_pct", 3.0, vm)
+    rec("eva_spread.yellow_above_pct", 0.0, vm)
+    rec("implied_erp.green_above_pct", 3.0, vm)
+    rec("implied_erp.yellow_above_pct", 0.0, vm)
+    rec("total_shareholder_yield.green_above_pct", 3.0, vm)
+    rec("total_shareholder_yield.yellow_above_pct", 0.0, vm)
+    rec("cash_conversion_ratio.green_above", 1.0, vm)
+    rec("cash_conversion_ratio.yellow_above", 0.7, vm)
     rec("revision.green_above_pct", REVISION_BREADTH * 100, vm)
     rec("revision.red_below_pct", -REVISION_BREADTH * 100, vm)
     rec("revision.min_count", REVISION_MIN_COUNT, vm)
@@ -817,6 +944,89 @@ def record_yahoo_raw_info(symbol, info):
             SNAP.record(f"{symbol}.{path_suffix}", val, source="yahoo", basis=basis, status="final")
 
 
+def compute_profile_metrics(info, ticker_symbol):
+    """Computes specialized metrics for sector-adaptive profiles and records them to SNAP."""
+    # 1. FCF Conversion (fcf / net_income)
+    fcf = info.get('freeCashflow')
+    ni = info.get('netIncomeToCommon') or info.get('netIncome')
+    fcf_conv = None
+    if fcf is not None and ni and ni > 0:
+        fcf_conv = fcf / ni
+        info['_fcf_conv'] = fcf_conv
+        SNAP.record(f"{ticker_symbol}.metrics.fcf_conversion", fcf_conv, source="calculated", basis="derived", status="final")
+
+    # 2. FCF Payout Ratio (dividends / fcf)
+    div_rate = info.get('dividendRate') or 0.0
+    shares = info.get('sharesOutstanding') or 0
+    payout = info.get('payoutRatio')
+    fcf_payout = None
+    if fcf and fcf > 0:
+        if div_rate and shares:
+            fcf_payout = (div_rate * shares) / fcf
+        elif payout and ni and ni > 0:
+            fcf_payout = (payout * ni) / fcf
+    if fcf_payout is not None:
+        info['_fcf_payout'] = fcf_payout
+        SNAP.record(f"{ticker_symbol}.metrics.fcf_payout_ratio", fcf_payout, source="calculated", basis="derived", status="final")
+
+    # 3. Net Debt / EBITDA ((debt - cash) / ebitda)
+    debt = info.get('totalDebt')
+    cash = info.get('totalCash')
+    ebitda = info.get('ebitda')
+    net_debt_ebitda = None
+    if ebitda and ebitda > 0 and debt is not None and cash is not None:
+        net_debt_ebitda = (debt - cash) / ebitda
+        info['_net_debt_ebitda'] = net_debt_ebitda
+        SNAP.record(f"{ticker_symbol}.metrics.net_debt_to_ebitda", net_debt_ebitda, source="calculated", basis="derived", status="final")
+
+    # 4. Rule of 40 (revenueGrowth % + fcfMargin %)
+    rg = info.get('revenueGrowth')
+    rev = info.get('totalRevenue')
+    rule_of_40 = None
+    if rg is not None and fcf is not None and rev and rev > 0:
+        fcf_margin_pct = (fcf / rev) * 100.0
+        rule_of_40 = (rg * 100.0) + fcf_margin_pct
+        info['_rule_of_40'] = rule_of_40
+        SNAP.record(f"{ticker_symbol}.metrics.rule_of_40", rule_of_40, source="calculated", basis="derived", status="final")
+
+    # 5. Cash Runway (cash / annual operating cash burn)
+    ocf = info.get('operatingCashflow')
+    cash_runway = None
+    if cash is not None:
+        if ocf is not None and ocf < 0:
+            cash_runway = cash / abs(ocf)
+        elif ocf is not None and ocf >= 0:
+            cash_runway = 99.0  # Profitable / self-sustaining
+        else:
+            cash_runway = None
+    if cash_runway is not None:
+        info['_cash_runway'] = cash_runway
+        SNAP.record(f"{ticker_symbol}.metrics.cash_runway_years", cash_runway, source="calculated", basis="derived", status="final")
+
+    # 6. Net Cash status
+    if cash is not None and debt is not None:
+        net_cash_val = cash - debt
+        info['_net_cash_val'] = net_cash_val
+        info['_net_cash_bool'] = (net_cash_val > 0)
+        SNAP.record(f"{ticker_symbol}.metrics.net_cash", net_cash_val, source="calculated", basis="derived", status="final")
+
+    # 7. R&D Intensity (R&D / Revenue)
+    rd = info.get('researchAndDevelopment')
+    if rd is None:
+        try:
+            df = raw_data(ticker_symbol, 'income_stmt', 'frame')
+            if df is not None and not df.empty and 'Research And Development' in df.index:
+                s_rd = df.loc['Research And Development'].dropna()
+                if not s_rd.empty:
+                    rd = float(s_rd.iloc[0])
+        except Exception:
+            pass
+    if rd and rev and rev > 0:
+        rd_intensity = rd / rev
+        info['_rd_intensity'] = rd_intensity
+        SNAP.record(f"{ticker_symbol}.metrics.rd_intensity", rd_intensity, source="calculated", basis="derived", status="final")
+
+
 def refine_ticker(ticker_symbol):
     """One ticker's Yahoo info refined with Naver/WiseReport/KRX data and checked, from the run's raw inputs."""
     try:
@@ -871,6 +1081,7 @@ def refine_ticker(ticker_symbol):
         info['_est'] = fetch_estimates(info, ticker_symbol)
         info['_cycle'] = analyze_cycle(info, ticker_symbol)
         info['_audit_result'] = audit_unusual_items(info, ticker_symbol)
+        compute_profile_metrics(info, ticker_symbol)
         return info
     except Exception as e:
         print(f"Error fetching {ticker_symbol}: {e}", file=sys.stderr)
@@ -1295,12 +1506,12 @@ def fetch_investor_trends_table(ticker_code, company_name, info, symbol=None):
     frgn_inputs, org_inputs, ind_inputs = [], [], []
     daum_row_used = False
 
-    # Today has no Naver row yet: estimate today's foreign flow from the foreign-ownership change (intraday only)
-    if not has_today and now_kst.weekday() < 5:
+    # Today has no Naver row yet: estimate today's foreign flow from the foreign-ownership change (legacy Daum fallback)
+    if not has_today and now_kst.weekday() < 5 and RUN['raw'].has(key, 'daum_quote'):
         try:
             dq = raw_data(key, 'daum_quote')
             trade_date = digits8(dq.get('date') or dq.get('tradeDate'))
-            if trade_date == today_str:
+            if trade_date == today_str and RUN['raw'].has(key, 'daum_investor_days'):
                 ddays = raw_data(key, 'daum_investor_days')
                 prev = next((d for d in (ddays.get('data') or [])
                              if digits8(d.get('date') or d.get('tradeDate')) not in ('', today_str)
@@ -1740,8 +1951,8 @@ def trajectory_table(results):
 
 
 def cycle_tables(results):
-    lines = ["### 2-2. 🔄 경기순환 진단 및 과거 밸류에이션 밴드\n",
-             "> 💡 경기순환 업종은 이익 정점에서 PER·PEG가 가장 낮아 보입니다. 순환업종으로 분류된 기업은 5번 매트릭스에서 "
+    lines = ["### 2-1. 🔄 경기순환 진단 및 과거 밸류에이션 밴드\n",
+             "> 💡 경기순환 업종은 이익 정점에서 PER·PEG가 가장 낮아 보입니다. 순환업종으로 분류된 기업은 4번 매트릭스에서 "
              "Forward PER·PEG·매출성장·EV/EBITDA·ROE 대신 **P/B 밴드 위치 · 사이클 위치(이익률) · 추정치 방향**으로 판정합니다. "
              "과거 비교는 아래 표의 기간 안에서만 유효합니다.\n",
              "| 기업 | 업종 유형 | 분류 근거 | 연간 영업이익률 범위 (회계연도) | TTM 영업이익률 | 사이클 위치 |",
@@ -1928,6 +2139,36 @@ def build_signals(info):
     band = cyc.get('band') or {}
     s['band'] = (f"P/B {band['cur']:.2f} (밴드 {band['lo']:.2f}~{band['hi']:.2f})", band['sig']) if band.get('sig') else ('N/A', '⚪')
     s['cycle'] = (cyc.get('cycle_desc', 'N/A'), cyc.get('cycle_sig', '⚪'))
+
+    # Profile-adaptive specialized metrics
+    fcf_conv = num(info.get('_fcf_conv'))
+    s['fcf_conv'] = (f"{fcf_conv * 100:.1f}%", sig_gt(fcf_conv * 100, *THRESHOLDS['fcf_conv'])) if fcf_conv is not None else ('N/A', '⚪')
+    fcf_payout = num(info.get('_fcf_payout'))
+    s['fcf_payout'] = (f"{fcf_payout * 100:.1f}%", sig_lt(fcf_payout * 100, *THRESHOLDS['fcf_payout'])) if fcf_payout is not None else ('N/A', '⚪')
+    net_debt_ebitda = num(info.get('_net_debt_ebitda'))
+    s['net_debt_ebitda'] = (f"{net_debt_ebitda:.2f}배", sig_lt(net_debt_ebitda, *THRESHOLDS['net_debt_ebitda'])) if net_debt_ebitda is not None else ('N/A', '⚪')
+    rule_of_40 = num(info.get('_rule_of_40'))
+    s['rule_of_40'] = (f"{rule_of_40:.1f}%", sig_gt(rule_of_40, *THRESHOLDS['rule_of_40'])) if rule_of_40 is not None else ('N/A', '⚪')
+    cash_runway = num(info.get('_cash_runway'))
+    if cash_runway is not None:
+        cr_text = f"{cash_runway:.1f}년" if cash_runway < 50 else "지속가능(흑자)"
+        s['cash_runway'] = (cr_text, sig_gt(cash_runway, *THRESHOLDS['cash_runway']))
+    else:
+        s['cash_runway'] = ('N/A', '⚪')
+    net_cash_bool = info.get('_net_cash_bool')
+    net_cash_val = info.get('_net_cash_val')
+    if net_cash_bool is not None:
+        ccy = info.get('currency', 'USD')
+        nc_sig = '🟢' if net_cash_bool else '🔴'
+        nc_label = '순현금' if net_cash_bool else '순차입'
+        s['net_cash'] = (f"{nc_label} ({format_large_number(abs(net_cash_val), ccy)})", nc_sig)
+    else:
+        s['net_cash'] = ('N/A', '⚪')
+    rd_intensity = num(info.get('_rd_intensity'))
+    s['rd_intensity'] = (f"{rd_intensity * 100:.1f}%", sig_gt(rd_intensity * 100, *THRESHOLDS['rd_intensity'])) if rd_intensity is not None else ('N/A', '⚪')
+    div_yield = num(info.get('dividendYield'))
+    s['div_yield'] = (f"{div_yield:.2f}%", sig_gt(div_yield, *THRESHOLDS['div_yield'])) if div_yield is not None else ('N/A', '⚪')
+
     return s
 
 
@@ -1937,7 +2178,8 @@ def decision_verdict(sigs):
     valid = len([x for x in sigs if x != '⚪'])
     if r >= 2:
         return "🔴 **신중 접근 (주의 신호 2개 이상)**"
-    if valid < MIN_VALID_PILLARS:
+    min_valid = MIN_VALID_PILLARS if len(sigs) >= 4 else len(sigs)
+    if valid < min_valid:
         return "⚪ **판단 보류 (데이터 부족)**"
     if g >= 4 and r == 0:
         return "🟢 **강력 매수 후보**"
@@ -1950,54 +2192,115 @@ def signal_matrix(results):
     lines = ["### 4. 투자 판단 신호등 매트릭스\n",
              "| 기업 (티커) | 유형 | 밸류에이션 | 수익성 | 성장성 | 재무건전성 | 종합 |",
              "|---|---|---|---|---|---|---|"]
+    profiles_present = set()
     for sym, info in results.items():
         s = build_signals(info)
-        cyclical = info.get('_is_cyclical')
-        keys = ('band', 'cycle', 'rev', 'de') if cyclical else ('fpe', 'roe', 'rg', 'de')
+        prof_id = info.get('_profile') or (PROFILE_CYCLICAL if info.get('_is_cyclical') else PROFILE_GENERAL)
+        prof_def = PROFILE_DEFINITIONS.get(prof_id, PROFILE_DEFINITIONS[PROFILE_GENERAL])
+        profiles_present.add(prof_id)
+
+        keys = prof_def['table4_pillars']
         sigs = [s[k][1] for k in keys]
         g, r = sigs.count('🟢'), sigs.count('🔴')
         valid = len([x for x in sigs if x != '⚪'])
         overall = '🔴' if r >= 2 else ('⚪' if valid < 3 else ('🟢' if (g >= 3 and r == 0) else '🟡'))
-        lines.append(f"| **{sym}** | {'🔄 순환' if cyclical else '일반'} | " + " | ".join(sigs) + f" | {overall} |")
-    lines.append(f"\n> 🟢 양호 | 🟡 보통 | 🔴 주의 | ⚪ 데이터 없음 · **일반**: 밸류에이션=Forward PE({th_lt('fpe')}) · 수익성=ROE({th_gt('roe')}, 일회성 감지 시 정규화 ROE) · "
-                 f"성장성=매출성장({th_gt('rg')}) · 재무건전성=D/E({th_lt('de', '%')}) · **🔄 순환**: 밸류에이션=P/B 밴드 위치 · 수익성=사이클 위치(이익률) · "
-                 "성장성=이익 추정치 방향(30일) · 재무건전성=D/E · 종합: 🔴 2개 이상 🔴, 유효 3개 미만 ⚪, 🟢 3개 이상·🔴 0개 🟢, 그 외 🟡\n")
+        lines.append(f"| **{sym}** | {prof_def['name']} | " + " | ".join(sigs) + f" | {overall} |")
+
+    legend = [f"> 🟢 양호 | 🟡 보통 | 🔴 주의 | ⚪ 데이터 없음 · **일반**: 밸류에이션=Forward PE({th_lt('fpe')}) · 수익성=ROE({th_gt('roe')}, 일회성 감지 시 정규화 ROE) · 성장성=매출성장({th_gt('rg')}) · 재무건전성=D/E({th_lt('de', '%')}) · **🔄 순환**: 밸류에이션=P/B 밴드 위치 · 수익성=사이클 위치(이익률) · 성장성=이익 추정치 방향(30일) · 재무건전성=D/E"]
+    if PROFILE_CASH_COW in profiles_present:
+        legend.append("· **🛡️ 배당·현금흐름**: 밸류에이션=FCF전환율(≥80% 🟢, ≥50% 🟡) · 수익성=FCF배당성향(<80% 🟢, <100% 🟡) · 성장성=추정치 방향(30일) · 재무건전성=순부채/EBITDA(<3.0배 🟢, <4.5배 🟡)")
+    if PROFILE_TECH_GROWTH in profiles_present:
+        legend.append(f"· **🚀 고성장**: 밸류에이션=PEG({th_lt('peg')}) · 수익성=Rule of 40(≥40% 🟢, ≥25% 🟡) · 성장성=매출성장({th_gt('rg')}) · 재무건전성=D/E({th_lt('de', '%')})")
+    if PROFILE_FINANCIALS in profiles_present:
+        legend.append("· **🏦 금융**: 밸류에이션=P/B 밴드 위치 · 수익성=ROE(>10% 🟢, >6% 🟡) · 성장성=추정치 방향(30일) · 재무건전성=배당수익률(>3.5% 🟢, >2.0% 🟡)")
+    if PROFILE_BIOTECH in profiles_present:
+        legend.append("· **🧪 바이오**: 밸류에이션=Cash Runway(≥2.5년 🟢, ≥1.5년 🟡) · 수익성=R&D집약도(>30% 🟢, >15% 🟡) · 성장성=추정치 방향(30일) · 재무건전성=순현금(순현금 🟢, 순차입 🔴)")
+    legend.append("· 종합: 🔴 2개 이상 🔴, 유효 3개 미만 ⚪, 🟢 3개 이상·🔴 0개 🟢, 그 외 🟡\n")
+    lines.append("\n" + " ".join(legend))
     return "\n".join(lines) + "\n"
 
 
 DECISION_COLUMNS = [('fpe', 'Forward PE'), ('peg', 'PEG'), ('rg', '매출성장'), ('ev', 'EV/EBITDA'), ('roe', 'ROE'),
                     ('de', '부채비율'), ('rev', '추정치 방향(30일)'), ('band', 'P/B 밴드'), ('cycle', '사이클 위치')]
 
+EXTRA_DECISION_COLUMNS = [
+    ('fcf_conv', 'FCF 전환율'),
+    ('fcf_payout', 'FCF 배당성향'),
+    ('net_debt_ebitda', '순부채/EBITDA'),
+    ('rule_of_40', 'Rule of 40'),
+    ('cash_runway', 'Cash Runway'),
+    ('net_cash', '순현금'),
+    ('rd_intensity', 'R&D 집약도'),
+    ('div_yield', '배당수익률'),
+]
+
 
 def decision_matrix(results):
-    lines = ["### 5. ⭐ 핵심 지표 의사결정 매트릭스\n",
-             "> 일반 기업은 Forward PE·PEG·매출성장·EV/EBITDA·ROE·부채비율·추정치 방향 7개로, 🔄 순환업종은 P/B 밴드·사이클 위치·추정치 방향·부채비율 4개로 판정합니다. "
-             "순환업종은 이익 정점에서 PER·PEG·EV/EBITDA·ROE·매출성장이 모두 좋아 보이므로 '제외'로 표시하고 판정에 쓰지 않습니다.\n",
-             "| 기업 (티커) | 유형 | " + " | ".join(lbl for _, lbl in DECISION_COLUMNS) + " | 종합 판단 |",
-             "|---|---|" + "---|" * (len(DECISION_COLUMNS) + 1)]
+    profiles_present = {info.get('_profile', PROFILE_CYCLICAL if info.get('_is_cyclical') else PROFILE_GENERAL) for info in results.values()}
+
+    # Collect active columns across all tickers in results
+    all_active = set()
+    for info in results.values():
+        prof_id = info.get('_profile', PROFILE_CYCLICAL if info.get('_is_cyclical') else PROFILE_GENERAL)
+        prof_def = PROFILE_DEFINITIONS.get(prof_id, PROFILE_DEFINITIONS[PROFILE_GENERAL])
+        all_active.update(prof_def['active'])
+
+    # Dynamic Column Compression: keep only columns active for at least one ticker in results
+    cols = [(k, lbl) for k, lbl in DECISION_COLUMNS if k in all_active]
+    for k, lbl in EXTRA_DECISION_COLUMNS:
+        if k in all_active:
+            cols.append((k, lbl))
+
+    lines = ["### 4. ⭐ 핵심 지표 의사결정 매트릭스\n"]
+    if profiles_present.issubset({PROFILE_CYCLICAL, PROFILE_GENERAL}):
+        lines.append("> 일반 기업은 Forward PE·PEG·매출성장·EV/EBITDA·ROE·부채비율·추정치 방향 7개로, 🔄 순환업종은 P/B 밴드·사이클 위치·추정치 방향·부채비율 4개로 판정합니다. "
+                     "순환업종은 이익 정점에서 PER·PEG·EV/EBITDA·ROE·매출성장이 모두 좋아 보이므로 '제외'로 표시하고 판정에 쓰지 않습니다.\n")
+    else:
+        lines.append("> 5대 비즈니스 프로파일(일반·순환·배당/현금흐름·고성장·금융·바이오)에 따라 최적화된 핵심 지표로 판정합니다. "
+                     "각 비즈니스 모델에 부합하지 않거나 왜곡을 유발하는 지표(예: 필수소비재의 PBR, 은행의 D/E, 순환업종의 고점 PER, 바이오의 적자 배수)는 '제외'로 표시하고 판정에 반영하지 않습니다.\n")
+
+    lines.append("| 기업 (티커) | 유형 | " + " | ".join(lbl for _, lbl in cols) + " | 종합 판단 |")
+    lines.append("|---|---|" + "---|" * (len(cols) + 1))
+
     for sym, info in results.items():
         s = build_signals(info)
-        cyclical = info.get('_is_cyclical')
-        active = CYCLICAL_PILLARS if cyclical else GENERAL_PILLARS
-        cells = [f"{s[k][0]} {s[k][1]}" if k in active else f"{s[k][0]} · 제외" for k, _ in DECISION_COLUMNS]
+        prof_id = info.get('_profile', PROFILE_CYCLICAL if info.get('_is_cyclical') else PROFILE_GENERAL)
+        prof_def = PROFILE_DEFINITIONS.get(prof_id, PROFILE_DEFINITIONS[PROFILE_GENERAL])
+        active = prof_def['active']
+        cells = [f"{s[k][0]} {s[k][1]}" if k in active else f"{s[k][0]} · 제외" for k, _ in cols]
         verdict = decision_verdict([s[k][1] for k in active])
-        lines.append(f"| **{sym}** | {'🔄 순환' if cyclical else '일반'} | " + " | ".join(cells) + f" | {verdict} |")
+        econ_audit = info.get('_economic_audit')
+        if econ_audit and econ_audit.get('gatekeeper_breached'):
+            downgraded, _ = economic_auditor.apply_gatekeeper_to_verdict(verdict, econ_audit)
+            verdict = downgraded
+        lines.append(f"| **{sym}** | {prof_def['name']} | " + " | ".join(cells) + f" | {verdict} |")
+
     lines.append("")
     lines.append(f"> **판정 기준**: Forward PE({th_lt('fpe')}) · PEG({th_lt('peg')}) · 매출성장({th_gt('rg')}) · EV/EBITDA({th_lt('ev')}) · "
                  f"ROE({th_gt('roe')}, 일회성 감지 시 정규화 ROE) · D/E({th_lt('de', '%')}) · "
                  f"추정치 방향(30일 상향·하향 비율 ≥+{REVISION_BREADTH:.0%} 🟢, ≤−{REVISION_BREADTH:.0%} 🔴) · "
                  "P/B 밴드(중앙값 이하 🟢, 최고 이하 🟡, 최고 초과 🔴) · 사이클 위치(TTM 영업이익률이 과거 중앙값 미만 🟢, 최고 이하 🟡, 최고 초과 🔴)")
+    if any(p in profiles_present for p in (PROFILE_CASH_COW, PROFILE_TECH_GROWTH, PROFILE_FINANCIALS, PROFILE_BIOTECH)):
+        extra_criteria = []
+        if PROFILE_CASH_COW in profiles_present:
+            extra_criteria.append("FCF 전환율(≥80% 🟢, ≥50% 🟡) · FCF 배당성향(<80% 🟢, <100% 🟡) · 순부채/EBITDA(<3.0배 🟢, <4.5배 🟡)")
+        if PROFILE_TECH_GROWTH in profiles_present:
+            extra_criteria.append("Rule of 40(≥40% 🟢, ≥25% 🟡)")
+        if PROFILE_FINANCIALS in profiles_present:
+            extra_criteria.append("배당수익률(>3.5% 🟢, >2.0% 🟡)")
+        if PROFILE_BIOTECH in profiles_present:
+            extra_criteria.append("Cash Runway(≥2.5년 🟢, ≥1.5년 🟡) · 순현금(순현금 🟢, 순차입 🔴) · R&D집약도(>30% 🟢, >15% 🟡)")
+        lines.append(f"> **섹터 특화 판정 기준**: " + " · ".join(extra_criteria))
     lines.append("> **종합 판정 규칙**: 🔴 2개 이상 → 🔴 신중 접근 | 유효 신호 4개 미만 → ⚪ 판단 보류 | 🟢 4개 이상 & 🔴 0개 → 🟢 강력 매수 후보 | "
                  "🟢 3개 이상 & 🔴 1개 이하 → 🟢 매수 고려 | 그 외 → 🟡 중립/관망\n")
     return "\n".join(lines) + "\n"
 
 
 def audit_table(results):
-    lines = ["### 6. 🔍 [회계 감사] 일회성 손익(Unusual Items) 감지 및 정규화 지표 비교\n"]
     audits = [i['_audit_result'] for i in results.values() if i.get('_audit_result')]
     if not audits:
-        lines.append(f"> 💡 분석 대상 전 종목에서 세전이익 대비 {AUDIT_MIN_SHARE:.0%} 이상의 일회성 손익 왜곡이 감지되지 않았습니다(Yahoo 분류 기준).\n")
-        return "\n".join(lines) + "\n"
+        return ""
+    lines = ["### 5-1. 🔍 [회계 감사] 일회성 손익(Unusual Items) 감지 및 정규화 지표 비교\n"]
     lines += ["> ⚠️ 최근 4분기(TTM)에 큰 일회성 손익이 감지된 기업입니다. 명목·정규화 수치를 **같은 분모**(평균 자기자본, 희석주식수 중앙값)로 다시 계산해 "
               "서로 비교할 수 있게 맞췄습니다(2번 표의 ROE·EPS와는 기준이 다름). 비경상 항목 분류는 Yahoo 기준이라 회사 공시(DART·IR)와 다를 수 있으니, "
               "큰 항목은 공시로 확인하세요.\n",
@@ -2015,18 +2318,18 @@ def audit_table(results):
         lines.append(f"| **{a['symbol']}** | ⚠️ **{a['label']} 감지** | {a['max_date'] or 'N/A'}: {format_large_number(a['max_val'], ccy)} | "
                      f"{format_large_number(a['removed'], ccy)} | {format_percent(a['rep_roe'])} → **{format_percent(a['norm_roe'])}** | "
                      f"{format_number(a['rep_eps'], True, ccy)} → **{format_number(a['norm_eps'], True, ccy)}** |")
-    lines.append("\n> 💡 일반 기업 판정(5번)의 ROE는 정규화 값을 씁니다. 평가이익은 이후 분기에 평가손실로 되돌려질 수 있으니 관련 자산의 최근 가격 변동도 함께 확인하세요.\n")
+    lines.append("\n> 💡 일반 기업 판정(4번)의 ROE는 정규화 값을 씁니다. 평가이익은 이후 분기에 평가손실로 되돌려질 수 있으니 관련 자산의 최근 가격 변동도 함께 확인하세요.\n")
     return "\n".join(lines) + "\n"
 
 
 def scenario_table(results, weights):
     w_bull, w_base, w_bear = weights
-    lines = ["### 7. 🧪 시나리오 스트레스 테스트 (스크립트 자동 산출 — 수치 임의 수정 금지)\n",
+    lines = ["### 6. 🧪 시나리오 스트레스 테스트 (스크립트 자동 산출 — 수치 임의 수정 금지)\n",
              "> - **EPS 시나리오**: 내년(FY1) 컨센서스 EPS의 최저(Bear) · 평균(Base) · 최고(Bull) — Yahoo Finance",
              "> - **배수 A (현재 배수 유지)**: 현재가 ÷ Yahoo 12M 선행 EPS — 리레이팅이 없다는 가정",
              "> - **배수 B (목표가 내재 배수)**: Yahoo 평균 목표가 ÷ FY1 평균 EPS — 애널리스트들이 가정한 배수",
              f"> - **확률 가중**: Bull {w_bull:.0%} · Base {w_base:.0%} · Bear {w_bear:.0%} (`--weights`로 변경)",
-             "> - 하방이 음수(-)로 나오면 그대로 보고합니다. 결론에 맞추려고 배수·확률을 바꾸지 않습니다. 순환업종은 2-2 표의 '밴드 최저 P/B 회귀 시 주가'도 함께 보세요.\n",
+             "> - 하방이 음수(-)로 나오면 그대로 보고합니다. 결론에 맞추려고 배수·확률을 바꾸지 않습니다. 순환업종은 2-1 표의 '밴드 최저 P/B 회귀 시 주가'도 함께 보세요.\n",
              "| 기업 | 시나리오 | FY1 EPS | 배수 A 적용 주가 | 현재가 대비 | 배수 B 적용 주가 | 현재가 대비 |",
              "|---|---|---|---|---|---|---|"]
     summary = []
@@ -2097,6 +2400,17 @@ def scenario_table(results, weights):
         down = prices[0][0] / price - 1 if prices[0][0] else None
         up = prices[2][0] / price - 1 if prices[2][0] else None
         parts = [f"하방(Bear·배수 A) {fmt_signed_pct(down)}", f"상방(Bull·배수 A) {fmt_signed_pct(up)}"]
+        floor_price = economic_auditor.compute_joint_derating_floor(
+            bear_eps=lo,
+            current_bps=num(info.get('bookValue')),
+            pb_band=info.get('_pb_band'),
+            forward_pe=num(info.get('forwardPE')),
+            profile_type=info.get('_profile', 'GENERAL'),
+        )
+        if floor_price is not None and price:
+            parts.append(f"결합 하방 바닥가(배수 C) {format_number(floor_price, True, ccy)} ({fmt_signed_pct(floor_price / price - 1)})")
+            snap_display(f"{sym}.scenario.joint_derating_floor_price", floor_price)
+            snap_display(f"{sym}.scenario.return_joint_derating", floor_price / price - 1)
         if down is not None and up is not None and down < 0 < up:
             parts.append(f"상방/하방 비율 {up / -down:.1f} : 1")
             snap_display(f"{sym}.scenario.up_down_ratio", up / -down,
@@ -2113,7 +2427,7 @@ def scenario_table(results, weights):
 
 
 def warnings_section():
-    lines = ["### 8. ⚠️ 데이터 품질 경고 (스크립트 자동 점검)\n"]
+    lines = ["### 7. ⚠️ 데이터 품질 경고 (스크립트 자동 점검)\n"]
     if WARNINGS:
         lines.append("> 아래 항목에 해당하는 수치를 본문에서 인용할 때는 경고 내용을 함께 밝히세요.\n")
         lines += [f"- {w}" for w in dict.fromkeys(WARNINGS)]
@@ -2191,13 +2505,54 @@ def build_section4(snapshot, overrides=None, after_tables=None):
         basis = cyc.get('basis') or '연간 순이익 데이터 없음'
         if symbol in cyclical_remove:
             info['_is_cyclical'], info['_cyc_basis'] = False, f"사용자 지정(일반) · {basis}"
+            info['_profile'], info['_profile_desc'] = PROFILE_GENERAL, f"사용자 지정(일반) · {basis}"
         elif symbol in cyclical_add:
             info['_is_cyclical'], info['_cyc_basis'] = True, f"사용자 지정(순환) · {basis}"
+            info['_profile'], info['_profile_desc'] = PROFILE_CYCLICAL, f"사용자 지정(순환) · {basis}"
         else:
-            info['_is_cyclical'] = bool(cyc.get('auto'))
-            info['_cyc_basis'] = f"자동 · {basis}" + (f" (−{-CYCLICAL_INCOME_DROP:.0%} 이하 → 순환)" if cyc.get('auto') else "")
+            pid, pdesc = detect_business_profile(info, symbol)
+            info['_profile'] = pid
+            info['_profile_desc'] = pdesc
+            info['_is_cyclical'] = (pid == PROFILE_CYCLICAL)
+            info['_cyc_basis'] = pdesc
+        SNAP.record(f"{symbol}.meta.profile", info['_profile'], source="calculated", basis="derived", status="final")
+        SNAP.record(f"{symbol}.meta.profile_desc", info['_profile_desc'], source="calculated", basis="derived", status="final")
         info['_rev'] = revision_summary(info)
         cross_check(info, symbol)
+
+        # Economic Moat & Value Trap Audit
+        try:
+            bs_df = raw_data(symbol, 'balance_sheet', 'frame')
+            inc_df = raw_data(symbol, 'income_stmt', 'frame')
+            fpe_val = num(info.get('forwardPE'))
+
+            # Dynamic Risk-Free Rate (ECOS KTB 10Y for KR, FRED DGS10 for US)
+            rf_val = 4.45
+            is_kr_stock = symbol.endswith(('.KS', '.KQ'))
+            if is_kr_stock:
+                try:
+                    ecos_m = raw_data('macro', 'ecos_market_rates') if RUN['raw'].has('macro', 'ecos_market_rates') else None
+                    if ecos_m and 'rows' in ecos_m and len(ecos_m['rows']) > 0:
+                        val = ecos_m['rows'][-1].get('국고채(10년)')
+                        if val:
+                            rf_val = float(val)
+                    else:
+                        rf_val = 3.95
+                except Exception:
+                    rf_val = 3.95
+            else:
+                try:
+                    fred_m = raw_data('macro', 'fred_rates') if RUN['raw'].has('macro', 'fred_rates') else None
+                    if fred_m and 'series' in fred_m:
+                        val = fred_m['series'].get('DGS10', {}).get('latest', {}).get('value')
+                        if val:
+                            rf_val = float(val)
+                except Exception:
+                    pass
+
+            info['_economic_audit'] = economic_auditor.audit_economic_moat(symbol, info, bs_df, inc_df, fpe_val, rf_rate=rf_val)
+        except Exception as e:
+            warn(f"{symbol}: 경제학 감사(Economic Moat) 계산 실패 ({e})")
 
     symbols = list(results.keys())
     record_rule_thresholds(weights)
@@ -2209,12 +2564,10 @@ def build_section4(snapshot, overrides=None, after_tables=None):
         technical_table(tickers_list, results),
         market_context_table(symbols, results, benchmarks if benchmarks else default_benchmarks(symbols, results)),
         metrics_table(results),
-        trajectory_table(results),
         cycle_tables(results),
-        peer_table(results),
         consensus_tables(results),
-        signal_matrix(results),
         decision_matrix(results),
+        economic_auditor.render_economic_audit_table(results, snap_display),
         audit_table(results),
         scenario_table(results, weights),
     ]
@@ -2222,7 +2575,7 @@ def build_section4(snapshot, overrides=None, after_tables=None):
     if after_tables:
         after_tables()
     sections.append(warnings_section())
-    return "\n".join(s for s in sections if s)
+    return "\n".join(s for s in sections if s and s.strip())
 
 
 def generate_report(tickers_list, cyclical_add=frozenset(), cyclical_remove=frozenset(), benchmarks=None, weights=DEFAULT_WEIGHTS, snapshot_path=None, raw_args=None):

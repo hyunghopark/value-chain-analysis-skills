@@ -105,7 +105,7 @@
 
 ### 필수 필드
 - **`value`**: 실제 수치 (숫자, 문자열, 불리언 또는 null)
-- **`source`**: 원천 출처 식별자 (`yahoo`, `naver`, `daum`, `wisereport`, `calculated` 등)
+- **`source`**: 원천 출처 식별자 (`yahoo`, `naver`, `daum`, `wisereport`, `pykrx`, `krx`, `dart`, `ecos`, `toss`, `fred`, `edgar`, `meritz`, `calculated`, `rules` 등 — 다중 출처 폴백 우선순위는 `data-quality.md`의 **항목별 출처 및 다중 MCP 폴백 우선순위 체크리스트**를 따름)
 - **`basis`**: 수치의 산출 기준. 반드시 아래 **8종 화이트리스트 어휘** 중 하나여야 하며, 그 외의 값은 즉시 예외(`ValueError`)를 발생시킵니다.
 - **`as_of`**: 기준 일시 (예: `2026-10-14` 또는 `2026-10-14 11:11`)
 - **`status`**: 값의 신뢰 상태. 반드시 아래 **4종 화이트리스트 어휘** 중 하나여야 합니다.

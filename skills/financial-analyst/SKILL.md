@@ -46,18 +46,33 @@ Follow these steps to conduct a high-precision corporate financial analysis:
    - **1-2. 기술적 지표 (RSI · 볼린저밴드)**: 진입 시점 보조용. 판정에는 쓰지 않습니다.
    - **1-3. 시장 비교 (지수·피어 동반 등락)**: 급락·급등이 기업 고유인지 업종·시장 전반인지 판별하는 근거.
    - **2. 핵심 재무 및 밸류에이션 지표 (별표 체계)**: ⭐⭐⭐ Forward P/E (12M NTM), PEG, YoY Revenue Growth · ⭐⭐ EV/EBITDA, ROE, Debt/Equity · 보조 지표. Forward P/E가 NTM이 아니면 기준(FY0 등)이 괄호로 표시됩니다.
-   - **2-1. 시계열별 PER · EPS 궤적**: TTM · FY0 · FY1 · NTM. Forward P/B·BPS는 단순 추정이라 과거 P/B와 비교하지 않습니다. 'TTM PER × 선행 EPS'는 단순 산술치이며 순환업종에는 표시되지 않습니다.
-   - **2-2. 경기순환 진단 및 과거 밸류에이션 밴드**: 순환업종 분류 근거, 연간 영업이익률 범위 대비 TTM 이익률(사이클 위치), 같은 방식으로 계산한 과거 P/B 밴드와 현재 P/B, 밴드 최저 회귀 시 주가.
-   - **2-3. 피어 평균 대비 상대가치**: Forward P/E · EV/EBITDA · 순이익률 · ROE의 피어 평균과 프리미엄/디스카운트.
+   - **2-1. 경기순환 진단 및 과거 밸류에이션 밴드**: 순환업종 분류 근거, 연간 영업이익률 범위 대비 TTM 이익률(사이클 위치), 같은 방식으로 계산한 과거 P/B 밴드와 현재 P/B, 밴드 최저 회귀 시 주가.
    - **3. 투자의견·목표가 (단일 출처) / 3-1. 30일 추정치 동향·실적 일정 / 3-2. 최근 4분기 EPS 서프라이즈**.
-   - **4. 투자 판단 신호등 매트릭스**와 **5. 핵심 지표 의사결정 매트릭스**: Step 7 규칙 참고.
-   - **6. [회계 감사] 일회성 손익 감지 및 정규화 지표**: `Total Unusual Items > 세전이익 15%` 또는 `순이익 > 영업이익`이면 감지하고, 명목·정규화 ROE/EPS를 같은 분모(평균 자기자본, 희석주식수 중앙값)로 다시 계산합니다. 손실도 '일회성 손실'로 구분합니다.
-   - **7. 시나리오 스트레스 테스트**: 내년(FY1) 컨센서스 EPS 최저·평균·최고 × 배수 A(현재 배수 유지)·배수 B(목표가 내재 배수), 확률가중 기대값과 상방/하방 비율.
-   - **8. 데이터 품질 경고**: 출처 간 5% 이상 차이, ADR 통화 보정, 잠정 수급, 가격 이력 보완·교정, 재무제표 반영 지연, 거래량 이상치, NTM이 아닌 Forward P/E 등. 앞에 붙은 `[KI-xxx]`는 스킬 저장소 `wiki/known-issues/`의 사건 문서 번호이며, 규칙은 `references/rules/data-quality.md`에 있습니다.
+   - **4. ⭐ 핵심 지표 의사결정 매트릭스**: 단일 공식 의사결정 매트릭스로 승격. 비즈니스 프로파일에 따라 무의미한 '· 제외' 열을 숨기는 동적 컬럼 압축이 적용되며 경제학 게이트키퍼 감등이 연동됩니다.
+   - **5. 🏛️ [경제학 감사] Moat & 밸류 트랩 필터**: ROIC-WACC 초과이윤(EVA 스프레드), 실질 ERP, 총주주환원율(TSY), 현금전환율(CCR) 감사.
+   - **(조건부 5-1) [회계 감사] 일회성 손익 감지 및 정규화 지표**: `Total Unusual Items > 세전이익 15%` 왜곡이 감지된 기업이 있을 때만 조건부 출력됩니다.
+   - **6. 시나리오 스트레스 테스트**: 내년(FY1) 컨센서스 EPS 최저·평균·최고 × 배수 A(현재 배수 유지)·배수 B(목표가 내재 배수), 확률가중 기대값과 상방/하방 비율.
+   - **7. 데이터 품질 경고**: 출처 간 5% 이상 차이, ADR 통화 보정, 잠정 수급, 가격 이력 보완·교정, 재무제표 반영 지연, 거래량 이상치, NTM이 아닌 Forward P/E 등. 앞에 붙은 `[KI-xxx]`는 스킬 저장소 `wiki/known-issues/`의 사건 문서 번호이며, 규칙은 `references/rules/data-quality.md`에 있습니다.
 
-### Step 3: Review Historical Earnings Surprises
+### Step 3: Review Historical Earnings Surprises & Official Filings (`finance-api-hub` MCP Priority Checklist)
 1. Use table 3-2 (last 4 quarters, EPS estimate vs. actual) from the script.
-2. Revenue surprises and Korean preliminary results (잠정실적) are not in Yahoo — search the filings/IR and cite them with dates.
+2. When verifying figures, filling qualitative sections, or resolving missing/conflicting metrics, follow the **Data Source & MCP Priority Checklist (`references/rules/data-quality.md`)**:
+   - **PER (TTM) / PBR / BPS**: `1순위 네이버 금융` → `2순위 KRX MCP (krx_stock) / DART MCP (dart_financials + stockTotqySttus)` → `3순위 Toss MCP` → `4순위 Yahoo Finance`
+   - **12M Forward PER / 선행 EPS (한국)**: `1순위 WiseReport` → `2순위 네이버 금융 (cnsPer/cnsEps)` → `3순위 Yahoo Finance`
+   - **현재가 / 정규장 종가 (한국)**: `1순위 KRX MCP (krx_stock 정규장 확정 종가)` · 장중/당일 15:30 직후는 `네이버 금융 / Toss MCP (toss_stock_candles) / Meritz API` → `2순위 다음 금융 (daum_days)` → `3순위 Yahoo Finance`
+   - **재무제표 & 10년 사이클 밴드**:
+     - 한국: `1순위 DART MCP (dart_financials 10년+ K-IFRS / dart_indicators)` → `2순위 Yahoo Finance` → `3순위 네이버/WiseReport`
+     - 미국: `1순위 SEC EDGAR MCP (sec_financials 10년+ XBRL + 파생 Q4 자동산출 / sec_concept)` → `2순위 Yahoo Finance`
+   - **발행주식수 · 자기주식수 · 총주주환원율(TSY) 희석 검증**:
+     - 한국: `1순위 DART MCP (dart_report: stockTotqySttus 보통주·우선주·자사주 분리, tesstkAcqsDspsSttus 자사주 취득·처분·소각, alotMatter 배당)` → `2순위 KRX MCP (LIST_SHRS)` → `3순위 네이버 금융` → `4순위 Yahoo Finance (KI-007 점검)`
+     - 미국: `1순위 SEC EDGAR MCP (dei:EntityCommonStockSharesOutstanding)` → `2순위 Yahoo Finance`
+   - **수급 · 공매도 · 프로그램 매매 (한국)**: `1순위 Toss MCP (toss_market_investor_trading 실제 거래대금+7대 기관 세분화, toss_stock_investor_trading, toss_stock_short_selling, toss_stock_program_trades)` → `2순위 네이버 금융 (naver_trend 수량×종가 추정)` → `3순위 다음 금융 (daum_quote 장중 외인 지분율 추정)`
+   - **무위험금리($R_f$) & 타인자본비용($k_d$) (WACC / EVA / Implied ERP)**:
+     - 한국: `1순위 ECOS MCP (ecos_market_rates: 국고채 10년 ktb10y, 회사채 AA- corpAA / BBB- corpBBB)` → `2순위 Toss MCP (toss_market_indicator_prices)`
+     - 미국: `1순위 FRED MCP (fred_bundle("rates") DGS10/DFII10, fred_bundle("credit") BAMLC0A4CBBB)` → `2순위 Yahoo Finance (^TNX)`
+   - **잠정실적 · 매출 서프라이즈 · 수주 · 오버행 리스크 원문**:
+     - 한국: `1순위 DART MCP (dart_disclosures(pblntf_ty="I") + dart_document 원문 표, cbIssuAcmslt 전환사채, piicDecsn 유상증자)` → `2순위 실시간 웹 검색 (search_web)`
+     - 미국: `1순위 SEC EDGAR MCP (sec_filings + sec_document(section="item7"|"item1a"|"item2.02"), sec_search 키워드 검색)` → `2순위 실시간 웹 검색 (search_web)`
 3. Look for patterns of consistent beats or misses, and note whether the latest quarter broke the pattern.
 
 ### Step 4: Perform Peer Group Comparison
@@ -90,8 +105,17 @@ Follow these steps to conduct a high-precision corporate financial analysis:
      - **🟢 강력 매수 후보**: 🟢 4개 이상 AND 🔴 0개
      - **🟢 매수 고려**: 🟢 3개 이상 AND 🔴 1개 이하
      - **🟡 중립/관망**: 그 외
+   - **2-Tier 경제학 해자 & 밸류 트랩 게이트키퍼 (1단계 하향 원칙)**:
+     - 1차 매트릭스 판정이 🟢(강력 매수 후보/매수 고려)라도, **Table 6-1 [경제학 감사]** 지표에서 🔴(자본잠식/주주가치 훼손/이익 품질 부실)이 발생하면 자동으로 **`🟡 중립/관망 (⚠️ 밸류 트랩 경보: [사유])`**으로 1단계 하향 조정합니다.
+     - 4대 감사 지표:
+       1. **EVA Spread** ($\text{ROIC} - \text{WACC}$): $\ge +3\%p$ 🟢, $0\sim 3\%p$ 🟡, $<0\%p$ 🔴 (음수 시 초과이익 소멸 및 자본잠식)
+       2. **Implied ERP** ($1/\text{Forward PE} - R_f$): $\ge +3\%p$ 🟢, $0\sim 3\%p$ 🟡, $<0\%p$ 🔴 (주식 위험 프리미엄 결여 시 채권 대비 열위)
+       3. **Total Shareholder Yield** ($\text{Dividend Yield} + \text{Net Buyback Yield}$): $\ge 3\%$ 🟢, $0\sim 3\%$ 🟡, $<0\%$ 🔴 (유상증자 등 희석 시 주주가치 훼손)
+       4. **Cash Conversion Ratio** ($\text{OCF} / \text{Net Income}$): $\ge 1.0$ 🟢, $0.7\sim 1.0$ 🟡, $<0.7$ 🔴 (이익의 현금화 실패 시 분식/운전자본 부실 경보)
 2. **Quality Audit (DuPont Decomposition)**:
    - Check DuPont Leverage ($\text{ROE} / \text{ROA}$). If ROE is high solely due to financial leverage (leverage > 3~4배), flag it as a capital structure risk.
+3. **Worst-Case Joint De-rating Floor (Multiple C)**:
+   - 시나리오 분석(Table 7)에 Bear EPS와 밴드 역사적 최저 배수를 결합한 복합 디레이팅 바닥가(`Multiple C`)를 추가하여, 이익 급감과 멀티플 동시 압축 시의 최대 하방 위험을 점검합니다.
 3. Synthesize findings into the template provided in `templates/financial_report_template.md`.
 4. **CRITICAL**: Populate the report with exact numbers and insert inline citations (e.g. `[1]`, `[2]`). Add source titles, publication dates and clickable URLs in the `## References` section (not just a site's home page).
 
@@ -109,7 +133,10 @@ Follow these steps to conduct a high-precision corporate financial analysis:
 ## Resources
 
 - **`templates/financial_report_template.md`**: The standard layout template for corporate financial analysis reports.
+- **`references/taxonomy/`**: Official reference documentation for the **5 Business Profiles (`business-profiles.md`)**, the **GICS 163 Sub-Industries Valuation Matrix (`gics-163-subindustries.md`)**, and the **Economist's 12 Structural Blind Spots & Upgrade Theory (`economic-12-blindspots.md`)** (mirrored in the project's Karpathy 3-Layer LLM Wiki at `wiki/index.md`, `wiki/concepts/`, and `wiki/entities/`).
 - **`references/rules/`**: Source of truth for verdict thresholds (`verdict-matrix.md`), the cycle-position signal (`cycle-position.md`), data-source rules (`data-quality.md`), data snapshot format (`data-snapshot.md`), and report number checks (`report-number-check.md`).
+- **`scripts/profile_detector.py`**: Sector-Adaptive 5-Profile routing engine (`GENERAL`, `CYCLICAL`, `PLATFORM_SAAS`, `FINANCIAL_REIT`, `BIOTECH_RD`) that automatically classifies tickers and selects profile-specific evaluation pillars and Table 2-4 auxiliary KPIs.
+- **`scripts/economic_auditor.py`**: Economic Moat & Value Trap Gatekeeper engine. Calculates EVA Spread ($\text{ROIC}-\text{WACC}$), Implied ERP, Total Shareholder Yield (dividend + net buyback), Cash Conversion Ratio (OCF/NI), Cash Conversion Cycle (CCC), and worst-case Joint De-rating Floor (Multiple C). Applies 1-step downgrade rule for Table 6-1.
 - **`scripts/snapshot.py`**: Standard data snapshot recorder and serializer. Every number shown in Section 4 is recorded, including the verdict thresholds under `rules.*`; `attach_section4` stores the Section 4 baseline after the report is assembled.
 - **`scripts/check_report_numbers.py`**: Checks a finished report against its paired snapshot — body numbers (script value / cited / unsupported), Section 4 edits and snapshot coverage, citations and references, leftover `[AI_TODO]`. `--section` prints the '숫자 점검 결과' block, `--json` writes the structured result, `--fetch-sources` (local only) compares cited numbers with the articles. Exit code 0 = no undocumented problems, 1 = problems, 2 = cannot run.
 - **`scripts/collect.py`**: The only code that reaches external sources (Yahoo, Naver, WiseReport, Daum, PyKrx) or reads the clock. Stores each response with its receive time as a raw input; failures are recorded, not raised.

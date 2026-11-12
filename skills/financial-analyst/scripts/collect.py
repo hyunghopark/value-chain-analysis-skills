@@ -20,6 +20,7 @@ import requests
 import yfinance as yf
 
 import data_checks
+import mcp_client
 import raw_inputs as ri
 from data_checks import BROWSER_UA
 
@@ -108,22 +109,10 @@ def fetch_naver_fchart(code, count=260):
     return pd.DataFrame.from_dict(recs, orient='index').sort_index()
 
 
-def fetch_nasdaq_history(symbol, start, end, limit=400):
-    """Daily close/volume from Nasdaq.com for US listings."""
-    r = requests.get(f"https://api.nasdaq.com/api/quote/{symbol}/historical",
-                     params={'assetclass': 'stocks', 'fromdate': start, 'todate': end, 'limit': limit},
-                     headers={'User-Agent': BROWSER_UA, 'Accept': 'application/json, text/plain, */*'}, timeout=20)
-    r.raise_for_status()
-    rows = ((r.json().get('data') or {}).get('tradesTable') or {}).get('rows') or []
-    recs = {pd.Timestamp(datetime.datetime.strptime(x['date'], '%m/%d/%Y')):
-            {'Close': data_checks._num(x['close'].replace('$', '')), 'Volume': data_checks._num(x['volume'])} for x in rows}
-    return pd.DataFrame.from_dict(recs, orient='index').sort_index()
-
-
 # ---------------------------------------------------------------- per ticker
 
 def collect_ticker(sym):
-    """Yahoo items for one ticker (data-model §3)."""
+    """Yahoo items for one ticker, plus SEC EDGAR items for US tickers."""
     items = {}
     t = yf.Ticker(sym)
     try:
@@ -142,6 +131,27 @@ def collect_ticker(sym):
             items[attr] = frame_item('yahoo', getattr(t, attr))
         except Exception as e:
             items[attr] = failed('yahoo', e)
+
+    # For US tickers, collect official SEC EDGAR financials and shares outstanding
+    if not is_kr(sym):
+        try:
+            edgar_f = mcp_client.get_edgar_financials(sym, period='annual', limit=10)
+            if edgar_f:
+                items['edgar_financials'] = ok('edgar', 'json', edgar_f)
+            else:
+                items['edgar_financials'] = failed('edgar', 'EDGAR 재무 데이터 없음')
+        except Exception as e:
+            items['edgar_financials'] = failed('edgar', e)
+
+        try:
+            edgar_s = mcp_client.get_edgar_shares_outstanding(sym)
+            if edgar_s:
+                items['edgar_shares'] = ok('edgar', 'json', edgar_s)
+            else:
+                items['edgar_shares'] = failed('edgar', 'EDGAR 주식수 데이터 없음')
+        except Exception as e:
+            items['edgar_shares'] = failed('edgar', e)
+
     return items
 
 
@@ -155,76 +165,91 @@ def wisereport_table(code):
             'rows': [[td.get_text(strip=True) for td in tr.find_all('td')] for tr in soup.select('table tbody tr')]}
 
 
-def pykrx_fundamental(code):
-    from pykrx import stock
-    for i in range(10):
-        date_str = (now_kst() - datetime.timedelta(days=i)).strftime('%Y%m%d')
-        df = stock.get_market_fundamental(date_str, market="ALL")
-        if not df.empty:
-            row = df.loc[code] if code in df.index else None
-            return {'date': date_str,
-                    'row': None if row is None else {k: float(row[k]) for k in ('PER', 'PBR', 'BPS', 'EPS', 'DIV') if k in row}}
-    return {'date': None, 'row': None}
-
-
 def collect_kr(sym):
-    """Naver, WiseReport, Daum and (optional) PyKrx items for a KRX ticker."""
+    """Collect official KRX, DART, and consensus items for a Korean ticker."""
     code = sym.split('.')[0]
+    market_type = 'kospi' if sym.endswith('.KS') else 'kosdaq'
     items = {}
+
+    # 1. Official KRX Stock Info & Quote
+    try:
+        krx_data = mcp_client.get_krx_ticker_info(code, market_type)
+        if krx_data:
+            items['krx_stock'] = ok('krx', 'json', krx_data)
+        else:
+            items['krx_stock'] = failed('krx', 'KRX 종목 데이터 없음')
+    except Exception as e:
+        items['krx_stock'] = failed('krx', e)
+
+    # 2. Official DART 10-Year Financials
+    try:
+        corp_code = mcp_client.get_dart_corp_code(code)
+        if corp_code:
+            dart_data = mcp_client.get_dart_financials(corp_code)
+            if dart_data:
+                items['dart_financials'] = ok('dart', 'json', dart_data)
+            else:
+                items['dart_financials'] = skipped('dart', 'DART 재무제표 없음')
+        else:
+            items['dart_financials'] = skipped('dart', f'DART 고유번호 미확인 ({code})')
+    except Exception as e:
+        items['dart_financials'] = failed('dart', e)
+
+    # 3. Consensus & Target Price (Naver & WiseReport)
     try:
         res = requests.get(f"https://m.stock.naver.com/api/stock/{code}/integration", headers={'User-Agent': NAVER_UA}, timeout=5)
         res.raise_for_status()
         items['naver_integration'] = ok('naver', 'json', res.json())
     except Exception as e:
         items['naver_integration'] = failed('naver', e)
+
     try:
         items['wisereport_eps'] = ok('wisereport', 'table', wisereport_table(code))
     except Exception as e:
         items['wisereport_eps'] = failed('wisereport', e)
-    if os.environ.get('KRX_ID') and os.environ.get('KRX_PW'):
-        try:
-            items['pykrx_fundamental'] = ok('pykrx', 'json', pykrx_fundamental(code))
-        except Exception as e:
-            items['pykrx_fundamental'] = failed('pykrx', e)
-    else:
-        items['pykrx_fundamental'] = skipped('pykrx', 'KRX_ID·KRX_PW 없음')
+
+    # 4. Fallback Daily Closes (Daum)
     try:
         items['daum_days'] = ok('daum', 'json', daum_day_rows(code))
     except Exception as e:
         items['daum_days'] = failed('daum', e)
+
     return items
 
 
 def collect_flows(sym):
-    """Naver investor flows; Daum intraday foreign-ownership quotes only when today's Naver row is missing on a weekday."""
+    """Collect investor flows from Toss MCP (primary) and Naver trend."""
     code = sym.split('.')[0]
-    items = {'daum_quote': skipped('daum'), 'daum_investor_days': skipped('daum')}
+    market_name = 'KOSPI' if sym.endswith('.KS') else 'KOSDAQ'
+    items = {}
+
+    # 1. Toss Individual Stock Investor Flows (7-Institutional Sub-entities, 06:10 confirmed)
+    try:
+        toss_stock = mcp_client.get_toss_stock_flows(code)
+        if toss_stock:
+            items['toss_stock_flows'] = ok('toss', 'json', toss_stock)
+        else:
+            items['toss_stock_flows'] = failed('toss', '토스 종목 수급 응답 없음')
+    except Exception as e:
+        items['toss_stock_flows'] = failed('toss', e)
+
+    # 2. Toss Market Investor Flows (20:06 confirmed)
+    try:
+        toss_market = mcp_client.get_toss_market_flows(market_name)
+        if toss_market:
+            items['toss_market_flows'] = ok('toss', 'json', toss_market)
+        else:
+            items['toss_market_flows'] = failed('toss', '토스 시장 수급 응답 없음')
+    except Exception as e:
+        items['toss_market_flows'] = failed('toss', e)
+
+    # 3. Naver trend (historical trend series)
     try:
         res = requests.get(f'https://m.stock.naver.com/api/stock/{code}/trend', headers={'User-Agent': 'Mozilla/5.0'}, timeout=5).json()
         items['naver_trend'] = ok('naver', 'json', res)
     except Exception as e:
         items['naver_trend'] = failed('naver', e)
-        return items
-    if not isinstance(res, list) or not res:
-        return items
-    # Same condition as get_financial_stats.fetch_investor_trends_table, at the time the trend arrived
-    now = datetime.datetime.fromisoformat(items['naver_trend']['fetched_at'])
-    today_str = now.strftime('%Y%m%d')
-    if today_str in [digits8(r.get('bizdate')) for r in res] or now.weekday() >= 5:
-        return items
-    try:
-        dq = requests.get(f'https://finance.daum.net/api/quotes/A{code}', headers=DAUM_HEADERS, timeout=5).json()
-        items['daum_quote'] = ok('daum', 'json', dq)
-    except Exception as e:
-        items['daum_quote'] = failed('daum', e)
-        return items
-    try:
-        if digits8(dq.get('date') or dq.get('tradeDate')) == today_str:
-            ddays = requests.get(f'https://finance.daum.net/api/investor/days?page=1&perPage=5&symbolCode=A{code}',
-                                 headers=DAUM_HEADERS, timeout=5).json()
-            items['daum_investor_days'] = ok('daum', 'json', ddays)
-    except Exception as e:
-        items['daum_investor_days'] = failed('daum', e)
+
     return items
 
 
@@ -283,16 +308,53 @@ def collect_all(tickers, benchmarks=None, args_dict=None):
     """Fetch every raw input the Section 4 pipeline reads. Returns (meta, inputs)."""
     import get_financial_stats as gfs  # the index choice must match the pipeline's own functions
     inputs = {}
+
+    # 1. Macro Rates & Spreads (ECOS & FRED)
+    print("Fetching macro rates and credit spreads (ECOS & FRED)...", file=sys.stderr)
+    macro_items = {}
+    try:
+        ecos_r = mcp_client.get_ecos_market_rates()
+        if ecos_r:
+            macro_items['ecos_market_rates'] = ok('ecos', 'json', ecos_r)
+        else:
+            macro_items['ecos_market_rates'] = failed('ecos', 'ECOS 시장금리 데이터 없음')
+    except Exception as e:
+        macro_items['ecos_market_rates'] = failed('ecos', e)
+
+    try:
+        fred_r = mcp_client.get_fred_bundle('rates')
+        if fred_r:
+            macro_items['fred_rates'] = ok('fred', 'json', fred_r)
+        else:
+            macro_items['fred_rates'] = failed('fred', 'FRED rates 데이터 없음')
+    except Exception as e:
+        macro_items['fred_rates'] = failed('fred', e)
+
+    try:
+        fred_c = mcp_client.get_fred_bundle('credit')
+        if fred_c:
+            macro_items['fred_credit'] = ok('fred', 'json', fred_c)
+        else:
+            macro_items['fred_credit'] = failed('fred', 'FRED credit 데이터 없음')
+    except Exception as e:
+        macro_items['fred_credit'] = failed('fred', e)
+
+    inputs['macro'] = macro_items
+
+    # 2. Per-Ticker Data
     for sym in tickers:
         print(f"Fetching data for {sym}...", file=sys.stderr)
         inputs[sym] = collect_ticker(sym)
         if is_kr(sym):
             inputs[sym].update(collect_kr(sym))
             inputs[sym].update(collect_flows(sym))
+
+    # 3. Benchmark Indices
     usable = {s: it['info']['data'] for s, it in inputs.items()
-              if it['info']['status'] == 'ok' and 'symbol' in (it['info']['data'] or {})}
+              if isinstance(it, dict) and 'info' in it and it['info']['status'] == 'ok' and 'symbol' in (it['info']['data'] or {})}
     symbols = list(usable)
     marks = [b for b in (benchmarks or gfs.default_benchmarks(symbols, usable)) if b not in symbols]
     for b in sorted(set(marks) | {gfs.market_index_for(s) for s in symbols if gfs.market_index_for(s)}):
         inputs[b] = collect_index(b)
+
     return collect_meta(args_dict), inputs

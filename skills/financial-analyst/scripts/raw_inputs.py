@@ -15,7 +15,7 @@ import re
 import pandas as pd
 
 FORMAT_VERSION = 2
-SOURCES = {'yahoo', 'naver', 'wisereport', 'daum', 'pykrx'}
+SOURCES = {'yahoo', 'naver', 'wisereport', 'daum', 'pykrx', 'krx', 'dart', 'toss', 'ecos', 'fred', 'edgar', 'meritz'}
 STATUSES = {'ok', 'empty', 'error', 'skipped'}
 KINDS = {'json', 'frame', 'table'}
 _FETCHED_AT = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+09:00$')

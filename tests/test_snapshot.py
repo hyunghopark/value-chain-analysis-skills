@@ -331,7 +331,7 @@ def test_warnings_and_meta_match_report_section8():
         lines = report.splitlines()
         section8_idx = -1
         for idx, line in enumerate(lines):
-            if "### 8. ⚠️ 데이터 품질 경고" in line:
+            if "⚠️ 데이터 품질 경고" in line:
                 section8_idx = idx
                 break
 

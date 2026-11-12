@@ -16,8 +16,18 @@ if SCRIPTS_DIR not in sys.path:
 import collect  # noqa: E402
 import raw_inputs as ri  # noqa: E402
 
-YAHOO_ITEMS = {"info", "history", *collect.YAHOO_FRAMES}
-KR_ITEMS = {"naver_integration", "wisereport_eps", "pykrx_fundamental", "daum_days", "naver_trend", "daum_quote", "daum_investor_days"}
+BASE_YAHOO_ITEMS = {"info", "history", *collect.YAHOO_FRAMES}
+US_ITEMS = BASE_YAHOO_ITEMS | {"edgar_financials", "edgar_shares"}
+KR_ITEMS = {
+    "krx_stock",
+    "dart_financials",
+    "naver_integration",
+    "wisereport_eps",
+    "daum_days",
+    "naver_trend",
+    "toss_stock_flows",
+    "toss_market_flows",
+}
 
 
 def test_failures_are_recorded_not_raised(monkeypatch):
@@ -30,44 +40,24 @@ def test_failures_are_recorded_not_raised(monkeypatch):
     assert items["wisereport_eps"]["status"] == "error" and items["daum_days"]["status"] == "error"
     flows = collect.collect_flows("000660.KS")
     assert flows["naver_trend"]["status"] == "error"
-    assert flows["daum_quote"]["status"] == "skipped" and flows["daum_investor_days"]["status"] == "skipped"
     ri.RawInputs({"000660.KS": {**items, **flows}})  # still a valid set of items
 
 
-def test_daum_intraday_only_without_todays_naver_row(monkeypatch):
-    """Daum is asked only on a weekday when Naver has no row for the day the trend arrived (same rule as the table)."""
-    calls = []
-
-    class R:
-        def __init__(self, payload):
-            self.payload = payload
-
-        def json(self):
-            return self.payload
-
-    def fake_get(url, **kwargs):
-        calls.append(url)
-        if "trend" in url:
-            return R([{"bizdate": "20261019"}])
-        if "quotes" in url:
-            return R({"date": "2026-10-20 10:00:00"})
-        return R({"data": []})
-    monkeypatch.setattr(collect.requests, "get", fake_get)
-    monkeypatch.setattr(collect, "now_kst", lambda: collect.datetime.datetime(2026, 10, 20, 10, 0, 0, tzinfo=collect.KST))
+def test_toss_flows_recorded_gracefully(monkeypatch):
+    """Toss MCP flows are captured without raising exceptions."""
+    monkeypatch.setattr(collect.mcp_client, "get_toss_stock_flows", lambda code: {"test": "stock_flow"})
+    monkeypatch.setattr(collect.mcp_client, "get_toss_market_flows", lambda market: {"test": "market_flow"})
+    monkeypatch.setattr(collect.requests, "get", lambda url, **kwargs: type("R", (), {"json": lambda self: [{"bizdate": "20261019"}]})())
     items = collect.collect_flows("000660.KS")
-    assert [i["status"] for i in (items["naver_trend"], items["daum_quote"], items["daum_investor_days"])] == ["ok"] * 3
-    assert len(calls) == 3
-
-    calls.clear()
-    monkeypatch.setattr(collect, "now_kst", lambda: collect.datetime.datetime(2026, 10, 19, 16, 0, 0, tzinfo=collect.KST))
-    items = collect.collect_flows("000660.KS")  # Naver already has today's row
-    assert items["daum_quote"]["status"] == "skipped" and len(calls) == 1
+    assert items["toss_stock_flows"]["status"] == "ok"
+    assert items["toss_market_flows"]["status"] == "ok"
+    assert items["naver_trend"]["status"] == "ok"
 
 
 @pytest.mark.network
 def test_collect_us_ticker():
     items = collect.collect_ticker("MU")
-    assert set(items) == YAHOO_ITEMS
+    assert set(items) == US_ITEMS
     assert items["info"]["status"] == "ok" and "symbol" in items["info"]["data"]
     assert items["history"]["status"] == "ok" and items["history"]["kind"] == "frame"
     raw = ri.RawInputs({"MU": items})
@@ -79,7 +69,7 @@ def test_collect_us_ticker():
 @pytest.mark.network
 def test_collect_kr_ticker():
     items = {**collect.collect_ticker("000660.KS"), **collect.collect_kr("000660.KS"), **collect.collect_flows("000660.KS")}
-    assert set(items) == YAHOO_ITEMS | KR_ITEMS
+    assert set(items) == BASE_YAHOO_ITEMS | KR_ITEMS
     for name in ("naver_integration", "wisereport_eps", "daum_days", "naver_trend"):
         assert items[name]["status"] == "ok", (name, items[name].get("error"))
     assert items["wisereport_eps"]["kind"] == "table" and items["wisereport_eps"]["data"]["headers"]
