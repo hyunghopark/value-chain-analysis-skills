@@ -149,20 +149,43 @@ def test_intelligence_snapshot_spec003(monkeypatch):
         assert "Exclusive | Nvidia Is Preparing to Oust CEO Jensen Huang" in loaded["evidence_headlines"][0]
 
 
-def test_official_disclosures_verification():
+def test_official_disclosures_verification(monkeypatch):
     """Verify official disclosure check classifies unfiled 8-K as PENDING and filed 8-K as FILED."""
     # Test Level 1/2: returns None
     assert ic.fetch_official_disclosures("NVDA", 1) is None
 
-    # Test Level 5: live or mocked EDGAR response
-    res = ic.fetch_official_disclosures("NVDA", 5)
-    assert res is not None
-    assert res["authority"] == "SEC EDGAR"
-    assert "status" in res
-    assert "status_label" in res
-    assert "diagnosis" in res
-    # NVDA current state: 8-K Item 5.02 is not yet filed for November 2026 crisis
-    assert res["governance_item_filed"] is False
-    assert res["status"] == "PENDING_OR_NOT_FILED"
-    assert "8-K" in res["status_label"]
-    assert "이사회 심의 진행 중" in res["status_label"]
+    import mcp_client
+
+    # Case 1: Unfiled (pending) 8-K (no recent 5.02 item)
+    monkeypatch.setattr(
+        mcp_client,
+        "call_mcp",
+        lambda server, tool, args: {
+            "rows": [
+                {"form": "8-K", "filing_date": "2026-10-15", "items": "8.01"}
+            ]
+        },
+    )
+    res_pending = ic.fetch_official_disclosures("NVDA", 5)
+    assert res_pending is not None
+    assert res_pending["authority"] == "SEC EDGAR"
+    assert res_pending["status"] == "PENDING_OR_NOT_FILED"
+    assert res_pending["governance_item_filed"] is False
+    assert "8-K" in res_pending["status_label"]
+
+    # Case 2: Filed 8-K with Item 5.02 within 14 days
+    now_str = ic.datetime.datetime.now(ic.KST).strftime("%Y-%m-%d")
+    monkeypatch.setattr(
+        mcp_client,
+        "call_mcp",
+        lambda server, tool, args: {
+            "rows": [
+                {"form": "8-K", "filing_date": now_str, "items": "5.02,9.01"}
+            ]
+        },
+    )
+    res_filed = ic.fetch_official_disclosures("NVDA", 5)
+    assert res_filed is not None
+    assert res_filed["status"] == "FILED"
+    assert res_filed["governance_item_filed"] is True
+    assert "Item 5.02" in res_filed["status_label"]
