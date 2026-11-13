@@ -209,7 +209,7 @@ def load_snapshot(path: str) -> Dict[str, Any]:
 
 NUMBER_PATTERN = re.compile(
     r'(?<![A-Za-z0-9_])'
-    r'(?:(?P<cur>[₩$])\s*)?'
+    r'(?:(?P<cur>[₩$€¥£]|NT\$|₫)\s*)?'
     r'(?P<sign>[±+\-−])?'
     r'(?P<int>\d{1,3}(?:,\d{3})+|\d+)'
     r'(?:\.(?P<dec>\d+))?'
@@ -481,7 +481,7 @@ PATH_KINDS = [
                            r'|diagnostics\.drawdown_52w)$')),
     ('fraction', re.compile(r'\.(return_\w+|drawdown_52w|\w*margin|roe|roa|\w*growth|payout_ratio|held_percent_\w+'
                             r'|short_percent_\w+|foreign_hold_ratio|percentile|position|upside\w*|opm_ttm|change_30d|surprise'
-                            r'|max_income_drop|\w*vs_avg|weight_\w+|eps_range_width|mean_\w+)$|\.cycle\.opm\.')),
+                            r'|max_income_drop|\w*vs_avg|weight_\w+|eps_range_width|export_ratio|\w*op_impact\w*|\w*shift\w*|mean_\w+)$|\.cycle\.opm\.')),
     ('multiple', re.compile(r'\.(beta|beta_parent|current_ratio|dupont_leverage|ev_to_\w+|\w*_pe|peg_ratio|price_to_\w+|multiple_[ab]|pe|ratio)$'
                             r'|\.pb_band\.(pb\.|high$|low$|median$|current_pb$)')),
     ('money', re.compile(r'\.(market_cap\w*)$|\.audit\.')),

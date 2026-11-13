@@ -339,6 +339,12 @@ def collect_all(tickers, benchmarks=None, args_dict=None):
     except Exception as e:
         macro_items['fred_credit'] = failed('fred', e)
 
+    try:
+        live_fx = mcp_client.get_live_usd_krw_rate()
+        macro_items['live_fx'] = ok('toss', 'json', {'rate': live_fx, 'currency': 'KRW', 'base': 'USD'})
+    except Exception as e:
+        macro_items['live_fx'] = failed('toss', e)
+
     inputs['macro'] = macro_items
 
     # 2. Per-Ticker Data

@@ -153,6 +153,32 @@ def get_ecos_market_rates() -> Optional[Dict[str, Any]]:
     return call_mcp("ecos", "ecos_market_rates", {})
 
 
+def get_toss_exchange_rate(base: str = "USD", quote: str = "KRW") -> Optional[Dict[str, Any]]:
+    """Fetch Toss real-time exchange rate (e.g. USD/KRW)."""
+    return call_mcp("toss", "toss_exchange_rate", {"base": base, "quote": quote})
+
+
+def get_live_usd_krw_rate() -> float:
+    """Fetch live USD/KRW rate: 1st Toss MCP, 2nd Yahoo USDKRW=X, 3rd Fallback 1335.0."""
+    try:
+        t_res = get_toss_exchange_rate("USD", "KRW")
+        if t_res and "rate" in t_res:
+            return float(t_res["rate"])
+    except Exception:
+        pass
+
+    try:
+        import yfinance as yf
+        tk = yf.Ticker("USDKRW=X")
+        p = tk.fast_info.get("last_price") or tk.info.get("regularMarketPrice")
+        if p and float(p) > 500:
+            return float(p)
+    except Exception:
+        pass
+
+    return 1335.0
+
+
 def get_toss_market_flows(market: str = "KOSPI") -> Optional[Dict[str, Any]]:
     """Fetch Toss market investor trading flows (updatedAt 20:06:03 finalized)."""
     return call_mcp("toss", "toss_market_investor_trading", {"market": market})

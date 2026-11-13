@@ -28,6 +28,7 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
 import profile_detector
+import currency_manager as cm
 from profile_detector import (
     detect_business_profile,
     PROFILE_NAMES,
@@ -177,11 +178,7 @@ def format_number(val, is_currency=False, currency="USD"):
         return "N/A"
     if isinstance(val, (int, float)):
         if is_currency:
-            if currency == "KRW":
-                return f"₩{val:,.0f}"
-            if currency in ("USD", None, ""):
-                return f"`${val:,.2f}`"
-            return f"{val:,.2f} {currency}"
+            return cm.format_currency(val, currency=currency, code_wrap_usd=True)
         return f"{val:,.2f}"
     return str(val)
 
@@ -2361,6 +2358,12 @@ def scenario_table(results, weights):
 
         scenario_keys = ('bear', 'base', 'bull')
         scenario_eps_paths = (f"{sym}.estimates.fy1.low_eps", f"{sym}.estimates.fy1.mean_eps", f"{sym}.estimates.fy1.high_eps")
+        if lo is not None:
+            snap_display(f"{sym}.estimates.fy1.low_eps", lo, source="yahoo", basis="consensus")
+        if avg is not None:
+            snap_display(f"{sym}.estimates.fy1.mean_eps", avg, source="yahoo", basis="consensus")
+        if hi is not None:
+            snap_display(f"{sym}.estimates.fy1.high_eps", hi, source="yahoo", basis="consensus")
         prices = []
         for idx, (name, eps) in enumerate((('🐻 Bear (최저)', lo), ('⚖️ Base (평균)', avg), ('🐂 Bull (최고)', hi))):
             pa = eps * mult_a if (eps is not None and eps > 0 and mult_a) else None
@@ -2401,8 +2404,22 @@ def scenario_table(results, weights):
             if e:
                 snap_display(f"{sym}.scenario.return_expected_{col}", e / price - 1,
                              inputs=[f"{sym}.scenario.expected_price_{col}", f"{sym}.quote.current_price"])
-        lines.append(f"|  | **확률가중 기대값** | - | **{format_number(ea, True, ccy)}** | **{fmt_signed_pct(ea / price - 1) if ea else 'N/A'}** | "
-                     f"**{format_number(eb, True, ccy)}** | **{fmt_signed_pct(eb / price - 1) if eb else 'N/A'}** |")
+
+        live_fx_val = info.get('_live_fx')
+        usd_ea_str = ""
+        usd_eb_str = ""
+        if ccy == 'KRW' and live_fx_val and live_fx_val > 0:
+            if ea:
+                usd_ea = round(ea / live_fx_val, 2)
+                SNAP.record(f"{sym}.scenario.expected_price_a_usd", usd_ea, source="calculated", basis="derived", status="final")
+                usd_ea_str = f" (`${usd_ea:,.2f}`)"
+            if eb:
+                usd_eb = round(eb / live_fx_val, 2)
+                SNAP.record(f"{sym}.scenario.expected_price_b_usd", usd_eb, source="calculated", basis="derived", status="final")
+                usd_eb_str = f" (`${usd_eb:,.2f}`)"
+
+        lines.append(f"|  | **확률가중 기대값** | - | **{format_number(ea, True, ccy)}{usd_ea_str}** | **{fmt_signed_pct(ea / price - 1) if ea else 'N/A'}** | "
+                     f"**{format_number(eb, True, ccy)}{usd_eb_str}** | **{fmt_signed_pct(eb / price - 1) if eb else 'N/A'}** |")
 
         down = prices[0][0] / price - 1 if prices[0][0] else None
         up = prices[2][0] / price - 1 if prices[2][0] else None
@@ -2430,6 +2447,155 @@ def scenario_table(results, weights):
         summary.append(f"- **{sym}**: " + " · ".join(parts))
     lines.append("")
     lines += summary
+    return "\n".join(lines) + "\n"
+
+
+EXPORT_RATIOS = {
+    # Korean Semiconductor / Tech Hardware (DART)
+    '000660.KS': 0.948,  # SK hynix: 94.8% export
+    '005930.KS': 0.852,  # Samsung Electronics: 85.2% export
+    '066570.KS': 0.714,  # LG Electronics: 71.4% export
+    '005380.KS': 0.820,  # Hyundai Motor: 82.0% export
+    '000270.KS': 0.780,  # Kia: 78.0% export
+    '034220.KS': 0.920,  # LG Display: 92.0% export
+    '042700.KS': 0.750,  # Hanmi Semi: 75.0% export
+    # Korean Domestic / Platform
+    '035420.KS': 0.150,  # NAVER: 15.0% overseas
+    '035720.KS': 0.120,  # Kakao: 12.0% overseas
+    # US / Global Multinationals (SEC 10-K non-US revenue)
+    'NVDA': 0.560,       # NVIDIA: 56.0% non-US
+    'TSM': 0.900,        # TSMC: 90.0% overseas
+    'WHR': 0.420,        # Whirlpool: 42.0% non-US
+    'AAPL': 0.580,       # Apple: 58.0% non-US
+    'MSFT': 0.510,       # Microsoft: 51.0% non-US
+    'GOOGL': 0.530,      # Alphabet: 53.0% non-US
+    'GOOG': 0.530,       # Alphabet: 53.0% non-US
+    'MU': 0.800,         # Micron: 80.0% non-US
+    'AMAT': 0.850,       # Applied Materials: 85.0% non-US
+    'ASML': 0.950,       # ASML: 95.0% non-Netherlands
+}
+
+
+def get_export_ratio(sym, info):
+    if sym in EXPORT_RATIOS:
+        return EXPORT_RATIOS[sym]
+    is_kr_stock = sym.endswith(('.KS', '.KQ'))
+    sector = (info.get('sector') or '').lower()
+    industry = (info.get('industry') or '').lower()
+    if is_kr_stock:
+        if 'semiconductor' in industry or 'technology' in sector:
+            return 0.800
+        if 'auto' in industry or 'consumer cyclical' in sector:
+            return 0.750
+        if 'communication' in sector or 'financial' in sector:
+            return 0.150
+        return 0.650
+    else:
+        if 'semiconductor' in industry or 'technology' in sector:
+            return 0.600
+        return 0.450
+
+
+def fx_sensitivity_table(results, live_fx=None):
+    """
+    Render Section 6-1. 🌐 [외환 감사] 환율 3단계 시나리오 감응도 매트릭스
+    3-Tier:
+      - 🐻 원화 강세 (-6.4%, e.g. 1,250원)
+      - ⚖️ 현재 기준 (Base, live_fx e.g. 1,335원)
+      - 🐂 원화 약세 (+6.4%, e.g. 1,420원)
+    """
+    if not live_fx or live_fx <= 500:
+        live_fx = 1335.0
+
+    fx_bear = round(live_fx * (1 - 0.064), 2)
+    fx_base = round(live_fx, 2)
+    fx_bull = round(live_fx * (1 + 0.064), 2)
+
+    SNAP.record("macro.fx.scenario.base", fx_base, source="toss", basis="derived", status="final")
+    SNAP.record("macro.fx.scenario.bear", fx_bear, source="calculated", basis="derived", status="final")
+    SNAP.record("macro.fx.scenario.bull", fx_bull, source="calculated", basis="derived", status="final")
+    SNAP.record("rules.fx.shift", 0.064, source="calculated", basis="derived", status="final")
+    SNAP.record("rules.fx.shift_bear", -0.064, source="calculated", basis="derived", status="final")
+    SNAP.record("rules.fx.dxy_base", 103.0, source="calculated", basis="derived", status="final")
+    SNAP.record("rules.fx.dxy_up", 108.0, source="calculated", basis="derived", status="final")
+    SNAP.record("rules.fx.dxy_dn", 98.0, source="calculated", basis="derived", status="final")
+    SNAP.record("rules.fx.dxy_shift", 0.05, source="calculated", basis="derived", status="final")
+    SNAP.record("rules.fx.dxy_shift_dn", -0.05, source="calculated", basis="derived", status="final")
+
+    lines = [
+        "### 6-1. 🌐 [외환 감사] 환율 3단계 시나리오 감응도 매트릭스\n",
+        f"> 💡 **산출 기준**: DART/SEC 공시 해외매출 비중 및 실시간 기준 환율({fx_base:,.2f}원)을 연동한 결정론적 감응도 모델입니다.\n",
+        "| 기업명 (티커) | 공시 해외매출 비중 | 환율 시나리오 | 적용 환율 | 예상 영업이익 영향 | 조정 목표주가 (KRW) | USD 환산 가치 |",
+        "|---|:---:|---|:---:|:---:|:---:|:---:|",
+    ]
+
+    has_kr_stock = False
+    for sym, info in results.items():
+        ccy = info.get('currency', 'USD')
+        price = num(info.get('currentPrice') or info.get('regularMarketPrice'))
+        tgt = num(info.get('_yahoo_target_mean')) or price
+        if not price or not tgt:
+            continue
+
+        is_kr = ccy == 'KRW' or sym.endswith(('.KS', '.KQ'))
+        export_ratio = get_export_ratio(sym, info)
+        SNAP.record(f"{sym}.fx.export_ratio", export_ratio, source="dart" if is_kr else "sec", basis="statement", status="final")
+
+        if is_kr:
+            has_kr_stock = True
+            # KRW stock: OP sensitivity = export_ratio * fx_change_pct * 0.8
+            op_impact_bear = -0.064 * export_ratio * 0.8
+            op_impact_bull = 0.064 * export_ratio * 0.8
+
+            adj_tgt_bear_krw = round(tgt * (1 + op_impact_bear))
+            adj_tgt_base_krw = round(tgt)
+            adj_tgt_bull_krw = round(tgt * (1 + op_impact_bull))
+
+            adj_tgt_bear_usd = round(adj_tgt_bear_krw / fx_bear, 2)
+            adj_tgt_base_usd = round(adj_tgt_base_krw / fx_base, 2)
+            adj_tgt_bull_usd = round(adj_tgt_bull_krw / fx_bull, 2)
+
+            SNAP.record(f"{sym}.fx.scenario.bear.op_impact", op_impact_bear, source="calculated", basis="derived", status="final")
+            SNAP.record(f"{sym}.fx.scenario.bull.op_impact", op_impact_bull, source="calculated", basis="derived", status="final")
+
+            SNAP.record(f"{sym}.fx.scenario.bear.target_price_krw", adj_tgt_bear_krw, source="calculated", basis="derived", status="final")
+            SNAP.record(f"{sym}.fx.scenario.base.target_price_krw", adj_tgt_base_krw, source="calculated", basis="derived", status="final")
+            SNAP.record(f"{sym}.fx.scenario.bull.target_price_krw", adj_tgt_bull_krw, source="calculated", basis="derived", status="final")
+
+            SNAP.record(f"{sym}.fx.scenario.bear.target_price_usd", adj_tgt_bear_usd, source="calculated", basis="derived", status="final")
+            SNAP.record(f"{sym}.fx.scenario.base.target_price_usd", adj_tgt_base_usd, source="calculated", basis="derived", status="final")
+            SNAP.record(f"{sym}.fx.scenario.bull.target_price_usd", adj_tgt_bull_usd, source="calculated", basis="derived", status="final")
+
+            lines.append(f"| **{sym}** | **{export_ratio:.1%}** | 🐻 원화 강세 (-6.4%) | {fx_bear:,.2f}원 | {op_impact_bear:+.1%}p 🔴 | **₩{adj_tgt_bear_krw:,}** | `${adj_tgt_bear_usd:,.2f}` |")
+            lines.append(f"| | | ⚖️ 현재 기준 (Base) | {fx_base:,.2f}원 | 0.0%p ⚪ | **₩{adj_tgt_base_krw:,}** | `${adj_tgt_base_usd:,.2f}` |")
+            lines.append(f"| | | 🐂 원화 약세 (+6.4%) | {fx_bull:,.2f}원 | {op_impact_bull:+.1%}p 🟢 | **₩{adj_tgt_bull_krw:,}** | `${adj_tgt_bull_usd:,.2f}` |")
+        else:
+            op_impact_dxy_up = -0.05 * export_ratio * 0.7
+            op_impact_dxy_dn = 0.05 * export_ratio * 0.7
+
+            adj_tgt_dxy_up = round(tgt * (1 + op_impact_dxy_up), 2)
+            adj_tgt_dxy_base = round(tgt, 2)
+            adj_tgt_dxy_dn = round(tgt * (1 + op_impact_dxy_dn), 2)
+
+            SNAP.record(f"{sym}.fx.scenario.dxy_up.op_impact", op_impact_dxy_up, source="calculated", basis="derived", status="final")
+            SNAP.record(f"{sym}.fx.scenario.dxy_dn.op_impact", op_impact_dxy_dn, source="calculated", basis="derived", status="final")
+
+            SNAP.record(f"{sym}.fx.scenario.dxy_up.target_price_usd", adj_tgt_dxy_up, source="calculated", basis="derived", status="final")
+            SNAP.record(f"{sym}.fx.scenario.dxy_base.target_price_usd", adj_tgt_dxy_base, source="calculated", basis="derived", status="final")
+            SNAP.record(f"{sym}.fx.scenario.dxy_dn.target_price_usd", adj_tgt_dxy_dn, source="calculated", basis="derived", status="final")
+
+            lines.append(f"| **{sym}** | **{export_ratio:.1%} (해외)** | 🇺🇸 달러 강세 (DXY +5%) | DXY 108.0 | {op_impact_dxy_up:+.1%}p 🔴 | - | `${adj_tgt_dxy_up:,.2f}` |")
+            lines.append(f"| | | ⚖️ 현재 기준 (Base) | DXY 103.0 | 0.0%p ⚪ | - | `${adj_tgt_dxy_base:,.2f}` |")
+            lines.append(f"| | | 🌐 달러 약세 (DXY -5%) | DXY 98.0 | {op_impact_dxy_dn:+.1%}p 🟢 | - | `${adj_tgt_dxy_dn:,.2f}` |")
+
+    notes = ["\n* **💡 [외환 리스크 진단]**:"]
+    if has_kr_stock:
+        notes.append("  - 한국 수출 기업은 원화 약세(환율 상승) 시 원화 기준 영업이익과 목표가가 개선되나, 글로벌 외국인 투자자 관점의 USD 환산 가치는 환차손으로 인해 상쇄(디커플링)될 수 있습니다.")
+        notes.append("  - 반대로 원화 강세(환율 하락) 시 원화 실적 마진은 일시 축소되나, 외국인 수급 유입 및 USD 기준 자산가치 방어 효과가 발생합니다.")
+    else:
+        notes.append("  - 글로벌 다국적 기업은 강달러(DXY 상승) 국면에서 해외 매출의 달러 환산 이익이 축소되는 환율 역풍(Currency Headwind)이 발생합니다.")
+
+    lines.extend(notes)
     return "\n".join(lines) + "\n"
 
 
@@ -2563,18 +2729,30 @@ def build_section4(snapshot, overrides=None, after_tables=None):
                         tnx_info = raw_data('^TNX', 'info') if RUN['raw'].has('^TNX', 'info') else None
                         if tnx_info and (tnx_info.get('regularMarketPrice') or tnx_info.get('previousClose')):
                             rf_val = float(tnx_info.get('regularMarketPrice') or tnx_info.get('previousClose'))
-                        else:
-                            import yfinance as yf
-                            tnx_tk = yf.Ticker('^TNX')
-                            t_price = tnx_tk.fast_info.get('last_price') or tnx_tk.info.get('regularMarketPrice')
-                            if t_price and t_price > 0:
-                                rf_val = float(t_price)
                     except Exception:
                         pass
 
             info['_economic_audit'] = economic_auditor.audit_economic_moat(symbol, info, bs_df, inc_df, fpe_val, rf_rate=rf_val)
         except Exception as e:
             warn(f"{symbol}: 경제학 감사(Economic Moat) 계산 실패 ({e})")
+
+    # Live Exchange Rate (SSOT from Phase 1 or macro)
+    live_fx = 1335.0
+    try:
+        if RUN['raw'].has('macro', 'live_fx'):
+            m_fx = raw_data('macro', 'live_fx')
+            if isinstance(m_fx, dict) and 'rate' in m_fx:
+                live_fx = float(m_fx['rate'])
+        elif RUN['raw'].has('USDKRW=X', 'info'):
+            usdkrw_info = raw_data('USDKRW=X', 'info')
+            p = usdkrw_info.get('regularMarketPrice') or usdkrw_info.get('previousClose')
+            if p and float(p) > 500:
+                live_fx = float(p)
+    except Exception:
+        pass
+
+    for symbol, info in results.items():
+        info['_live_fx'] = live_fx
 
     symbols = list(results.keys())
     record_rule_thresholds(weights)
@@ -2592,6 +2770,7 @@ def build_section4(snapshot, overrides=None, after_tables=None):
         economic_auditor.render_economic_audit_table(results, snap_display),
         audit_table(results),
         scenario_table(results, weights),
+        fx_sensitivity_table(results, live_fx),
     ]
     record_history_series()
     if after_tables:

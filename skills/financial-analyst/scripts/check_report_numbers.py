@@ -191,7 +191,7 @@ class NumberToken:
 
 
 NUMBER = re.compile(
-    r'(?P<sign>[+\-−])?(?P<cur>[₩$])?'
+    r'(?P<sign>[+\-−])?(?P<cur>[₩$€¥£]|NT\$|₫)?'
     r'(?P<num>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)'
     r'(?P<unit>%p|%|배|조|억|만|건|GB|TB|bp|주|(?:x|T|B|M|K)(?![A-Za-z]))?')
 EOK_AFTER_JO = re.compile(r'\s?(\d{1,3}(?:,\d{3})+|\d+)억')
@@ -341,7 +341,7 @@ PATH_KINDS = [(kind, re.compile(pattern)) for kind, pattern in (
     ('percent', r'\.(debt_to_equity|deviation_lower|deviation_upper|dividend_yield)$|_pct$'),
     ('fraction', r'\.(return_\w+|drawdown_52w|\w*margin|roe|roa|\w*growth|payout_ratio|held_percent_\w+'
                  r'|short_percent_\w+|foreign_hold_ratio|percentile|position|upside\w*|opm_ttm|change_30d|surprise'
-                 r'|max_income_drop|\w*vs_avg|weight_\w+|eps_range_width)$|\.cycle\.opm\.'),
+                 r'|max_income_drop|\w*vs_avg|weight_\w+|eps_range_width|export_ratio|\w*op_impact\w*|\w*shift\w*)$|\.cycle\.opm\.'),
     ('multiple', r'\.(beta|current_ratio|dupont_leverage|ev_to_\w+|\w*_pe|peg_ratio|price_to_\w+|multiple_[ab]|pe)$'
                  r'|\.pb_band\.(pb\.|high$|low$|median$|current_pb$)'),
     ('money', r'\.(market_cap\w*)$|\.audit\.'),

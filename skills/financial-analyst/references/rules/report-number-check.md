@@ -89,7 +89,7 @@
 | `shares` | `_shares$` | 순매수 수량 |
 | `count` | `(up\|down)_30d$\|_count$` | 추정치 상향·하향 건수, 애널리스트 수 |
 | `percent` | `\.(debt_to_equity\|deviation_lower\|deviation_upper\|dividend_yield)$\|_pct$` | 퍼센트 값으로 저장된 지표 |
-| `fraction` | `\.(return_\w+\|drawdown_52w\|\w*margin\|roe\|roa\|\w*growth\|payout_ratio\|held_percent_\w+\|short_percent_\w+\|foreign_hold_ratio\|percentile\|position\|upside\w*\|opm_ttm\|change_30d\|surprise\|max_income_drop\|\w*vs_avg\|weight_\w+\|eps_range_width)$\|\.cycle\.opm\.` | 소수 비율(0.52 = 52%) |
+| `fraction` | `\.(return_\w+\|drawdown_52w\|\w*margin\|roe\|roa\|\w*growth\|payout_ratio\|held_percent_\w+\|short_percent_\w+\|foreign_hold_ratio\|percentile\|position\|upside\w*\|opm_ttm\|change_30d\|surprise\|max_income_drop\|\w*vs_avg\|weight_\w+\|eps_range_width\|export_ratio\|\w*op_impact\w*\|\w*shift\w*)$\|\.cycle\.opm\.` | 소수 비율(0.52 = 52%) |
 | `multiple` | `\.(beta\|current_ratio\|dupont_leverage\|ev_to_\w+\|\w*_pe\|peg_ratio\|price_to_\w+\|multiple_[ab]\|pe)$\|\.pb_band\.(pb\.\|high$\|low$\|median$\|current_pb$)` | PER, P/B, EV/EBITDA, 베타, 재무레버리지 |
 | `money` | `\.(market_cap\w*)$\|\.audit\.` | 시가총액, 일회성 손익 금액 |
 | `price` | `(close\|price\|eps\|_high\|_low\|bps\|sma_20\|bollinger_\w+\|book_value\|dividend_rate)(_[ab])?(\.\|$)\|\.history\.\|\.target` | 주가, EPS, 목표가, 시나리오 기대값 |
