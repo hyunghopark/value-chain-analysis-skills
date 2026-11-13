@@ -107,10 +107,13 @@ def compute_eva_roic_wacc(
     }
 
 
-def compute_implied_erp(forward_pe: Optional[float], rf_rate: float = 4.5) -> Dict[str, Any]:
+def compute_implied_erp(forward_pe: Optional[float], rf_rate: Optional[float] = None) -> Dict[str, Any]:
     """
     Compute Implied Equity Risk Premium (ERP Yield Gap = 1/FPE - 10Y Treasury).
     """
+    if rf_rate is None or rf_rate <= 0:
+        rf_rate = 4.5  # 스냅샷 미연동 시에만 최후 fallback
+
     if forward_pe is None or np.isnan(forward_pe) or forward_pe <= 0:
         return {
             "earnings_yield": None,
@@ -262,11 +265,13 @@ def audit_economic_moat(
     balance_sheet: Optional[pd.DataFrame] = None,
     income_stmt: Optional[pd.DataFrame] = None,
     forward_pe: Optional[float] = None,
-    rf_rate: float = 4.5,
+    rf_rate: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Synthesize all 4 economic pillars and determine Economic Moat & Value Trap status.
     """
+    if rf_rate is None or rf_rate <= 0:
+        rf_rate = 4.5
     eva_res = compute_eva_roic_wacc(info, balance_sheet, income_stmt, rf_rate=rf_rate)
     erp_res = compute_implied_erp(forward_pe, rf_rate=rf_rate)
     tsy_res = compute_total_shareholder_yield(info, balance_sheet)

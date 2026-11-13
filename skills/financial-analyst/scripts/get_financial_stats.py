@@ -2326,7 +2326,7 @@ def scenario_table(results, weights):
     w_bull, w_base, w_bear = weights
     lines = ["### 6. 🧪 시나리오 스트레스 테스트 (스크립트 자동 산출 — 수치 임의 수정 금지)\n",
              "> - **EPS 시나리오**: 내년(FY1) 컨센서스 EPS의 최저(Bear) · 평균(Base) · 최고(Bull) — Yahoo Finance",
-             "> - **배수 A (현재 배수 유지)**: 현재가 ÷ Yahoo 12M 선행 EPS — 리레이팅이 없다는 가정",
+             "> - **배수 A (현재 배수 유지)**: 현재가 ÷ Yahoo 차기 연도(FY1) 선행 EPS (Base) — 리레이팅이 없다는 가정",
              "> - **배수 B (목표가 내재 배수)**: Yahoo 평균 목표가 ÷ FY1 평균 EPS — 애널리스트들이 가정한 배수",
              f"> - **확률 가중**: Bull {w_bull:.0%} · Base {w_base:.0%} · Bear {w_bear:.0%} (`--weights`로 변경)",
              "> - 하방이 음수(-)로 나오면 그대로 보고합니다. 결론에 맞추려고 배수·확률을 바꾸지 않습니다. 순환업종은 2-1 표의 '밴드 최저 P/B 회귀 시 주가'도 함께 보세요.\n",
@@ -2343,12 +2343,19 @@ def scenario_table(results, weights):
             lines.append(f"| **{sym}** | Yahoo 추정치 없음 | - | - | - | - | - |")
             continue
         ntm = compute_ntm_eps(fy0, avg, info=info, today=info['_fetched_at'].date()) if fy0 is not None else avg
-        mult_a = price / ntm if ntm and ntm > 0 else None
+        # 표 6의 Bear / Base / Bull EPS가 차기 회계연도(FY1) 기준이므로,
+        # 배수 A 역시 현재가 ÷ Base FY1 EPS(avg)로 산출하여 기준 시점을 통일 (Base 시나리오 수익률 = 0.0%)
+        if avg and avg > 0 and price and price > 0:
+            mult_a = price / avg
+        elif ntm and ntm > 0 and price and price > 0:
+            mult_a = price / ntm
+        else:
+            mult_a = None
         tgt = num(info.get('_yahoo_target_mean'))
         mult_b = tgt / avg if (tgt and avg > 0) else None
 
         if mult_a is not None:
-            SNAP.record(f"{sym}.scenario.multiple_a", mult_a, source="calculated", basis="derived", status="final", inputs=[f"{sym}.quote.current_price"])
+            SNAP.record(f"{sym}.scenario.multiple_a", mult_a, source="calculated", basis="derived", status="final", inputs=[f"{sym}.quote.current_price", f"{sym}.estimates.fy1.mean_eps"])
         if mult_b is not None:
             SNAP.record(f"{sym}.scenario.multiple_b", mult_b, source="calculated", basis="derived", status="final")
 
@@ -2549,6 +2556,21 @@ def build_section4(snapshot, overrides=None, after_tables=None):
                             rf_val = float(val)
                 except Exception:
                     pass
+
+                # FRED 금리 누락 시 Phase 1 Yahoo ^TNX 실시간 금리 연동
+                if rf_val == 4.45:
+                    try:
+                        tnx_info = raw_data('^TNX', 'info') if RUN['raw'].has('^TNX', 'info') else None
+                        if tnx_info and (tnx_info.get('regularMarketPrice') or tnx_info.get('previousClose')):
+                            rf_val = float(tnx_info.get('regularMarketPrice') or tnx_info.get('previousClose'))
+                        else:
+                            import yfinance as yf
+                            tnx_tk = yf.Ticker('^TNX')
+                            t_price = tnx_tk.fast_info.get('last_price') or tnx_tk.info.get('regularMarketPrice')
+                            if t_price and t_price > 0:
+                                rf_val = float(t_price)
+                    except Exception:
+                        pass
 
             info['_economic_audit'] = economic_auditor.audit_economic_moat(symbol, info, bs_df, inc_df, fpe_val, rf_rate=rf_val)
         except Exception as e:

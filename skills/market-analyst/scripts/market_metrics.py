@@ -609,23 +609,28 @@ def compute_macro_risk(macro_dfs: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
 
     irx_c = _get_series(macro_dfs.get('^IRX'), 'Close')
     if t10y3m is not None:
+        spread_pct = round(t10y3m, 3)
+        spread_bps = round(spread_pct * 100.0, 1)
         out["yield_curve"] = {
             "irx_13w": None,
-            "spread_10y_13w": t10y3m,
-            "inverted": bool(t10y3m < 0),
+            "spread_10y_13w": spread_pct,
+            "spread_10y_13w_bps": spread_bps,
+            "inverted": bool(spread_pct < 0),
             "source": "fred",
         }
     elif len(irx_c) >= 1 and out.get("rate_10y", {}).get("yield") is not None:
         irx_cur = float(irx_c.iloc[-1])
-        spread = round(out["rate_10y"]["yield"] - irx_cur, 3)
+        spread_pct = round(out["rate_10y"]["yield"] - irx_cur, 3)
+        spread_bps = round(spread_pct * 100.0, 1)
         out["yield_curve"] = {
             "irx_13w": round(irx_cur, 3),
-            "spread_10y_13w": spread,
-            "inverted": bool(spread < 0),
+            "spread_10y_13w": spread_pct,
+            "spread_10y_13w_bps": spread_bps,
+            "inverted": bool(spread_pct < 0),
             "source": "yahoo",
         }
     else:
-        out["yield_curve"] = {"irx_13w": None, "spread_10y_13w": None, "inverted": False}
+        out["yield_curve"] = {"irx_13w": None, "spread_10y_13w": None, "spread_10y_13w_bps": None, "inverted": False}
 
     # 4. Dollar Index (DX-Y.NYB)
     dxy_c = _get_series(macro_dfs.get('DX-Y.NYB'), 'Close')

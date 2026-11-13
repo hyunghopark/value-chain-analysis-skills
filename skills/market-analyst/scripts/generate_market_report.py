@@ -265,7 +265,11 @@ def populate_report(
     tmpl = re.sub(pattern_sec2_1, bullets_text, tmpl, flags=re.DOTALL)
 
     # Section 2-2 Core Technical Support & Practical Price Defense Diagnostics
-    def _support_status_label(buf):
+    def _support_status_label(buf, dist_200=None):
+        if dist_200 is not None and dist_200 < -5.0:
+            return f"🔴 추세 이탈 (200 SMA 하회, 완충: {buf:+.1f}%)" if buf is not None else "🔴 추세 이탈 (200 SMA 하회)"
+        elif dist_200 is not None and dist_200 < 0:
+            return f"🟡 지지 테스트 (200 SMA 하회, 완충: {buf:+.1f}%)" if buf is not None else "🟡 지지 테스트 (200 SMA 하회)"
         if buf is None:
             return "⚪ 데이터 없음"
         if buf > 10.0:
@@ -277,7 +281,7 @@ def populate_report(
         else:
             return f"🔴 지지선 붕괴 (손절 집행: {buf:+.1f}%)"
 
-    t2_label = _support_status_label(p_t2_buf)
+    t2_label = _support_status_label(p_t2_buf, dist_200=p_d200)
 
     tier1_bullet = f"* **Tier 1 (이동평균 추세 지지선):** 50 SMA {p_s50:,.1f} (이격도: {p_d50:+.2f}%), 200 SMA {p_s200:,.1f} (이격도: {p_d200:+.2f}%), 52주 최저가 {p_w52_low:,.1f} (완충도: {p_dist_52w_low:+.1f}%) [1]"
     tier2_bullet = f"* **Tier 2 (최근 1년 실전 조정 저점 및 손절 기준선):** {p_t2_date} 저점 {p_t2_price:,.1f} (당시 낙폭: {p_t2_dd:+.2f}%, 현재 완충도: {p_t2_buf:+.1f}%, 상태: {t2_label}) [1]"

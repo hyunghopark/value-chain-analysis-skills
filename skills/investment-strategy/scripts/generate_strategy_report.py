@@ -50,10 +50,13 @@ def find_reports_root() -> str:
 skills_dir_path = find_skills_dir()
 fin_scripts_path = os.path.join(skills_dir_path, 'financial-analyst', 'scripts')
 intel_scripts_path = os.path.join(skills_dir_path, 'market-intelligence', 'scripts')
+alpha_scripts_path = os.path.join(skills_dir_path, 'alpha-engine', 'scripts')
 if fin_scripts_path not in sys.path:
     sys.path.insert(0, fin_scripts_path)
 if intel_scripts_path not in sys.path:
     sys.path.insert(0, intel_scripts_path)
+if alpha_scripts_path not in sys.path:
+    sys.path.insert(0, alpha_scripts_path)
 
 try:
     from intelligence_collector import run_intelligence_collection
@@ -61,6 +64,10 @@ try:
     from economic_auditor import apply_event_gatekeeper
 except ImportError as e:
     print(f"⚠️ 인텔리전스 모듈 로드 경고: {e}", file=sys.stderr)
+try:
+    from calculate_alpha_score import evaluate_alpha, format_alpha_section_table
+except ImportError as e:
+    print(f"⚠️ 알파 엔진 모듈 로드 경고: {e}", file=sys.stderr)
 try:
     from profile_detector import PROFILE_NAMES
 except ImportError:
@@ -287,13 +294,44 @@ def main():
     target_verdict = extract_target_verdict(cleaned_financial, target_ticker)
 
     # -------------------------------------------------------------
+    # Phase 3.5: Forward-Looking Alpha Scoring & Dual Scoreboard (alpha-engine)
+    # -------------------------------------------------------------
+    print(f"⏳ [Phase 3.5] Evaluating 4 Alpha Archetypes for tickers: {tickers_list}...")
+    alpha_results = []
+    alpha_map: Dict[str, Any] = {}
+    for t in tickers_list:
+        try:
+            a_res = evaluate_alpha(t)
+            alpha_results.append(a_res)
+            alpha_map[t] = a_res
+        except Exception as e:
+            print(f"⚠️ [{t}] 알파 평가 예외: {e}", file=sys.stderr)
+
+    alpha_sec_table = format_alpha_section_table(alpha_results) if alpha_results else ""
+
+    target_alpha = alpha_map.get(target_ticker, {})
+    target_alpha_score = target_alpha.get('composite_alpha_score', 0.0)
+    target_defense_score = target_alpha.get('defense_score', 0.0)
+    target_archetype = target_alpha.get('primary_archetype', '')
+    target_archetype_label = target_alpha.get('primary_label', '미래 알파 주도주')
+    target_dual_verdict = target_alpha.get('dual_verdict', '')
+
+    # -------------------------------------------------------------
     # Phase 4: Event-Driven Gatekeeper & Resynthesis (market-intelligence)
     # -------------------------------------------------------------
     effective_target_verdict, event_downgrade_reason = apply_event_gatekeeper(target_verdict, intel_data)
     if event_downgrade_reason:
         print(f"🚨 [Phase 4 Gatekeeper] Corporate Verdict Downgraded: {target_verdict} ➡️ {effective_target_verdict}")
     else:
-        effective_target_verdict = target_verdict
+        # Prevent backward-looking cyclical peak penalty from degrading a confirmed supercycle leader
+        if not is_crisis and target_archetype == 'SUPERCYCLE_LEADER' and target_alpha_score >= 80.0:
+            if '중립' in target_verdict or '관망' in target_verdict:
+                effective_target_verdict = f"🟢 **적극 매수 (🚀 슈퍼사이클 확장기 — 알파 {target_alpha_score}점)**"
+                print(f"🚀 [Phase 3.5 Alpha Override] Supercycle expansion recognized: {target_verdict} ➡️ {effective_target_verdict}")
+            else:
+                effective_target_verdict = target_verdict
+        else:
+            effective_target_verdict = target_verdict
 
     # Extract quantitative context for crisis comparison
     fin_vals = fin_snap_dict.get("values", {})
@@ -312,11 +350,13 @@ def main():
         p_ret = fin_vals.get(f"{peer}.technical.5d_return", {}).get("value")
         if p_ret is not None:
             peer_summaries.append(f"{peer} {p_ret*100:+.1f}%")
-    mkt_sox_ret = mkt_snap_dict.get("values", {}).get("^SOX.return_5d", {}).get("value")
-    sox_str = f"동기간 반도체 지수({mkt_sox_ret*100:+.2f}%)" if mkt_sox_ret is not None else "반도체 지수"
+    parent_idx = resolved_target.get("parent_index") or ("^KS11" if target_ticker.endswith((".KS", ".KQ")) else "^GSPC")
+    mkt_parent_ret = mkt_snap_dict.get("values", {}).get(f"{parent_idx}.return_5d", {}).get("value")
+    mkt_label = resolved_target.get("label", parent_idx)
+    parent_str = f"동기간 {mkt_label}({mkt_parent_ret*100:+.2f}%)" if mkt_parent_ret is not None else mkt_label
     peers_str = f" 및 피어({', '.join(peer_summaries[:2])})" if peer_summaries else ""
-    t_ret_str = f"{target_5d_ret*100:+.1f}%" if target_5d_ret is not None else "-13.2%"
-    peer_divergence_text = f"{sox_str}{peers_str} 대비 타겟 기업 단독 급락({t_ret_str})으로 기업 고유 충격 확인"
+    t_ret_str = f"{target_5d_ret*100:+.1f}%" if target_5d_ret is not None else "-"
+    peer_divergence_text = f"{parent_str}{peers_str} 대비 타겟 기업 변동({t_ret_str})으로 기업 고유 충격 확인"
 
     currency = "$" if not target_ticker.endswith((".KS", ".KQ")) else "₩"
 
@@ -349,7 +389,11 @@ def main():
 
 ### 4.2. 바텀업 기업 재무 및 밸류에이션 매트릭스 (Phase 3: Financial Analyst)
 
-{cleaned_financial}"""
+{cleaned_financial}
+
+### 4.3. 미래 상승 알파(Alpha) 정밀 진단 및 듀얼 스코어보드 (Phase 3.5: Alpha Engine)
+
+{alpha_sec_table}"""
 
     sec4_sha256 = hashlib.sha256(sec4_full_body.encode('utf-8')).hexdigest()
     now_kst_str = now_kst.strftime('%Y-%m-%d %H:%M KST')
@@ -358,6 +402,34 @@ def main():
     merged_values: Dict[str, Any] = {}
     merged_values.update(mkt_snap_dict.get("values", {}))
     merged_values.update(fin_snap_dict.get("values", {}))
+
+    # Record Alpha metrics for all tickers
+    for t, a_data in alpha_map.items():
+        merged_values[f"{t}.alpha.composite_score"] = {
+            "value": a_data.get('composite_alpha_score', 0.0),
+            "source": "alpha-engine",
+            "basis": "calculated",
+            "as_of": now_kst_str
+        }
+        merged_values[f"{t}.alpha.defense_score"] = {
+            "value": a_data.get('defense_score', 0.0),
+            "source": "alpha-engine",
+            "basis": "calculated",
+            "as_of": now_kst_str
+        }
+        merged_values[f"{t}.alpha.primary_archetype"] = {
+            "value": a_data.get('primary_archetype', ''),
+            "source": "alpha-engine",
+            "basis": "classified",
+            "as_of": now_kst_str
+        }
+        merged_values[f"{t}.alpha.dual_verdict"] = {
+            "value": a_data.get('dual_verdict', ''),
+            "source": "alpha-engine",
+            "basis": "synthesized",
+            "as_of": now_kst_str
+        }
+
     # Also record corporate verdict
     clean_target_verdict = effective_target_verdict.replace('*', '').strip()
     merged_values[f"{target_ticker}.decision.verdict"] = {
@@ -468,13 +540,25 @@ def main():
         sec1_2_content = "[AI_TODO: 최근 1~5일 주가 급변동, 52주 고점 대비 낙폭, 직접적 트리거를 정리하고, Section 4.1 거시 지표 및 Section 4.2 › 1-3 시장 비교 표를 근거로 원인이 '기업 고유 / 업종 전반 / 시장 전체' 중 무엇인지 판별하세요. 수급 금액은 '추정', 장중 데이터는 '잠정'으로 표기하고 '확정·증명' 표현은 쓰지 않습니다.]"
         sec7_3_content = f"[AI_TODO: 거시 현금 제약({macro_cash_pct}%)과 기업별 판정을 연동해 비중을 제시하세요(🔴 판정 기업은 0% 또는 축소). 단일 업종 집중 위험과 포트폴리오 베타를 함께 밝힙니다.]"
 
+    alpha_sig_icon = "🟢" if target_alpha_score >= 80 else ("🟡" if target_alpha_score >= 65 else "⚪")
+
     template = f"""# {args.industry} 투자 전략 보고서
 
 > **분석 기준 시각**: {now_kst_str} (시세 상태는 Section 4.2 첫 줄 '데이터 기준' 참고 — 장중 실행이면 시세·수급은 잠정치)
 > **데이터 스냅샷**: `{snapshot_basename}`{baseline_note}
-> **종합 의사결정 신호**: [거시 시장 신호: {macro_signal_str}] vs [기업 밸류 신호: {effective_target_verdict}]
+> **종합 의사결정 신호**: [거시 시장 신호: {macro_signal_str}] vs [기업 밸류 신호: {effective_target_verdict}] vs [미래 알파 신호: {alpha_sig_icon} {target_archetype_label} (공격 {target_alpha_score}점 / 방어 {target_defense_score}점)]
 > **한 줄 결론**: {conclusion_line}
 {crisis_box_insert}
+### 📌 Executive Summary & Signal Dashboard
+
+| 핵심 평가 영역 | 진단 신호 | 세부 진단 요약 |
+|---|:---:|---|
+| **거시 시장 국면 (Phase 1)** | {macro_icon} | **{macro_verdict}**: 권장 현금 {macro_cash_pct}% 안전마진 준수 |
+| **가치사슬 구조 (Phase 2)** | 🟢 | **독점적 병목 해자 및 교섭력**: Up/Mid/Downstream 가치사슬 및 GPM 우위 |
+| **기업 밸류에이션 (Phase 3)** | 🟡 | **정밀 밸류에이션 및 바닥선 점검**: 4-호라이즌 밸류에이션 및 Multiple C 하방선 |
+| **미래 상승 알파 (Phase 3.5)** | {alpha_sig_icon} | **{target_archetype_label}**: 공격 알파 **{target_alpha_score}점** (방어 {target_defense_score}점) |
+| **권장 모델 포트폴리오** | 🛡️ | **현금 {macro_cash_pct}.0%** (거시 안전마진 준수) + 타겟 및 피어 분산 |
+
 ---
 
 ## 1. 산업 개요 및 최근 시장 동향

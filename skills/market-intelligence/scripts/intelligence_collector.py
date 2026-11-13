@@ -158,14 +158,28 @@ def classify_severity(crisis_hits: List[Tuple[str, int, str]], items_count: int)
 
     # Level 5: Catastrophic governance crisis / board ouster / subpoena
     if max_sev >= 5 or any(t in terms for t in ["affair", "oust", "ouster", "subpoena", "spy", "wachtell", "bsod"]):
+        terms_lower = [t.lower() for t in terms]
+        terms_str = " ".join(terms_lower)
         primary = f"{categories[0]} (핵심 키워드: {', '.join(terms[:4])})"
-        desc = "최고경영자 거버넌스 붕괴, 이사회 해임 논의 또는 중대 사법 소환장이 발부된 치명적 위기 국면입니다."
+        if any(k in terms_str or k in primary for k in ("oust", "ouster", "affair", "wachtell", "해임", "경영권")):
+            desc = "최고경영자 거버넌스 붕괴, 이사회 해임 논의 등 중대 경영권 위기 국면입니다."
+        elif any(k in terms_str or k in primary for k in ("antitrust", "반독점", "subpoena", "소환장", "doj", "ftc")):
+            desc = "사법 당국의 반독점 소송 또는 중대 규제 시정조치 리스크가 부각된 위기 국면입니다."
+        else:
+            desc = f"{primary} 관련 중대 기업 고유 리스크가 감지된 상태입니다."
         return 5, primary, desc
 
     # Level 4: Severe operational or regulatory probe
     if max_sev == 4 or any(t in terms for t in ["probe", "investigation", "resigns", "resignation", "auditor", "doj"]):
+        terms_lower = [t.lower() for t in terms]
+        terms_str = " ".join(terms_lower)
         primary = f"{categories[0]} (핵심 키워드: {', '.join(terms[:3])})"
-        desc = "핵심 경영진 사임, 회계법인 분쟁 또는 사법 당국의 정식 조사가 착수된 심각한 위기 상태입니다."
+        if any(k in terms_str or k in primary for k in ("antitrust", "반독점")):
+            desc = "사법 당국의 반독점 소송 또는 중대 규제 시정조치 리스크가 부각된 위기 국면입니다."
+        elif any(k in terms_str or k in primary for k in ("resigns", "resignation", "auditor", "사임", "회계")):
+            desc = "핵심 경영진 사임, 회계법인 분쟁 또는 사법 당국의 정식 조사가 착수된 심각한 위기 상태입니다."
+        else:
+            desc = f"{primary} 관련 중대 기업 고유 리스크가 감지된 상태입니다."
         return 4, primary, desc
 
     # Level 3: Moderate watch
@@ -177,7 +191,7 @@ def classify_severity(crisis_hits: List[Tuple[str, int, str]], items_count: int)
     return 2, "경미한 노이즈", "일상적인 시장 변동성 또는 경미한 분쟁 수준입니다."
 
 
-def fetch_official_disclosures(ticker: str, severity_level: int) -> Optional[Dict[str, Any]]:
+def fetch_official_disclosures(ticker: str, severity_level: int, primary_crisis: str = "") -> Optional[Dict[str, Any]]:
     """
     Query official regulatory disclosures (SEC Form 8-K for US, DART for KR)
     when Level 4 or Level 5 crisis is detected.
@@ -231,6 +245,7 @@ def fetch_official_disclosures(ticker: str, severity_level: int) -> Optional[Dic
                         target_filing = r
                         break
 
+                crisis_label = primary_crisis if primary_crisis else "감지된 사안"
                 if has_recent_502:
                     return {
                         "authority": "SEC EDGAR",
@@ -247,13 +262,13 @@ def fetch_official_disclosures(ticker: str, severity_level: int) -> Optional[Dic
                     return {
                         "authority": "SEC EDGAR",
                         "status": "PENDING_OR_NOT_FILED",
-                        "status_label": "⏳ [공식 8-K 미접수 / 이사회 심의 진행 중 (Pending)]",
+                        "status_label": "⏳ [공식 8-K 미접수 / 사안 심의 진행 중 (Pending)]",
                         "governance_item_filed": False,
                         "latest_filing": latest,
                         "diagnosis": (
                             f"최신 Form 8-K 접수일은 {latest.get('filing_date')} (Item {latest.get('items')})이며, "
-                            f"CEO 해임(Item 5.02) 관련 공식 8-K는 아직 SEC EDGAR에 접수되지 않았습니다. "
-                            f"(SEC 규정상 사건 발생 후 4영업일 이내 의무 제출 대상이며, 현재는 언론 특종 보도 및 이사회 심의 단계입니다)."
+                            f"감지된 사안({crisis_label})과 직접 관련된 신규 수시공시(8-K)는 아직 SEC EDGAR에 접수되지 않았습니다. "
+                            f"(SEC 규정상 사건 발생 후 4영업일 이내 의무 제출 대상이며, 현재는 언론 특종 보도 및 내부 심의 단계입니다)."
                         ),
                     }
         except Exception as e:
@@ -351,7 +366,7 @@ def run_intelligence_collection(ticker: str, output_path: Optional[str] = None) 
     # --- Stage 3: Official Disclosure Cross-Verification (SEC Form 8-K / DART) ---
     official_disclosures = None
     if severity_level >= 4:
-        official_disclosures = fetch_official_disclosures(ticker, severity_level)
+        official_disclosures = fetch_official_disclosures(ticker, severity_level, primary_crisis)
 
     intelligence_payload: Dict[str, Any] = {
         "meta": {

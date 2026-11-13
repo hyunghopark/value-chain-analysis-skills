@@ -80,8 +80,9 @@ def format_tables_section(
         else:
             t2_cell = "-"
 
-        sup_info = mr.get_support_status(buf_val)
-        diag_str = f"{sup_info['icon']} {sup_info['status']}" if buf_val is not None else "⚪ 데이터 없음"
+        d200_val = idx.get('dist_200')
+        sup_info = mr.get_support_status(buf_val, dist_200=d200_val)
+        diag_str = f"{sup_info['icon']} {sup_info['status']}" if (buf_val is not None or d200_val is not None) else "⚪ 데이터 없음"
 
         lines.append(f"| **{name}** | {s50} | {s200} | {d200} | {d52_low} | {t2_cell} | {diag_str} |")
     lines.append("")
@@ -123,13 +124,18 @@ def format_tables_section(
     lines.append(f"| **미국 10년물 국채금리** | `^TNX` | {r10_yld} | {r10_chg} | {r10_sig} |")
 
     yc = macro.get("yield_curve", {})
+    sp_pct = yc.get("spread_10y_13w")
+    sp_bps = yc.get("spread_10y_13w_bps")
+    if sp_bps is None and sp_pct is not None:
+        sp_bps = round(sp_pct * 100.0, 1)
+
     if yc.get("source") == "fred":
-        yc_sp = f"{yc.get('spread_10y_13w'):+.2f}%p" if yc.get('spread_10y_13w') is not None else "-"
+        yc_sp = f"{sp_bps:+.1f} bps ({sp_pct:+.2f}%p)" if sp_pct is not None else "-"
         yc_13w = "미 연준 공식 T10Y3M"
         yc_inv = "🔴 역전 상태" if yc.get("inverted") else "🟢 정상 스프레드"
         lines.append(f"| **장단기 금리차 (10Y - 3M)** | `FRED T10Y3M` | {yc_sp} | {yc_13w} | {yc_inv} |")
     else:
-        yc_sp = f"{yc.get('spread_10y_13w')} bps" if yc.get('spread_10y_13w') is not None else "-"
+        yc_sp = f"{sp_bps:+.1f} bps ({sp_pct:+.3f}%p)" if sp_pct is not None else "-"
         yc_13w = f"13W 금리: {yc.get('irx_13w')}%" if yc.get('irx_13w') is not None else "-"
         yc_inv = "🔴 역전 상태" if yc.get("inverted") else ("🟢 정상 스프레드" if yc.get('spread_10y_13w') is not None else "-")
         lines.append(f"| **장단기 금리차 (10Y - 13W)** | `^TNX - ^IRX` | {yc_sp} | {yc_13w} | {yc_inv} |")

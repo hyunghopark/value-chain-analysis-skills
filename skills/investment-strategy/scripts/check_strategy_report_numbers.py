@@ -263,9 +263,9 @@ MASKS = [
                              r'|\b\d+대\s*(?:기둥|질문|편향|원칙)?\b'
                              r'|\b\d+가지\b'
                              r'|\b\d+(?:개|사|개사)(?:의|를|은|는|이|가|로|에)?\b'
-                             r'|\b(?:Tier|tier)\s*\d+\b'
-                             r'|\b\d+-(?:Pillar|pillar|tier|Tier)\b'
-                             r'|\b3-티어\b'
+                             r'|\b(?:Tier|tier|Phase|phase)\s*\d+(?:\.\d+)?\b'
+                             r'|\b\d+-(?:Pillar|pillar|tier|Tier|티어|호라이즌)\b'
+                             r'|\b[345]-티어\b'
                              r'|\b\d+단계\b')),
     ('date', re.compile(r'\d{4}[-.]\d{2}[-.]\d{2}'
                         r'|\d{4}-\d{2}(?!\d)'
@@ -369,7 +369,7 @@ def _heading_title(line: str) -> str:
 
 
 CITATION_NUMBER = re.compile(r'\[(\d+)\]')
-SECTION4_REF = re.compile(r'Section\s*4(?:\.([12]))?\s*›\s*(\d+(?:-\d+)?)')
+SECTION4_REF = re.compile(r'Section\s*4(?:\.([123]))?\s*›\s*(\d+(?:-\d+)?)')
 SECTION4_TABLE = re.compile(r'^#{3,4}\s*(?:[^\w\s]+\s*)?(\d+(?:-\d+)?)\.')
 APPROXIMATE_AFTER = re.compile(r'\s?(?:원\s?)?(?:부근|내외|안팎|가량|전후)')
 SENTENCE_BREAK = re.compile(r'(?<=다\.)\s+|(?<=\.)\s+(?=\S)|<br\s*/?>')

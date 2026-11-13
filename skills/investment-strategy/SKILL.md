@@ -1,21 +1,24 @@
 ---
 name: investment-strategy
-description: Use when the user requests an investment analysis of an industry, combining pre-flight breaking event intelligence (market-intelligence), top-down macro regime and crisis supports (market-analyst), structural supply chain mapping and bottleneck identification (value-chain-analyzer), and bottom-up corporate valuation with consensus revisions and scenario stress testing (financial-analyst).
-version: 4.0.0
-allowed-skills: market-analyst value-chain-analyzer financial-analyst market-intelligence
+description: Use when the user requests an investment analysis of an industry, combining pre-flight breaking event intelligence (market-intelligence), top-down macro regime and crisis supports (market-analyst), structural supply chain mapping and bottleneck identification (value-chain-analyzer), bottom-up corporate valuation with consensus revisions and scenario stress testing (financial-analyst), and forward-looking alpha scoring across 4 archetypes (alpha-engine).
+version: 4.1.0
+allowed-skills: market-analyst value-chain-analyzer financial-analyst market-intelligence alpha-engine
 ---
 
-# 통합 4-티어 투자 전략 (Unified 4-Tier Investment Strategy)
+# 통합 5-티어 투자 전략 (Unified 5-Tier Investment Strategy)
 
 ## 1. 개요 (Overview)
 
-`investment-strategy` 스킬은 4개 전문 분석 스킬(`market-intelligence`, `market-analyst`, `value-chain-analyzer`, `financial-analyst`)을 유기적으로 통합 오케스트레이션하여 기관 투자자 수준의 포괄적 투자 전략 보고서를 자동 생성합니다:
+`investment-strategy` 스킬은 5개 전문 분석 스킬(`market-intelligence`, `market-analyst`, `value-chain-analyzer`, `financial-analyst`, `alpha-engine`)을 유기적으로 통합 오케스트레이션하여 기관 투자자 수준의 포괄적 투자 전략 보고서를 자동 생성합니다:
 0. **Phase 0: 사전 특수 상황 및 뉴스 인텔리전스 (`market-intelligence`)**: 시작 즉시 1~2초 만에 비편향 광대역 헤드라인 수집, 고유명사/위기 토큰 스파이크 감지, 적응형 2단계 자율 멀티홉(Adaptive Multi-hop) 질의를 통해 경영진 거버넌스·사법 리스크·블랙스완을 사전 스캔하여 독립 스냅샷(`{ticker}_intelligence.json`) 봉인.
 1. **Phase 1: 탑다운 거시 시장 및 국면 진단 (`market-analyst`)**: 거시 시장 체제(6대 Market Regime), 3단계 동적 지지선 및 적응형 위기 벤치마크(Tier 1 단기전술·Tier 2 롤링 1년 최대조정·Tier 3 적응형 4단계 근접도 밴드), 11개 SPDR 섹터 순환매, 거시 스트레스 지표(VIX, 10년물 금리, 신용 스프레드, 환율), 소크라테스식 6대 질문, 5대 인지 편향 감사, 가설 무효화 사다리(Thesis Invalidation Ladder).
 2. **Phase 2: 산업 가치사슬 및 핵심 병목 해자 매핑 (`value-chain-analyzer`)**: 전방(Upstream), 중방(Midstream), 후방(Downstream) 구조화, 1+2+1 비교 프레임워크([타겟], [직접경쟁], [병목협력]), Mermaid 구조도.
 3. **Phase 3: 바텀업 기업 정밀 밸류에이션 및 시나리오 스트레스 테스트 (`financial-analyst`)**: 4-호라이즌 PER, 역사적 P/B 밴드(동일 산식), 30일 이익 추정치 리비전, 4분기 어닝 서프라이즈, 정량 팩터 신호등 및 종합 판단 매트릭스, 일회성 손익 회계 감사, 데이터 기반 2-티어 시나리오 스트레스 테스트 및 결합 하방 바닥가(Multiple C: Joint De-rating Floor).
-4. **Phase 4: 이벤트 게이트키퍼 & 비상 오버라이드 조립 (Unified Resynthesis)**:
-   - Phase 0의 팩트와 Phase 3의 퀀트 수치(피어 등락률, Multiple C 바닥가)를 결합.
+4. **Phase 3.5: 미래 상승 동력 정밀 진단 및 듀얼 스코어보드 (`alpha-engine`)**:
+   - 4대 동적 알파 아키타입(슈퍼사이클, 턴어라운드, 촉매, 모멘텀)을 감지하고 **[공격 알파 점수 (0~100)]** vs **[하방 방어 점수 (0~100)]**를 분리 산출.
+   - 슈퍼사이클 종목의 마진 급증을 상투(🔴)로 감점하지 않고 '이익 확장 국면'으로 재평가하여 최종 판정 왜곡을 방지.
+5. **Phase 4: 이벤트 게이트키퍼 & 비상 오버라이드 조립 (Unified Resynthesis)**:
+   - Phase 0의 팩트, Phase 3의 퀀트 수치(피어 등락률, Multiple C 바닥가), Phase 3.5의 알파 듀얼 스코어를 결합.
    - Level 4~5 위기 시 `apply_event_gatekeeper`를 통해 투자의견을 **`🟡 중립/관망 (🚨 거버넌스 긴급 경보: 사실관계 확인 중 — WATCH)`**으로 자동 강등.
    - Section 1.2에서 '금리 탓'을 배제하고 '피어 대비 단독 괴리율 및 CEO 해임 리스크'로 원인 진단을 전면 대체.
    - 모델 포트폴리오를 **타겟 0.0% 동결, 안전 현금 40.0%, 피어 50.0%**로 스마트 재배분.

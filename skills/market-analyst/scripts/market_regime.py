@@ -7,14 +7,21 @@ and classifies the market into one of the 6 institutional regimes with action gu
 from typing import Any, Dict, List, Optional
 
 
-def get_support_status(buffer_pct: Optional[float]) -> Dict[str, Any]:
+def get_support_status(buffer_pct: Optional[float], dist_200: Optional[float] = None) -> Dict[str, Any]:
     """
-    4-stage practical support signal band based on 1-year low buffer:
+    Support status evaluation considering both 200 SMA distance and 1-year low buffer:
+    - dist_200 < -5.0%: 🔴 추세 이탈 (200 SMA 하회)
+    - dist_200 < 0.0%: 🟡 지지 테스트 (200 SMA 하회)
     - buffer > +10.0%: 🟢 안전 지지 (Safe Support)
     - +3.0% ~ +10.0%: 🟡 지지 테스트 (Support Test)
     - 0.0% ~ +3.0%: 🚨 손절선 임박 (Near Breakdown)
     - < 0.0%: 🔴 지지선 붕괴 (Breakdown)
     """
+    if dist_200 is not None and dist_200 < -5.0:
+        return {"icon": "🔴", "status": "추세 이탈 (200 SMA 하회)", "status_code": "trend_breakdown"}
+    elif dist_200 is not None and dist_200 < 0:
+        return {"icon": "🟡", "status": "지지 테스트 (200 SMA 하회)", "status_code": "testing_below_200"}
+
     if buffer_pct is None:
         return {"icon": "⚪", "status": "데이터 없음", "status_code": "no_data"}
     if buffer_pct > 10.0:

@@ -60,7 +60,7 @@ def render_crisis_alert_box(
 > 🚨 **[{alert_title}]**
 > - **발생 사건**: {desc}
 {headlines_md}
-{div_bullet}{floor_bullet}{disc_bullet}> - **투자 전략 조치**: **타겟 종목 신규 매수 전면 동결(WATCH)**, 기존 보유자 50% 비중 축소 권고, AI 공급망 안전 피어(TSMC, AMD)로 피난처 분산
+{div_bullet}{floor_bullet}{disc_bullet}> - **투자 전략 조치**: **타겟 종목 신규 매수 전면 동결(WATCH)**, 기존 보유자 비중 축소 권고, 안전 피어 및 방어 자산으로 피난처 분산
 """
     return box.strip()
 
@@ -91,7 +91,7 @@ def render_section1_2_crisis_diagnosis(
 
     lines = [
         f"최근 {target_ticker} 주가의 급격한 변동성은 거시경제 금리 인상이나 업종 전반의 경기침체 요인이 아니며, "
-        f"**'최고경영자(CEO)의 중대 거버넌스 위기 및 사법 리스크({primary})'에 기인한 순수 기업 고유(Idiosyncratic) 충격**으로 판별됩니다.",
+        f"**'{primary} 관련 중대 기업 고유(Idiosyncratic) 리스크'에 기인한 충격**으로 판별됩니다.",
     ]
 
     if peer_divergence_text:
@@ -104,7 +104,7 @@ def render_section1_2_crisis_diagnosis(
         drop_note = f"고점 대비 {drop_from_high_pct:.1f}% 조정받았으나, " if drop_from_high_pct is not None else ""
         lines.append(
             f"- **펀더멘털 바닥가 대조**: 현재가는 {drop_note}"
-            f"이사회 해임 및 실적 충격이 복합 발생할 경우 시스템이 산출한 **결합 하방 바닥가(Multiple C = `{currency}{multiple_c_floor_price:,.2f}`, {multiple_c_downside_pct * 100:+.1f}%)**를 "
+            f"위기 사태 심화 및 실적 충격이 복합 발생할 경우 시스템이 산출한 **결합 하방 바닥가(Multiple C = `{currency}{multiple_c_floor_price:,.2f}`, {multiple_c_downside_pct * 100:+.1f}%)**를 "
             f"최종 펀더멘털 방어선으로 설정하고, 사태 수습 전까지 관망(WATCH)을 유지해야 합니다."
         )
 
